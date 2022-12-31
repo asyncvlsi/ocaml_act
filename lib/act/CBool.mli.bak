@@ -1,0 +1,8 @@
+open! Core
+
+type t [@@deriving sexp]
+
+val not : t -> t
+val of_bool : bool -> t
+val true_ : t
+val false_ : t

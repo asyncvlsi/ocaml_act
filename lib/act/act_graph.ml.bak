@@ -1,0 +1,244 @@
+(*open Core
+
+  module CInt = struct
+    type t = int
+  end
+
+  module CBool = struct
+    type t = bool
+
+    let not t = Bool.equal t false
+  end
+
+  module ChpId = struct
+    include Int
+
+    let next_id = ref 0
+
+    let new_id () =
+      let id = !next_id in
+      incr next_id;
+      id
+  end
+
+  module Var = struct
+    module Id = ChpId
+
+    type 'dk t = ChpId.t
+
+    let id t = t
+    let create () = Id.new_id ()
+  end
+
+  module Any = struct
+    type t
+  end
+
+  (* Works because there are no conflicts between the Id space for `'a Var.t` and
+     `'b Var.t` *)
+  module VarValueMap = struct
+    type t = Any.t Var.Id.Map.t
+
+    let find (type a) t (v : a Var.t) : a option =
+      let magic (a : Any.t) : a = Obj.magic a in
+      Map.find t (Var.id v) |> Option.map ~f:magic
+  end
+
+  module Chan = struct
+    module Id = ChpId
+
+    type ('rw, 'dk) t = Id.t
+    type 'dk readable = ([ `readable ], 'dk) t
+    type 'dk writable = ([ `writable ], 'dk) t
+
+    module P = struct
+      type 'dk t = { r : 'dk readable; w : 'dk writable } [@@deriving fields]
+    end
+
+    let id t = t
+    let create () = ChpId.new_id ()
+    let new_r () = create ()
+    let new_w () = create ()
+    let as_r id = id
+    let as_w id = id
+
+    let new_rw () =
+      let p = create () in
+      { P.r = as_r p; w = as_w p }
+  end
+
+  module ChanConn = struct
+    type t = ChpId.t * ChpId.t
+
+    let port v1 v2 = (Chan.id v1, Chan.id v2)
+    let chain v1 v2 = (Chan.id v1, Chan.id v2)
+  end
+
+  module ChpChan = struct
+    module Id = ChpId
+
+    type ('rw, 'dk) t = { chan : ('rw, 'dk) Chan.t; id : ChpId.t }
+    [@@deriving fields]
+
+    type 'dk readable = ([ `readable ], 'dk) t
+    type 'dk writable = ([ `writable ], 'dk) t
+
+    let id t = t.id
+    let of_chan chan () = { chan; id = ChpId.new_id () }
+    let new_r chan = of_chan (Chan.as_r chan)
+    let new_w chan = of_chan (Chan.as_w chan)
+  end
+
+  module Expr = struct
+    type 'o t = { eval : VarValueMap.t -> 'o; read_vars : Var.Id.Set.t }
+
+    let of_var v =
+      let eval var_value_map =
+        VarValueMap.find var_value_map v |> Option.value_exn
+      in
+      { eval; read_vars = Var.Id.Set.singleton (Var.id v) }
+
+    let of_cint i = { eval = (fun _ -> i); read_vars = Var.Id.Set.empty }
+    let of_cbool b = { eval = (fun _ -> b); read_vars = Var.Id.Set.empty }
+
+    let map i ~f =
+      let eval var_value_map = i.eval var_value_map |> f in
+      { eval; read_vars = i.read_vars }
+
+    let mapv v ~f = of_var v |> map ~f
+
+    let map2 i1 i2 ~f =
+      let eval var_value_map =
+        f (i1.eval var_value_map) (i2.eval var_value_map)
+      in
+      { eval; read_vars = Set.union i1.read_vars i2.read_vars }
+  end
+
+  module Stmt = struct
+    type t =
+      | Seq of t list
+      | Par of t list
+      | Loop of t
+      | DoWhile of (t * CBool.t Expr.t)
+      (* This should be 'a ChpChan.readable * 'a Var.t *)
+      | Read of (Any.t ChpChan.readable * Any.t Var.t)
+      (* This should be 'a ChpChan.writable * 'a Expr.t *)
+      | Send of (Any.t ChpChan.writable * Any.t Expr.t)
+      (* This should be 'a Var.t * 'a Expr.t *)
+      | Assign of (Any.t Var.t * Any.t Expr.t)
+      | Select of guarded_branch list
+      | Assert of CBool.t Expr.t
+      | Log of string Expr.t
+
+    and guarded_branch = { guard : CBool.t Expr.t; stmts : t list }
+
+    module GuardedBranch = struct
+      type outer = t
+      type t = guarded_branch
+
+      let create ~guard stmts = { guard; stmts }
+      let guard t = t.guard
+      let stmts t = t.stmts
+    end
+
+    let seq l = Seq l
+    let par l = Par l
+
+    let assign (type a) (var : a Var.t) (expr : a Expr.t) =
+      Assign (Obj.magic var, Obj.magic expr)
+
+    let read chan var = Read (Obj.magic chan, Obj.magic var)
+    let send chan var = Send (Obj.magic chan, Obj.magic var)
+    let loop l = Loop (Seq l)
+    let do_while l ~guard = DoWhile (Seq l, guard)
+    let select l = Select l
+    let assert_ e = Assert e
+    let log e = Log e
+  end
+
+  let branch = Stmt.GuardedBranch.create
+
+  module Node = struct
+    module Inst = struct
+      type t =
+        | Chp of Stmt.t * ChanConn.t list
+        | Nodes of t list * ChanConn.t list
+        | Conn of ChanConn.t
+    end
+
+    type 'a t = Chp of Stmt.t * 'a | Nodes of Inst.t list * 'a
+
+    let of_chp chp ~ports = Chp (chp, ports)
+    let of_nodes subnodes ~ports = Nodes (subnodes, ports)
+
+    let inst t ports ~zip =
+      match t with
+      | Chp (chp, chp_ports) -> Inst.Chp (chp, zip chp_ports ports)
+      | Nodes (nodes, node_ports) -> Inst.Nodes (nodes, zip node_ports ports)
+
+    let conn_inst in_ out = Inst.Conn (ChanConn.chain in_ out)
+  end
+
+  module Proc = struct
+    type t = { chp : Stmt.t; mutable var_state : unit }
+  end
+
+  module Cursor = struct
+    type t = { proc : Proc.t; mutable cursor : int list }
+
+    let idx_chp (t : Stmt.t) idx =
+      let stmts =
+        match t with
+        | Seq stmts -> stmts
+        | Par stmts -> stmts
+        | Loop t -> [ t ]
+        | DoWhile (t, _) -> [ t ]
+        | Read _ -> []
+        | Send _ -> []
+        | Assign _ -> []
+        | Select _ -> []
+        | Assert _ -> []
+        | Log _ -> []
+      in
+      List.nth stmts idx
+
+    let current_stmt t =
+      List.fold t.cursor ~init:t.proc.chp ~f:(fun chp idx ->
+          idx_chp chp idx |> Option.value_exn)
+
+    let create_at_start proc = { proc; cursor = [] }
+
+  let is_unblocked
+        end
+
+  let rec fold_until_done ~f ~init =
+    let rec helper state =
+      match f state with `Continue state -> helper state | `Done -> ()
+    in
+    helper init
+
+  let simulate node ~log =
+    let cursors =
+      let chp =
+        match node with
+        | Node.Inst.Chp (chp, _) -> chp
+        | _ -> failwith "unimplemented"
+      in
+      let proc = { Proc.chp; var_state = () } in
+      let cursor = Cursor.create_at_start proc in
+      [ cursor ]
+    in
+    (* Do one iteration *)
+    (* TODO select randomly? *)
+    fold_until_done ~init:cursors ~f:(fun cursors ->
+        let unblocked, blocked =
+          List.partition_tf cursors ~f:(fun cursor -> Cursor.is_unblocked cursor)
+        in
+        match unblocked with
+        | [] -> `Done
+        | cursor :: unblocked ->
+            let new_cursors = Cursor.apply_step cursor ~log in
+            `Continue (new_cursors @ unblocked @ blocked));
+    (* First, gather all the "processes" *)
+    ()
+*)

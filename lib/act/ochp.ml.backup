@@ -1,0 +1,690 @@
+open Core
+
+module BitWidth : sig
+  type t
+
+  val one : t
+  val zero : t
+  val of_int : int -> t
+  val max : t -> t -> t
+  val ( + ) : t -> t -> t
+  val ( - ) : t -> t -> t
+  val ( = ) : t -> t -> bool
+  val ( <> ) : t -> t -> bool
+end = struct
+  include Int
+
+  let of_int i = i
+end
+
+module CInt : sig
+  type t
+end = struct
+  type t = int
+end
+
+module CBool : sig
+  type t
+end = struct
+  type t = bool
+end
+
+module DKind : sig
+  type ('d, 'w) t
+
+  val bits : ('d, 'w) t -> BitWidth.t
+end = struct
+  module DKindEncoding = struct
+    type ('d, 'w) t
+  end
+
+  type ('d, 'w) t = { encoding : ('d, 'w) DKindEncoding.t }
+
+  let bits _ = BitWidth.zero
+end
+
+module ChpId : sig
+  type t
+
+  val new_id : unit -> t
+end = struct
+  type t = int
+
+  let next_id = ref 0
+
+  let new_id () =
+    let id = !next_id in
+    incr next_id;
+    id
+end
+
+module Var : sig
+  type 'dk t
+
+  module Id : sig
+    type t
+  end
+
+  val id : 'dk t -> Id.t
+  val kind : 'dk t -> 'dk
+  val bits : ('d, 'w) DKind.t t -> BitWidth.t
+
+  val create :
+    ?name:string -> kind:('d, 'w) DKind.t -> unit -> ('d, 'w) DKind.t t
+end = struct
+  type 'dk t = { kind : 'dk; name : string option; id : ChpId.t }
+  [@@deriving fields]
+
+  module Id = struct
+    type t = ChpId.t
+  end
+
+  let bits t = DKind.bits t.kind
+  let create ?name ~kind () = { kind; name; id = ChpId.new_id () }
+end
+
+module Chan : sig
+  module Id : sig
+    type t
+  end
+
+  type ('rw, 'data) t
+  type 'data readable = ([ `readable ], 'data) t
+  type 'data writable = ([ `writable ], 'data) t
+
+  module P : sig
+    type 'data t = { r : 'data readable; w : 'data writable }
+    [@@deriving fields]
+  end
+
+  val id : ('rw, 'dk) t -> ChpId.t
+  val data_kind : ('rw, 'dk) t -> 'dk
+  val bits : ('rw, ('d, 'w) DKind.t) t -> BitWidth.t
+
+  val new_r :
+    ?name:string -> kind:('d, 'w) DKind.t -> unit -> ('d, 'w) DKind.t readable
+
+  val new_w :
+    ?name:string -> kind:('d, 'w) DKind.t -> unit -> ('d, 'w) DKind.t writable
+
+  val new_rw :
+    ?name:string -> kind:('d, 'w) DKind.t -> unit -> ('d, 'w) DKind.t P.t
+
+  val coerce_type : ('rw, 'data) t -> ('rw2, 'data) t
+end = struct
+  module Id = struct
+    type t = ChpId.t
+  end
+
+  type ('rw, 'dk) t = { kind : 'dk; name : string option; id : Id.t }
+  [@@deriving fields]
+
+  type 'data readable = ([ `readable ], 'data) t
+  type 'data writable = ([ `writable ], 'data) t
+
+  module P = struct
+    type 'data t = { r : 'data readable; w : 'data writable }
+    [@@deriving fields]
+  end
+
+  let bits t = DKind.bits t.kind
+  let data_kind t = t.kind
+  let create ?name ~kind () = { kind; name; id = ChpId.new_id () }
+  let new_r ?name ~kind () = create ?name ~kind ()
+  let new_w ?name ~kind () = create ?name ~kind ()
+  let coerce_type { kind; name; id } = { kind; name; id }
+
+  let new_rw ?name ~kind () =
+    let p = create ?name ~kind () in
+    { P.r = coerce_type p; w = coerce_type p }
+end
+
+module ChanConn : sig
+  type t
+
+  val port : ('rw, 'data) Chan.t -> ('rw, 'data) Chan.t -> t
+  val chain : 'data Chan.readable -> 'data Chan.writable -> t
+end = struct
+  type t = ChpId.t * ChpId.t
+
+  let port v1 v2 = (Chan.id v1, Chan.id v2)
+  let chain v1 v2 = (Chan.id v1, Chan.id v2)
+end
+
+module ChpChan : sig
+  module Id : sig
+    type t
+  end
+
+  type ('rw, 'data) t
+  type 'data readable = ([ `readable ], 'data) t
+  type 'data writable = ([ `writable ], 'data) t
+
+  val bits : ('rw, ('d, 'w) DKind.t) t -> BitWidth.t
+  val id : ('rw, 'data) t -> Id.t
+  val data_kind : ('rw, 'dk) t -> 'dk
+
+  val new_r :
+    ([> `readable ], ('d, 'w) DKind.t) Chan.t ->
+    unit ->
+    ('d, 'w) DKind.t readable
+
+  val new_w :
+    ([> `writable ], ('d, 'w) DKind.t) Chan.t ->
+    unit ->
+    ('d, 'w) DKind.t writable
+end = struct
+  module Id = struct
+    type t = ChpId.t
+  end
+
+  type ('rw, 'data) t = { chan : ('rw, 'data) Chan.t; id : ChpId.t }
+  [@@deriving fields]
+
+  type 'data readable = ([ `readable ], 'data) t
+  type 'data writable = ([ `writable ], 'data) t
+
+  let bits t = Chan.bits t.chan
+  let id t = t.id
+  let data_kind t = Chan.data_kind t.chan
+  let of_chan chan () = { chan; id = ChpId.new_id () }
+  let new_r chan = of_chan (Chan.coerce_type chan)
+  let new_w chan = of_chan (Chan.coerce_type chan)
+end
+
+module Expr : sig
+  type 'a t
+
+  val of_var : 'data Var.t -> 'data t
+
+  (* val of_int : int -> bits:BitWidth.t -> CInt.t *)
+  val of_cint : CInt.t -> bits:BitWidth.t -> CInt.t t
+  val of_cbool : CBool.t -> CBool.t t
+  val map : ('a, 'aw) DKind.t t -> f:('a -> 'b) -> ('b, 'bw) DKind.t t
+
+  (*
+      
+  (* Compairison operators *)
+  val eq : 'data t -> 'data t -> CBool.t t
+  val ne : 'data t -> 'data t -> CBool.t t
+  val lt : CInt.t t -> CInt.t t -> CBool.t t
+  val le : CInt.t t -> CInt.t t -> CBool.t t
+  val gt : CInt.t t -> CInt.t t -> CBool.t t
+  val ge : CInt.t t -> CInt.t t -> CBool.t t
+
+  (* Conversion operators *)
+  val as_bool : CInt.t t -> CBool.t t
+  val as_int : CBool.t t -> bits:BitWidth.t -> CInt.t t
+  val resize : CInt.t t -> bits:BitWidth.t -> CInt.t t
+
+  (* from {lo, lo+1, ..., hi-2, hi-1} *)
+  val slice : CInt.t t -> lo:BitWidth.t -> hi:BitWidth.t -> CInt.t t
+
+  (* unary ops *)
+  val not : 'data t -> 'data t
+
+  (* note that the value of this depends on the number of bits *)
+  val neg : CInt.t t -> CInt.t t
+
+  (* binary ops *)
+  val and_ : 'data t -> 'data t -> 'data t
+  val or_ : 'data t -> 'data t -> 'data t
+  val xor : 'data t -> 'data t -> 'data t
+  val add : CInt.t t -> CInt.t t -> CInt.t t
+  val sub : CInt.t t -> CInt.t t -> CInt.t t
+  val mult : CInt.t t -> CInt.t t -> CInt.t t
+  val div : CInt.t t -> CInt.t t -> CInt.t t
+  val mod_ : CInt.t t -> CInt.t t -> CInt.t t
+  val lshift : CInt.t t -> CInt.t t -> CInt.t t
+  val rshift : CInt.t t -> CInt.t t -> CInt.t t
+  val arith_rshift : CInt.t t -> CInt.t t -> CInt.t t
+
+  (* ternary operator *)
+  val if_el : CBool.t t -> t:'data t -> f:'data t -> 'data t
+*)
+end = struct
+  type 'a t =
+    | Var : 'a Var.t -> 'a t
+    | IntConst : CInt.t * BitWidth.t -> CInt.t t
+    | BoolConst : CBool.t -> CBool.t t
+    | Map1 : 'a Var.t * ('a -> 'b) -> 'b t
+
+  let of_var v = Var v
+  let of_cint i ~bits = IntConst (i, bits)
+  let of_cbool b = BoolConst b
+  let map v f = Map1 (v, f)
+  (*
+  type 'a t =
+    | Var : 'a Var.t -> 'a t
+    | IntConst : CInt.t * BitWidth.t -> CInt.t t
+    | BoolConst : CBool.t -> CBool.t t
+    | Eq : 'a t * 'a t -> CBool.t t
+    | Ne : 'a t * 'a t -> CBool.t t
+    | Lt : CInt.t t * CInt.t t -> CBool.t t
+    | Le : CInt.t t * CInt.t t -> CBool.t t
+    | Gt : CInt.t t * CInt.t t -> CBool.t t
+    | Ge : CInt.t t * CInt.t t -> CBool.t t
+    | AsBool : CInt.t t -> CBool.t t
+    | AsInt : CBool.t t * BitWidth.t -> CInt.t t
+    | Resize : CInt.t t * BitWidth.t -> CInt.t t
+    | Slice : CInt.t t * BitWidth.t * BitWidth.t -> CInt.t t
+    | Neg : CInt.t t -> CInt.t t
+    | Not : 'a t -> 'a t
+    | And : 'a t * 'a t -> 'a t
+    | Or : 'a t * 'a t -> 'a t
+    | Xor : 'a t * 'a t -> 'a t
+    | Add : CInt.t t * CInt.t t -> CInt.t t
+    | Sub : CInt.t t * CInt.t t -> CInt.t t
+    | Mul : CInt.t t * CInt.t t -> CInt.t t
+    | Div : CInt.t t * CInt.t t -> CInt.t t
+    | Mod : CInt.t t * CInt.t t -> CInt.t t
+    | LShift : CInt.t t * CInt.t t -> CInt.t t
+    | RShift : CInt.t t * CInt.t t -> CInt.t t
+    | ArithRShift : CInt.t t * CInt.t t -> CInt.t t
+    | IfEl : CBool.t t * 'a t * 'a t -> 'a t
+
+  let rec kind : type a. a t -> a DKind.t =
+    fun (type a) (t : a t) ->
+     let bits t = kind t |> DKind.bits in
+     match t with
+     | Var v -> Var.kind v
+     | IntConst (_, bits) -> Int bits
+     | BoolConst _ -> Bool
+     | Eq _ -> Bool
+     | Ne _ -> Bool
+     | Lt _ -> Bool
+     | Le _ -> Bool
+     | Gt _ -> Bool
+     | Ge _ -> Bool
+     | AsBool _ -> Bool
+     | AsInt (_, bits) -> Int bits
+     | Resize (_, bits) -> Int bits
+     | Slice (_, lo, hi) -> Int BitWidth.(hi - lo)
+     | Neg v -> kind v
+     | Not v -> kind v
+     | Add (a, b) -> Int BitWidth.(one + max (bits a) (bits b))
+     | Sub (a, b) -> Int BitWidth.(one + max (bits a) (bits b))
+     | Mul (a, b) -> Int BitWidth.(bits a + bits b)
+     | Div (a, _) -> Int (bits a)
+     | Mod (a, _) -> Int (bits a)
+     | LShift _ | RShift _ | ArithRShift _ -> failwith "unimplemented"
+     | And (a, b) -> DKind.wider (kind a) (kind b)
+     | Or (a, b) -> DKind.wider (kind a) (kind b)
+     | Xor (a, b) -> DKind.wider (kind a) (kind b)
+     | IfEl (_, a, b) -> DKind.wider (kind a) (kind b)
+
+  let bits t = DKind.bits (kind t)
+  let of_var v = Var v
+  let of_const i ~bits = IntConst (i, bits)
+  let of_const' b = BoolConst b
+
+  let assert_bits_same a b =
+    if BitWidth.(bits a <> bits b) then
+      failwith "the left and right hand sides must have the same width"
+
+  let eq a b = Eq (a, b)
+  let ne a b = Ne (a, b)
+  let lt a b = Lt (a, b)
+  let le a b = Le (a, b)
+  let gt a b = Gt (a, b)
+  let ge a b = Ge (a, b)
+  let as_bool a = AsBool a
+  let as_int i ~bits = AsInt (i, bits)
+  let resize i ~bits = Resize (i, bits)
+  let slice i ~lo ~hi = Slice (i, lo, hi)
+  let not a = Not a
+  let neg a = Neg a
+  let and_ a b = And (a, b)
+  let or_ a b = Or (a, b)
+  let xor a b = Xor (a, b)
+  let add a b = Add (a, b)
+  let sub a b = Sub (a, b)
+  let div a b = Div (a, b)
+  let mult a b = Mul (a, b)
+  let mod_ a b = Mod (a, b)
+  let lshift a b = LShift (a, b)
+  let rshift a b = RShift (a, b)
+  let arith_rshift a b = ArithRShift (a, b)
+  let if_el s ~t ~f = IfEl (s, t, f)
+
+*)
+end
+
+module Stmt : sig
+  type t
+
+  val seq : t list -> t
+  val par : t list -> t
+  val assign : 'data Var.t -> 'data Expr.t -> t
+  val read : 'data ChpChan.readable -> 'data Var.t -> t
+  val send : 'data ChpChan.writable -> 'data Var.t -> t
+  val loop : t list -> t
+  val do_while : t list -> guard:CBool.t Expr.t -> t
+  val select : (CBool.t Expr.t * t list) list -> t
+end = struct
+  type t =
+    | Seq of t list
+    | Par of t list
+    | Loop of t
+    | DoWhile of (t * CBool.t Expr.t)
+    | Read of (ChpChan.Id.t * Var.Id.t)
+    | Send of (ChpChan.Id.t * Var.Id.t)
+    | AssignInt of (CInt.t Var.t * CInt.t Expr.t)
+    | AssignBool of (CBool.t Var.t * CBool.t Expr.t)
+    | Select of (CBool.t Expr.t * t) list
+
+  let seq l = Seq l
+  let par l = Par l
+
+  let assign (type a) (var : a Var.t) (expr : a Expr.t) =
+    if BitWidth.( <> ) (Var.bits var) (Expr.bits expr) then
+      failwith "Stmt.assign: Var.kind must hae the same width as Expr.kind";
+    match Expr.kind expr with
+    | Int _ -> AssignInt (var, expr)
+    | Bool -> AssignBool (var, expr)
+
+  let read chan var =
+    if BitWidth.( <> ) (ChpChan.bits chan) (Var.bits var) then
+      failwith "must have the same width";
+    Read (ChpChan.id chan, Var.id var)
+
+  let send chan var =
+    if BitWidth.( <> ) (ChpChan.bits chan) (Var.bits var) then
+      failwith "must have same width";
+    Send (ChpChan.id chan, Var.id var)
+
+  let loop l = Loop (Seq l)
+  let do_while l ~guard = DoWhile (Seq l, guard)
+  let select l = Select (List.map l ~f:(fun (guard, l) -> (guard, Seq l)))
+end
+
+let loop x = x
+let branch ~guard stmts = (guard, stmts)
+let select _ = ()
+
+module Node : sig
+  module Inst : sig
+    type t
+  end
+
+  type 'a t
+
+  val of_chp : Stmt.t -> ports:'a -> 'a t
+  val of_nodes : Inst.t list -> ports:'a -> 'a t
+  val inst : 'a t -> 'a -> zip:('a -> 'a -> ChanConn.t list) -> Inst.t
+  val conn_inst : 'data Chan.readable -> 'data Chan.writable -> Inst.t
+end = struct
+  module Inst = struct
+    type t = unit
+  end
+
+  type 'a t = unit
+
+  let of_chp _chp ~ports:_ = failwith "unimplememnted"
+  let of_nodes _subnodes ~ports:_ = failwith "unimplememnted"
+  let inst _t _ports ~zip:_ = failwith "unimplemeneted"
+  let conn_inst _in _out = failwith "unimplemeneted"
+end
+
+module Spliter = struct
+  module Ports = struct
+    type 'data t = {
+      in_ : 'data Chan.readable;
+      out_1 : 'data Chan.writable;
+      out_2 : 'data Chan.writable;
+    }
+
+    let zip t1 t2 =
+      [
+        ChanConn.port t1.in_ t2.in_;
+        ChanConn.port t1.out_1 t2.out_1;
+        ChanConn.port t1.out_2 t2.out_2;
+      ]
+  end
+
+  let node ~kind =
+    let in_ = Chan.new_r ~kind () in
+    let out_1 = Chan.new_w ~kind () in
+    let out_2 = Chan.new_w ~kind () in
+    let chp =
+      let b = Var.create ~kind:Bool () in
+      let v = Var.create ~kind () in
+      let in_ = ChpChan.new_r in_ () in
+      let out_1 = ChpChan.new_w out_1 () in
+      let out_2 = ChpChan.new_w out_2 () in
+      Stmt.loop
+        [
+          Stmt.read in_ v;
+          Stmt.select
+            [
+              branch ~guard:Expr.(of_var b) [ Stmt.send out_1 v ];
+              branch ~guard:Expr.(not (of_var b)) [ Stmt.send out_2 v ];
+            ];
+          Stmt.assign b Expr.(not (of_var b));
+        ]
+    in
+    let ports = { Ports.in_; out_1; out_2 } in
+    Node.of_chp chp ~ports
+
+  let inst ~kind ports = Node.inst (node ~kind) ports ~zip:Ports.zip
+end
+
+module Merger = struct
+  module Ports = struct
+    type 'data t = {
+      in_1 : 'data Chan.readable;
+      in_2 : 'data Chan.readable;
+      out : 'data Chan.writable;
+    }
+
+    let create ~kind () =
+      let out = Chan.new_w ~kind () in
+      let in_1 = Chan.new_r ~kind () in
+      let in_2 = Chan.new_r ~kind () in
+      { out; in_1; in_2 }
+
+    (* The functions `zip` and `to_chp` and the module `Chp` could be auto-generated *)
+
+    let zip t1 t2 =
+      [
+        ChanConn.port t1.in_1 t2.in_1;
+        ChanConn.port t1.in_2 t2.in_2;
+        ChanConn.port t1.out t2.out;
+      ]
+
+    module Chp = struct
+      type 'data t = {
+        in_1 : 'data ChpChan.readable;
+        in_2 : 'data ChpChan.readable;
+        out : 'data ChpChan.writable;
+      }
+    end
+
+    let to_chp { out; in_1; in_2 } =
+      let out = ChpChan.new_w out () in
+      let in_1 = ChpChan.new_r in_1 () in
+      let in_2 = ChpChan.new_r in_2 () in
+      { Chp.out; in_1; in_2 }
+  end
+
+  let node ~kind =
+    let ports = Ports.create ~kind () in
+    let chp =
+      let { Ports.Chp.out; in_1; in_2 } = Ports.to_chp ports in
+      let c = Var.create ~kind:Bool () in
+      let v = Var.create ~kind () in
+      Stmt.loop
+        [
+          Stmt.select
+            [
+              branch ~guard:Expr.(of_var c) [ Stmt.read in_1 v ];
+              branch ~guard:Expr.(not (of_var c)) [ Stmt.read in_2 v ];
+            ];
+          Stmt.assign c Expr.(not (of_var c));
+          Stmt.send out v;
+        ]
+    in
+    Node.of_chp chp ~ports
+
+  let inst ~kind ports = Node.inst (node ~kind) ports ~zip:Ports.zip
+end
+
+module Buffer = struct
+  module Ports = struct
+    type 'data t = { in_ : 'data Chan.readable; out : 'data Chan.writable }
+
+    let zip t1 t2 = [ ChanConn.port t1.in_ t2.in_; ChanConn.port t1.out t2.out ]
+  end
+
+  (* TODO add memoization *)
+  let rec node_rec ~depth ~kind =
+    if depth <= 0 then failwith "depth <= 0";
+    let rec_inst a b =
+      match depth with
+      | 1 -> Node.conn_inst a b
+      | _ ->
+          let subnode = node_rec ~depth:(depth - 1) ~kind in
+          Node.inst subnode { Ports.in_ = a; out = b } ~zip:Ports.zip
+    in
+    let in_ = Chan.new_r ~kind () in
+    let out = Chan.new_w ~kind () in
+    let ports = { Ports.in_; out } in
+    let mid_1a = Chan.new_rw ~kind () in
+    let mid_1b = Chan.new_rw ~kind () in
+    let mid_2a = Chan.new_rw ~kind () in
+    let mid_2b = Chan.new_rw ~kind () in
+    [
+      Spliter.inst ~kind { in_; out_1 = mid_1a.w; out_2 = mid_2a.w };
+      Merger.inst ~kind { out; in_1 = mid_1b.r; in_2 = mid_2b.r };
+      rec_inst mid_1a.r mid_1b.w;
+      rec_inst mid_2a.r mid_2b.w;
+    ]
+    |> Node.of_nodes ~ports
+
+  let node ~depth ~kind = node_rec ~depth ~kind
+
+  let inst ~depth ~kind ports =
+    Node.inst (node ~depth ~kind) ports ~zip:Ports.zip
+end
+
+module ALU = struct
+  module Cmds : sig
+    val bits : int
+
+    module Op : sig
+      type t =
+        | Fn2 of (int Var.t -> int Var.t -> int Expr.t)
+        | Fn1 of (int Var.t -> int Expr.t)
+    end
+
+    type t = Add | Mul | LShift | Bitwise_not
+
+    val op : t -> Op.t
+    val all : t list
+    val guard_expr : t -> int Var.t -> bool Expr.t
+  end = struct
+    let bits = 2
+
+    module Op = struct
+      type t =
+        | Fn2 of (CInt.t Var.t -> CInt.t Var.t -> CInt.t Expr.t)
+        | Fn1 of (CInt.t Var.t -> CInt.t Expr.t)
+    end
+
+    type t = Add | Mul | LShift | Bitwise_not [@@deriving equal]
+
+    let all = [ Add; Mul; LShift; Bitwise_not ]
+
+    let int_val t =
+      List.findi all ~f:(fun _ e -> equal e t) |> Option.value_exn |> fst
+
+    let guard_expr t v =
+      let nbits = bits in
+      Expr.(eq (of_const (int_val t) ~bits:nbits) (of_var v))
+
+    let op t =
+      let op1 f = Op.Fn1 (fun v1 -> Expr.(f (of_var v1))) in
+      let op2 f = Op.Fn2 (fun v1 v2 -> Expr.(f (of_var v1) (of_var v2))) in
+      match t with
+      | Add -> op2 Expr.add
+      | Mul -> op2 Expr.mult
+      | LShift -> op2 Expr.lshift
+      | Bitwise_not -> op1 Expr.not
+  end
+
+  module Ports = struct
+    type 'data t = {
+      cmd : int Chan.readable;
+      arg_1 : int Chan.readable;
+      arg_2 : int Chan.readable;
+      out : int Chan.writable;
+    }
+
+    let create () =
+      let cmd = Chan.new_r ~kind:(Int 2) () in
+      let arg_1 = Chan.new_r ~kind:(Int 16) () in
+      let arg_2 = Chan.new_r ~kind:(Int 16) () in
+      let out = Chan.new_w ~kind:(Int 16) () in
+      { cmd; arg_1; arg_2; out }
+
+    (* The functions `zip` and `to_chp` and the module `Chp` could be auto-generated *)
+
+    let zip t1 t2 =
+      [
+        ChanConn.port t1.cmd t2.cmd;
+        ChanConn.port t1.arg_1 t2.arg_1;
+        ChanConn.port t1.arg_2 t2.arg_2;
+        ChanConn.port t1.out t2.out;
+      ]
+
+    module Chp = struct
+      type 'data t = {
+        cmd : int ChpChan.readable;
+        arg_1 : int ChpChan.readable;
+        arg_2 : int ChpChan.readable;
+        out : int ChpChan.writable;
+      }
+    end
+
+    let to_chp { cmd; arg_1; arg_2; out } =
+      let cmd = ChpChan.new_r cmd () in
+      let arg_1 = ChpChan.new_r arg_1 () in
+      let arg_2 = ChpChan.new_r arg_2 () in
+      let out = ChpChan.new_w out () in
+      { Chp.cmd; arg_1; arg_2; out }
+  end
+
+  let node =
+    let ports = Ports.create () in
+    let chp =
+      let { Ports.Chp.cmd; arg_1; arg_2; out } = Ports.to_chp ports in
+      let c = Var.create ~kind:(Int 2) () in
+      let v1 = Var.create ~kind:(Int 16) () in
+      let v2 = Var.create ~kind:(Int 16) () in
+      let v3 = Var.create ~kind:(Int 16) () in
+      Stmt.loop
+        [
+          Stmt.read cmd c;
+          Stmt.select
+            (List.map Cmds.all ~f:(fun cmd_ ->
+                 branch ~guard:(Cmds.guard_expr cmd_ c)
+                   [
+                     Stmt.par
+                       (match Cmds.op cmd_ with
+                       | Fn1 _ -> [ Stmt.read arg_1 v1 ]
+                       | Fn2 _ -> [ Stmt.read arg_1 v1; Stmt.read arg_2 v2 ]);
+                     (match Cmds.op cmd_ with
+                     | Fn1 op -> Stmt.assign v3 (op v1)
+                     | Fn2 op -> Stmt.assign v3 (op v1 v2));
+                     Stmt.send out v3;
+                   ]));
+        ]
+    in
+    Node.of_chp chp ~ports
+
+  let inst ports = Node.inst node ports ~zip:Ports.zip
+end
+
+let%expect_test "addition" =
+  printf "%d" (1 + 7);
+  [%expect {| 8 |}]

@@ -1,0 +1,6 @@
+(library
+ (name act_utils)
+ (libraries core act)
+ (preprocess
+  (pps ppx_jane))
+ (inline_tests))

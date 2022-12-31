@@ -1,0 +1,188 @@
+open! Core
+
+module Act_id = struct
+  module Id = struct
+    include Int
+
+    let next_id_val = ref 0
+
+    let new_id () =
+      let id = !next_id_val in
+      incr next_id_val;
+      id
+  end
+
+  module Dir = struct
+    type t = Readable | Writable [@@deriving compare, equal, sexp, hash]
+  end
+
+  module Chan = struct
+    type t = { dir : Dir.t; partner : Id.t option; id : Id.t }
+    [@@deriving compare, equal, sexp, hash]
+  end
+
+  module T = struct
+    type t = Var of Id.t | Chan of Chan.t | ChpChan of Chan.t * Id.t
+    [@@deriving compare, equal, sexp, hash]
+  end
+
+  include Comparable.Make (T)
+  include Hashable.Make (T)
+  include T
+
+  let new_var_id () = Var (Id.new_id ())
+
+  let new_chan_r_id () =
+    Chan { Chan.dir = Readable; partner = None; id = Id.new_id () }
+
+  let new_chan_w_id () =
+    Chan { Chan.dir = Writable; partner = None; id = Id.new_id () }
+
+  let new_chan_rw_ids () =
+    let r_id = Id.new_id () in
+    let w_id = Id.new_id () in
+    ( Chan { Chan.dir = Readable; partner = Some w_id; id = r_id },
+      Chan { Chan.dir = Writable; partner = Some r_id; id = w_id } )
+
+  let new_chp_chan_id chan_id () =
+    match chan_id with
+    | Chan chan_id -> ChpChan (chan_id, Id.new_id ())
+    | _ -> failwith "id must be a chan id"
+end
+
+module Var = struct
+  type 'dk t = Act_id.t
+
+  let id t = t
+  let create () = Act_id.new_var_id ()
+
+  module Value_map = struct
+    type 'dk var = 'dk t
+    type t = Any.t Act_id.Map.t
+
+    let create () = Act_id.Map.empty
+
+    let find (type dk) (t : t) (var : dk var) : dk option =
+      let magic (a : Any.t) : dk = Obj.magic a in
+      Map.find t (id var) |> Option.map ~f:magic
+
+    let set (type dk) (t : t) (var : dk var) (data : dk) =
+      let data : Any.t = Obj.magic data in
+      Map.set t ~key:(id var) ~data
+  end
+end
+
+module Chan = struct
+  module Conn = struct
+    type t = Act_id.t * Act_id.t [@@deriving sexp]
+  end
+
+  module R = struct
+    type 'dk t = Act_id.t [@@deriving sexp]
+
+    let id t = t
+    let new_ () = Act_id.new_chan_r_id ()
+    let conn_port t1 t2 = (t1, t2)
+  end
+
+  module W = struct
+    type 'dk t = Act_id.t [@@deriving sexp]
+
+    let id t = t
+    let new_ () = Act_id.new_chan_w_id ()
+    let conn_port t1 t2 = (t1, t2)
+  end
+
+  module P = struct
+    type 'dk t = { r : 'dk R.t; w : 'dk W.t } [@@deriving sexp]
+
+    let new_ () =
+      let r, w = Act_id.new_chan_rw_ids () in
+      { r; w }
+  end
+
+  let conn_chain a b = (a, b)
+end
+
+module Chp_chan = struct
+  module R = struct
+    type 'dk t = Act_id.t
+
+    let id t = t
+    let of_chan chan () = Act_id.new_chp_chan_id (Chan.R.id chan) ()
+  end
+
+  module W = struct
+    type 'dk t = Act_id.t
+
+    let id t = t
+    let of_chan chan () = Act_id.new_chp_chan_id (Chan.W.id chan) ()
+  end
+end
+
+module Expr = struct
+  type 'o t = {
+    eval : eval_var:(Act_id.Id.t -> Any.t) -> 'o;
+    ids : Act_id.Set.t;
+  }
+  [@@deriving sexp, fields]
+
+  let of_var v =
+    let id =
+      match v with
+      | Act_id.Var id -> id
+      | _ -> failwith "should be an Act_id.Var"
+    in
+    let eval ~eval_var = eval_var id |> Obj.magic in
+    { eval; ids = Act_id.Set.singleton (Var.id v) }
+
+  let of_cint i = { eval = (fun ~eval_var:_ -> i); ids = Act_id.Set.empty }
+  let of_cbool b = { eval = (fun ~eval_var:_ -> b); ids = Act_id.Set.empty }
+
+  let map i ~f =
+    let eval ~eval_var = i.eval ~eval_var |> f in
+    { eval; ids = i.ids }
+
+  let mapv v ~f = of_var v |> map ~f
+
+  let map2 i1 i2 ~f =
+    let eval ~eval_var = f (i1.eval ~eval_var) (i2.eval ~eval_var) in
+    { eval; ids = Set.union i1.ids i2.ids }
+end
+
+module Chp_stmt = struct
+  type t =
+    | Seq of t list
+    | Par of t list
+    | Loop of t list
+    | DoWhile of (t list * CBool.t Expr.t)
+    (* This should be 'a ChpChan.readable * 'a Var.t *)
+    | Read of (Act_id.t * Act_id.t)
+    (* This should be 'a ChpChan.writable * 'a Expr.t *)
+    | Send of (Act_id.t * Any.t Expr.t)
+    (* This should be 'a Var.t * 'a Expr.t *)
+    | Assign of (Act_id.t * Any.t Expr.t)
+    | Select of (CBool.t Expr.t * t list) list
+    | Assert of CBool.t Expr.t
+    | Log of string Expr.t
+  [@@deriving sexp]
+
+  module GuardedBranch = struct
+    type nonrec t = CBool.t Expr.t * t list
+  end
+
+  let seq l = Seq l
+  let par l = Par l
+
+  let assign (type a) (var : a Var.t) (expr : a Expr.t) =
+    Assign (Obj.magic var, Obj.magic expr)
+
+  let read chan var = Read (Obj.magic chan, Obj.magic var)
+  let send chan var = Send (Obj.magic chan, Obj.magic var)
+  let loop l = Loop l
+  let do_while l ~guard = DoWhile (l, guard)
+  let select l = Select l
+  let assert_ e = Assert e
+  let log e = Log e
+  let branch ~guard stmts = (guard, stmts)
+end

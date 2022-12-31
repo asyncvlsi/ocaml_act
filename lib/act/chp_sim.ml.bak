@@ -1,0 +1,27 @@
+open! Core
+
+let simulate _ = failwith "unimplemented"
+
+(*
+module Sim_chan = struct
+  module R_state = struct
+    type t = None | Waiting_read | Probing
+  end
+
+  module W_state = struct
+    type t = None | Waiting_write of Any.t
+  end
+
+  type t = { mutable r : R_state.t; mutable w : W_state.t }
+end
+
+let inflate node =
+  match node with
+  | Node.Inst.Chp (_chp, _ports) -> failwith "unimplemented"
+  | Nodes (subnodes, _ports) ->
+      let ids = List.concat_map subnodes ~f:Node.Inst.nonrec_ids in
+      let renamings = Map.of_key_set ids ~f:(fun ids -> Act_id.new_ ()) in
+
+      failwith "unimplemented"
+  | Conn _ -> failwith "unimplemented"
+*)
