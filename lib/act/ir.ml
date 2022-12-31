@@ -1,6 +1,3 @@
-
-
-
 open! Core
 
 module Var_id : sig
@@ -71,6 +68,11 @@ module Sim = struct
     (* TODO use a vector *)
     let module AB = Assem.Builder in
     let instrs = AB.create () in
+    let () =
+      let init_jump = AB.push instrs (Jump Assem.Instr_idx.dummy_val) in
+      let start = AB.next_idx instrs in
+      AB.edit instrs init_jump (Jump start)
+    in
     (* let push assem =
          instrs.(!instr_idx) <- assem;
          incr instr_idx;
@@ -83,7 +85,6 @@ module Sim = struct
       Hashtbl.find_or_add chan_tbl chan_id ~default:(fun () ->
           Assem.Chan_buff.create ())
     in
-
     let rec convert stmt =
       let convert' stmt = convert stmt |> fun _ -> () in
       match stmt with
@@ -297,7 +298,7 @@ let%expect_test "test3" =
   Sim.wait' sim;
   [%expect {| recv 2 |}];
   Sim.wait' sim;
-  [%expect {| |}];
+  [%expect {||}];
   Sim.send sim chan (Obj.magic 200);
   Sim.wait' sim;
   [%expect {| done |}]
@@ -365,4 +366,4 @@ let%expect_test "test4" =
   print_s [%sexp (wait_outcome : Assem.Sim.Wait_outcome.t)];
   [%expect {|
     send 1
-    (Assert_failure 5) |}]
+    (Assert_failure 6) |}]

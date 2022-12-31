@@ -48,6 +48,8 @@ module N : sig
     | ParJoin of Par_join.t
     | Jump of Instr_idx.t
     | JumpIfFalse of Expr.t * Instr_idx.t
+    | SelectImm of (Expr.t * Instr_idx.t) list
+    | SelectImmElse of (Expr.t * Instr_idx.t) list * Instr_idx.t
     | Read of Var_id.t * Chan_buff.t
     | Send of Expr.t * Chan_buff.t
   [@@deriving sexp]
@@ -69,7 +71,17 @@ module Sim : sig
   type t
 
   module Wait_outcome : sig
-    type t = Done | Time_out | Stuck | Assert_failure of Instr_idx.t
+    type t =
+      | Done
+      | Already_done
+      | Time_out
+      | Stuck
+      | Assert_failure of Instr_idx.t
+      | Uninit_id of Var_id.t * Instr_idx.t
+      | Simul_chan_senders of Instr_idx.t * Instr_idx.t
+      | Simul_chan_readers of Instr_idx.t * Instr_idx.t
+      | Simul_read_write of Var_id.t * Instr_idx.t * Instr_idx.t
+      | Simul_write_write of Var_id.t * Instr_idx.t * Instr_idx.t
     [@@deriving sexp]
   end
 
