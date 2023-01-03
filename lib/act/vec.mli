@@ -12,4 +12,4 @@ val push : 'a t -> 'a -> unit
 val extend : 'a t -> 'a list -> unit
 val is_empty : 'a t -> bool
 val length : 'a t -> int
-val find_map : 'a t -> f:('a -> 'b option) -> 'b option
+val find : 'a t -> f:('a -> bool) -> 'a option

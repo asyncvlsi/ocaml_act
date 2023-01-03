@@ -1,6 +1,8 @@
 open! Core
 module Var_id = Int
 
+let queue_extend q o = Queue.iter o ~f:(fun e -> Queue.enqueue q e)
+
 module Expr = struct
   type t = Var of Var_id.t | Const of Any.t | Map of t * (Any.t -> Any.t)
   [@@deriving sexp]
@@ -48,11 +50,34 @@ module Par_join = struct
   let create ~max_ct = { max_ct; curr_ct = 0 }
 end
 
+module Send_enqueuer = struct
+  type t = {
+    to_send : Any.t Queue.t;
+    var_id : Var_id.t;
+    mutable is_done : bool;
+  }
+  [@@deriving sexp]
+
+  let create ~var_id = { to_send = Queue.create (); var_id; is_done = true }
+end
+
+module Read_dequeuer = struct
+  type t = {
+    expected_reads : Any.t Queue.t;
+    var_id : Var_id.t;
+    equals : (Any.t -> Any.t -> bool[@sexp.opaque]);
+  }
+  [@@deriving sexp]
+
+  let create ~var_id ~equals =
+    { expected_reads = Queue.create (); var_id; equals }
+end
+
 module N = struct
   type t =
     | End
     | Unreachable
-    | ConsumePC
+    | Nop
     | Assign of Var_id.t * Expr.t
     | Log of Expr.t
     | Assert of Expr.t
@@ -64,34 +89,40 @@ module N = struct
     | SelectImmElse of (Expr.t * Instr_idx.t) list * Instr_idx.t
     | Read of Var_id.t * Chan_buff.t
     | Send of Expr.t * Chan_buff.t
+    (* These are ``magic'' instructions that allow user io operations. These instruction
+       should be placed immediatly after the assoiated send/read instruction *)
+    | Send_enqueuer of Send_enqueuer.t
+    | Read_dequeuer of Read_dequeuer.t
   [@@deriving sexp]
 
   let read_ids t =
     (match t with
-    | End | Unreachable | ConsumePC | Par _ | ParJoin _ | Jump _ -> []
+    | End | Unreachable | Nop | Par _ | ParJoin _ -> []
+    | Read (_, _) | Jump _ -> []
     | Assign (_, expr) -> Expr.var_ids expr
     | Log expr | Assert expr | JumpIfFalse (expr, _) -> Expr.var_ids expr
     | SelectImm l | SelectImmElse (l, _) ->
         List.concat_map l ~f:(fun (expr, _) -> Expr.var_ids expr)
-    | Read (_, _) -> []
-    | Send (expr, _) -> Expr.var_ids expr)
+    | Send (expr, _) -> Expr.var_ids expr
+    | Send_enqueuer _ -> []
+    | Read_dequeuer d -> [ d.var_id ])
     |> Var_id.Set.of_list
 
   let write_ids t =
     (match t with
-    | End | Unreachable | ConsumePC | Par _ | ParJoin _ | Jump _ -> []
+    | End | Unreachable | Nop | Par _ | ParJoin _ -> []
+    | Log _ | Assert _ | JumpIfFalse (_, _) | Jump _ -> []
+    | SelectImm _ | SelectImmElse _ | Send (_, _) -> []
     | Assign (id, _) -> [ id ]
-    | Log _ | Assert _ | JumpIfFalse (_, _) -> []
-    | SelectImm _ -> []
-    | SelectImmElse _ -> []
     | Read (var_id, _) -> [ var_id ]
-    | Send (_, _) -> [])
+    | Send_enqueuer d -> [ d.var_id ]
+    | Read_dequeuer _ -> [])
     |> Var_id.Set.of_list
 
   let var_ids t = Set.union (read_ids t) (write_ids t) |> Set.to_list
 end
 
-module Builder = struct
+module Assem_vec = struct
   type t = N.t Vec.t
 
   let create () = Vec.create ~cap:10 ~default:N.End
@@ -124,26 +155,24 @@ module Var_table = struct
       is_inited = Array.init ct ~f:(fun _ -> false);
     }
 
-  let check_eval t ~read_ids ~write_ids =
-    match Set.find read_ids ~f:(fun read_id -> t.write_cts.(read_id) > 0) with
-    | Some read_id -> `Reading_written_var read_id
-    | None -> (
-        match
-          Set.find read_ids ~f:(fun read_id -> not t.is_inited.(read_id))
-        with
-        | Some read_id -> `Uninit_id read_id
-        | None -> (
-            match
-              Set.find write_ids ~f:(fun write_id -> t.read_cts.(write_id) > 0)
-            with
-            | Some write_id -> `Writing_read_var write_id
-            | None -> (
-                match
-                  Set.find write_ids ~f:(fun write_id ->
-                      t.write_cts.(write_id) > 0)
-                with
-                | Some write_id -> `Writing_written_var write_id
-                | None -> `Success)))
+  let ok_to_guard t ~read_ids ~write_ids ~pc =
+    let to_unit_result o ~f =
+      match o with Some v -> Error (f v) | None -> Ok ()
+    in
+    let%bind.Result () =
+      Set.find read_ids ~f:(fun read_id -> t.write_cts.(read_id) > 0)
+      |> to_unit_result ~f:(fun read_id -> `Reading_written_var (read_id, pc))
+    in
+    let%bind.Result () =
+      Set.find read_ids ~f:(fun read_id -> not t.is_inited.(read_id))
+      |> to_unit_result ~f:(fun read_id -> `Uninit_id (read_id, pc))
+    in
+    let%bind.Result () =
+      Set.find write_ids ~f:(fun write_id -> t.read_cts.(write_id) > 0)
+      |> to_unit_result ~f:(fun write_id -> `Writing_read_var (write_id, pc))
+    in
+    Set.find write_ids ~f:(fun write_id -> t.write_cts.(write_id) > 0)
+    |> to_unit_result ~f:(fun write_id -> `Writing_written_var (write_id, pc))
 
   let rec eval t expr =
     match expr with
@@ -151,23 +180,36 @@ module Var_table = struct
     | Const c -> c
     | Map (e, f) -> f (eval t e)
 
-  let guard t ~read_ids ~write_ids =
-    (* print_s [%sexp (("guarding", read_ids, write_ids): (string * Var_id.Set.t  * Var_id.Set.t ))]; *)
-    let status = check_eval t ~read_ids ~write_ids in
-    match status with
-    | `Success ->
-        Set.iter read_ids ~f:(fun read_id ->
-            t.read_cts.(read_id) <- t.read_cts.(read_id) + 1);
-        Set.iter write_ids ~f:(fun write_id ->
-            t.write_cts.(write_id) <- t.write_cts.(write_id) + 1);
-        `Success
-    | _ -> status
+  let eval_bool t expr : bool = eval t expr |> Obj.magic
+  let eval_string t expr : string = eval t expr |> Obj.magic
+
+  let guard t ~read_ids ~write_ids ~pc =
+    let%map.Result () = ok_to_guard t ~read_ids ~write_ids ~pc in
+    Set.iter read_ids ~f:(fun read_id ->
+        t.read_cts.(read_id) <- t.read_cts.(read_id) + 1);
+    Set.iter write_ids ~f:(fun write_id ->
+        t.write_cts.(write_id) <- t.write_cts.(write_id) + 1)
 
   let unguard t ~read_ids ~write_ids =
     Set.iter read_ids ~f:(fun read_id ->
         t.read_cts.(read_id) <- t.read_cts.(read_id) - 1);
     Set.iter write_ids ~f:(fun write_id ->
         t.write_cts.(write_id) <- t.write_cts.(write_id) - 1)
+
+  let guard' t assem pc =
+    guard t
+      ~read_ids:(N.read_ids assem.(pc))
+      ~write_ids:(N.write_ids assem.(pc))
+      ~pc
+
+  let unguard' t assem pc =
+    unguard t
+      ~read_ids:(N.read_ids assem.(pc))
+      ~write_ids:(N.write_ids assem.(pc))
+
+  let at t ~var_id =
+    assert t.is_inited.(var_id);
+    t.values.(var_id)
 
   let set t ~var_id ~value =
     t.values.(var_id) <- value;
@@ -180,7 +222,7 @@ let for_loop_else max_ct ~f ~else_ =
   let return = ref None in
   let ct = ref 0 in
   while !ct < max_ct && Option.is_none !return do
-    (match f ct with `Continue -> () | `Return d -> return := Some d);
+    (match f !ct with `Continue -> () | `Return d -> return := Some d);
     incr ct
   done;
   Option.value !return ~default:else_
@@ -198,16 +240,21 @@ module Sim = struct
 
   module Wait_outcome = struct
     type t =
-      | Done
-      | Already_done
+      | Already_errored
       | Time_out
-      | Stuck
+      | Stuck of
+          (* how many steps the simulation ran for before getting stuck *) int
       | Assert_failure of Instr_idx.t
       | Uninit_id of Var_id.t * Instr_idx.t
       | Simul_chan_senders of Instr_idx.t * Instr_idx.t
       | Simul_chan_readers of Instr_idx.t * Instr_idx.t
       | Simul_read_write of Var_id.t * Instr_idx.t * Instr_idx.t
       | Simul_write_write of Var_id.t * Instr_idx.t * Instr_idx.t
+      | Select_no_guards_true of Instr_idx.t
+      | Select_multiple_guards_true of int list * Instr_idx.t
+      | Read_dequeuer_wrong_value of Instr_idx.t * Any.t * Any.t
+      | Read_dequeuer_not_done of Instr_idx.t
+      | Send_enqueuer_not_done of Instr_idx.t
     [@@deriving sexp]
   end
 
@@ -231,23 +278,8 @@ module Sim = struct
 
   let step' t ~pc_idx =
     let vec_incr vec n = Vec.set vec n (Vec.at vec n + 1) in
-    let unguard pc =
-      Var_table.unguard t.var_table
-        ~read_ids:(N.read_ids t.assem.(pc))
-        ~write_ids:(N.write_ids t.assem.(pc))
-    in
-    let guard pc =
-      match
-        Var_table.guard t.var_table
-          ~read_ids:(N.read_ids t.assem.(pc))
-          ~write_ids:(N.write_ids t.assem.(pc))
-      with
-      | `Success -> `Success
-      | `Uninit_id var_id -> `Uninit_id (var_id, pc)
-      | `Reading_written_var var_id -> `Reading_written_var (var_id, pc)
-      | `Writing_read_var var_id -> `Writing_read_var (var_id, pc)
-      | `Writing_written_var var_id -> `Writing_written_var (var_id, pc)
-    in
+    let guard pc = Var_table.guard' t.var_table t.assem pc in
+    let unguard pc = Var_table.unguard' t.var_table t.assem pc in
     let step_chan (chan : Chan_buff.t) =
       if chan.read_ready && chan.send_ready then (
         chan.read_ready <- false;
@@ -257,55 +289,44 @@ module Sim = struct
         Var_table.assign t.var_table ~var_id:chan.read_dst_var_id
           ~expr:chan.send_expr;
         Vec.extend t.pcs [ chan.read_instr + 1; chan.send_instr + 1 ];
-        unguard (chan.read_instr + 1);
-        unguard (chan.send_instr + 1);
-        `Success)
-      else `Success
+        let%bind.Result () = guard (chan.read_instr + 1) in
+        guard (chan.send_instr + 1))
+      else Ok ()
     in
     let pc = Vec.at t.pcs pc_idx in
     match t.assem.(pc) with
     | End ->
         (* unguard pc; *)
         Vec.remove t.pcs pc_idx;
-        if not (Vec.is_empty t.pcs) then
-          failwith
-            "somehow reached `End` while there are still program counters. The \
-             provided assem is invalid.";
-        `Done
-    | ConsumePC ->
-        (* unguard pc; *)
-        Vec.remove t.pcs pc_idx;
-        `Success
+        Ok ()
     | Unreachable -> failwith "reached an 'unreachable' instruction"
+    | Nop ->
+        (* unguard pc; *)
+        vec_incr t.pcs pc_idx;
+        guard (pc + 1)
     | Assign (var_id, expr) ->
         unguard pc;
-        (* print_s [%sexp (("after_ungaurd_assign", t.var_table) :string *  Var_table.t)]; *)
         Var_table.assign t.var_table ~var_id ~expr;
         vec_incr t.pcs pc_idx;
-        (* print_s [%sexp (("before_gaurd_assign", t.var_table) :string *  Var_table.t)]; *)
         guard (pc + 1)
     | Assert expr ->
         unguard pc;
-        if Obj.magic (Var_table.eval t.var_table expr) then (
+        if Var_table.eval_bool t.var_table expr then (
           vec_incr t.pcs pc_idx;
           guard (pc + 1))
-        else `Assert_failure pc
+        else Error (`Assert_failure pc)
     | Log expr ->
         unguard pc;
-        printf "%s" (Obj.magic (Var_table.eval t.var_table expr));
+        printf "%s" (Var_table.eval_string t.var_table expr);
         vec_incr t.pcs pc_idx;
         guard (pc + 1)
-    | Par instrs -> (
+    | Par instrs ->
         (* unguard pc; *)
         Vec.remove t.pcs pc_idx;
-        Vec.extend t.pcs instrs;
-        match
-          List.find_map instrs ~f:(fun instr ->
-              let status = guard instr in
-              match status with `Success -> None | _ -> Some status)
-        with
-        | None -> `Success
-        | Some status -> status)
+        List.map instrs ~f:(fun instr ->
+            Vec.push t.pcs instr;
+            guard instr)
+        |> Result.all_unit
     | ParJoin d ->
         (* unguard pc; *)
         d.curr_ct <- d.curr_ct + 1;
@@ -315,39 +336,35 @@ module Sim = struct
           guard (pc + 1))
         else (
           Vec.remove t.pcs pc_idx;
-          `Success)
+          Ok ())
     | Jump inst ->
         (* unguard pc; *)
         Vec.set t.pcs pc_idx inst;
         guard inst
-    | JumpIfFalse (expr, inst) -> (
+    | JumpIfFalse (expr, inst) ->
         unguard pc;
-        match Obj.magic (Var_table.eval t.var_table expr) with
-        | true ->
-            vec_incr t.pcs pc_idx;
-            guard (pc + 1)
-        | false ->
-            Vec.set t.pcs pc_idx inst;
-            guard inst)
+        let new_pc =
+          if Var_table.eval_bool t.var_table expr then pc + 1 else inst
+        in
+        Vec.set t.pcs pc_idx new_pc;
+        guard new_pc
     | SelectImm l -> (
         unguard pc;
         match
           List.filter_mapi l ~f:(fun idx (expr, instr) ->
-              if Obj.magic (Var_table.eval t.var_table expr) then
-                Some (instr, idx)
+              if Var_table.eval_bool t.var_table expr then Some (instr, idx)
               else None)
         with
-        | [] -> `Select_no_guards_true pc
+        | [] -> Error (`Select_no_guards_true pc)
         | [ (instr, _) ] ->
             Vec.set t.pcs pc_idx instr;
             guard instr
-        | l -> `Select_multiple_guards_true (pc, List.map l ~f:snd))
+        | l -> Error (`Select_multiple_guards_true (pc, List.map l ~f:snd)))
     | SelectImmElse (l, else_) -> (
         unguard pc;
         match
           List.filter_mapi l ~f:(fun idx (expr, instr) ->
-              if Obj.magic (Var_table.eval t.var_table expr) then
-                Some (instr, idx)
+              if Var_table.eval_bool t.var_table expr then Some (instr, idx)
               else None)
         with
         | [] ->
@@ -356,57 +373,70 @@ module Sim = struct
         | [ (instr, _) ] ->
             Vec.set t.pcs pc_idx instr;
             guard instr
-        | l -> `Select_multiple_guards_true (pc, List.map l ~f:snd))
+        | l -> Error (`Select_multiple_guards_true (pc, List.map l ~f:snd)))
     | Read (dst_id, chan) ->
         (* unguard pc; *)
-        if chan.read_ready then `Simul_chan_readers (chan.read_instr, pc)
+        if chan.read_ready then
+          Error (`Simul_chan_readers (chan.read_instr, pc))
         else (
           chan.read_ready <- true;
           chan.read_instr <- pc;
           chan.read_dst_var_id <- dst_id;
           Vec.remove t.pcs pc_idx;
-          (* guard pc; *)
           step_chan chan)
     | Send (expr, chan) ->
         (* unguard pc; *)
-        if chan.send_ready then `Simul_chan_senders (chan.send_instr, pc)
+        if chan.send_ready then
+          Error (`Simul_chan_senders (chan.send_instr, pc))
         else (
           chan.send_ready <- true;
           chan.send_instr <- pc;
           chan.send_expr <- expr;
           Vec.remove t.pcs pc_idx;
-          (* guard pc; *)
           step_chan chan)
+    | Send_enqueuer d ->
+        unguard pc;
+        assert (not d.is_done);
+        if Queue.is_empty d.to_send then (
+          Vec.remove t.pcs pc_idx;
+          d.is_done <- true;
+          Ok ())
+        else (
+          Var_table.set t.var_table ~var_id:d.var_id
+            ~value:(Queue.dequeue_exn d.to_send);
+          Vec.set t.pcs pc_idx (pc - 1);
+          guard (pc - 1))
+    | Read_dequeuer d ->
+        unguard pc;
+        let value = Var_table.at t.var_table ~var_id:d.var_id in
+        let expected = Queue.dequeue_exn d.expected_reads in
+        if not (d.equals value expected) then
+          Error (`Read_dequeuer_wrong_value (pc, value, expected))
+        else if Queue.is_empty d.expected_reads then (
+          Vec.remove t.pcs pc_idx;
+          Ok ())
+        else (
+          Vec.set t.pcs pc_idx (pc - 1);
+          guard (pc - 1))
 
   let step t =
-    (* print_s [%sexp (("start_of_step", t.var_table) :string *  Var_table.t)]; *)
-    if Vec.is_empty t.pcs then `Stuck
-    else
-      let pc_idx = Random.State.int_incl t.rng 0 (Vec.length t.pcs - 1) in
-      step' t ~pc_idx
+    if Vec.is_empty t.pcs then Error `Stuck
+    else step' t ~pc_idx:(Random.State.int_incl t.rng 0 (Vec.length t.pcs - 1))
 
   let find_rw t var_id ~ignore ~get_ids =
-    let helper pc =
-      if (not (Var_id.equal ignore pc)) && Set.mem (get_ids t.assem.(pc)) var_id
-      then Some pc
+    let is_rw pc =
+      (not (Var_id.equal ignore pc)) && Set.mem (get_ids t.assem.(pc)) var_id
+    in
+    let rw_id_of_chan (chan : Chan_buff.t) =
+      let send_i, read_i = (chan.send_instr, chan.read_instr) in
+      if chan.send_ready && is_rw send_i then Some send_i
+      else if chan.read_ready && is_rw read_i then Some read_i
       else None
     in
-    let pc =
-      match Vec.find_map t.pcs ~f:helper with
+    Option.value_exn
+      (match List.find_map t.chan_buffs ~f:rw_id_of_chan with
       | Some pc -> Some pc
-      | None ->
-          List.find_map t.chan_buffs ~f:(fun chan ->
-              let s =
-                if chan.send_ready then helper chan.send_instr else None
-              in
-              let r =
-                if chan.read_ready then helper chan.read_instr else None
-              in
-              match (s, r) with
-              | Some pc, _ | _, Some pc -> Some pc
-              | None, None -> None)
-    in
-    match pc with Some pc -> pc | None -> failwith "could not find a reader"
+      | None -> Vec.find t.pcs ~f:is_rw)
 
   let find_reader t var_id ~ignore =
     find_rw t var_id ~ignore ~get_ids:N.read_ids
@@ -414,44 +444,87 @@ module Sim = struct
   let find_writer t var_id ~ignore =
     find_rw t var_id ~ignore ~get_ids:N.write_ids
 
+  let resolve_step_err t e ~step_idx =
+    match e with
+    | `Stuck -> Wait_outcome.Stuck step_idx
+    | `Uninit_id (var_id, pc) -> Uninit_id (var_id, pc)
+    | `Simul_chan_senders (fst_pc, snd_pc) -> Simul_chan_senders (fst_pc, snd_pc)
+    | `Simul_chan_readers (fst_pc, snd_pc) -> Simul_chan_readers (fst_pc, snd_pc)
+    | `Assert_failure pc -> Assert_failure pc
+    | `Reading_written_var (var_id, pc) ->
+        Simul_read_write (var_id, pc, find_writer t var_id ~ignore:pc)
+    | `Writing_read_var (var_id, pc) ->
+        Simul_read_write (var_id, find_reader t var_id ~ignore:pc, pc)
+    | `Writing_written_var (var_id, pc) ->
+        Simul_write_write (var_id, pc, find_writer t var_id ~ignore:pc)
+    | `Select_no_guards_true pc -> Select_no_guards_true pc
+    | `Select_multiple_guards_true (pc, branch_idxs) ->
+        Select_multiple_guards_true (branch_idxs, pc)
+    | `Read_dequeuer_wrong_value (pc, expected, actual) ->
+        Read_dequeuer_wrong_value (pc, expected, actual)
+
+  let maybe_replace_with_queuers_unfinished t orig_status =
+    let enq =
+      Array.findi t.assem ~f:(fun _ instr ->
+          match instr with Send_enqueuer d -> not d.is_done | _ -> false)
+    in
+    let deq =
+      Array.findi t.assem ~f:(fun _ instr ->
+          match instr with
+          | Read_dequeuer d -> not (Queue.is_empty d.expected_reads)
+          | _ -> false)
+    in
+    match enq with
+    | Some (pc, _) -> Wait_outcome.Send_enqueuer_not_done pc
+    | None -> (
+        match deq with
+        | Some (pc, _) -> Read_dequeuer_not_done pc
+        | None -> orig_status)
+
   let wait ?(max_steps = 1000) t =
-    if t.is_done then Wait_outcome.Already_done
+    let step_loop step_idx =
+      match step t with
+      | Ok () -> `Continue
+      | Error e ->
+          let status = resolve_step_err t e ~step_idx in
+          let status =
+            match status with
+            | Wait_outcome.Stuck _ ->
+                maybe_replace_with_queuers_unfinished t status
+            | _ -> status
+          in
+          (match status with
+          | Wait_outcome.Stuck _ -> ()
+          | _ -> t.is_done <- true);
+          `Return status
+    in
+    if t.is_done then Wait_outcome.Already_errored
     else
-      let status =
-        for_loop_else max_steps ~else_:Wait_outcome.Time_out ~f:(fun _ ->
-            let res = step t in
-            match res with
-            | `Success -> `Continue
-            | `Done -> `Return Wait_outcome.Done
-            | `Stuck -> `Return Stuck
-            | `Uninit_id (var_id, pc) -> `Return (Uninit_id (var_id, pc))
-            | `Simul_chan_senders (fst_pc, snd_pc) ->
-                `Return (Simul_chan_senders (fst_pc, snd_pc))
-            | `Simul_chan_readers (fst_pc, snd_pc) ->
-                `Return (Simul_chan_readers (fst_pc, snd_pc))
-            | `Assert_failure pc -> `Return (Assert_failure pc)
-            (* TODO decode these! *)
-            | `Reading_written_var (var_id, pc) ->
-                `Return
-                  (Simul_read_write (var_id, pc, find_writer t var_id ~ignore:pc))
-            | `Writing_read_var (var_id, pc) ->
-                `Return
-                  (Simul_read_write (var_id, find_reader t var_id ~ignore:pc, pc))
-            | `Writing_written_var (var_id, pc) ->
-                `Return
-                  (Simul_write_write
-                     (var_id, pc, find_writer t var_id ~ignore:pc))
-            | `Select_no_guards_true _ -> failwith "TODO"
-            | `Select_multiple_guards_true _ -> failwith "TODO")
-      in
-      (match status with
-      | Wait_outcome.Time_out | Wait_outcome.Stuck -> ()
-      | _ -> t.is_done <- true);
-      status
+      for_loop_else max_steps ~else_:Wait_outcome.Time_out ~f:(fun step_idx ->
+          step_loop step_idx)
 
   module Advanced = struct
-    let add_pc t pc = Vec.push t.pcs pc
-    let set_var t ~var_id ~value = Var_table.set t.var_table ~var_id ~value
+    let set_user_sends t ~values ~send_instr =
+      let enqueuer =
+        match (t.assem.(send_instr), t.assem.(send_instr + 1)) with
+        | Send _, Send_enqueuer enqueuer -> enqueuer
+        | _ -> assert false
+      in
+      enqueuer.is_done <- false;
+      queue_extend enqueuer.to_send values;
+      assert (
+        Result.is_ok (Var_table.guard' t.var_table t.assem (send_instr + 1)));
+      Vec.push t.pcs (send_instr + 1)
+
+    let set_user_reads t ~values ~read_instr =
+      let dequeuer =
+        match (t.assem.(read_instr), t.assem.(read_instr + 1)) with
+        | Read _, Read_dequeuer dequeuer -> dequeuer
+        | _ -> assert false
+      in
+      queue_extend dequeuer.expected_reads values;
+      assert (Result.is_ok (Var_table.guard' t.var_table t.assem read_instr));
+      Vec.push t.pcs read_instr
   end
 end
 
@@ -475,7 +548,7 @@ let%expect_test "test successful" =
   let sim = Sim.create assem ~var_ct:3 in
   let update_outcome = Sim.wait sim in
   print_s [%sexp (update_outcome : Sim.Wait_outcome.t)];
-  [%expect {| 73Done |}]
+  [%expect {| 73(Stuck 11) |}]
 
 let%expect_test "error assertion failure" =
   let var0 = Var_id.of_int 0 in

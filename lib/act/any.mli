@@ -2,14 +2,11 @@ open! Core
 
 type t [@@deriving sexp]
 
-module A : sig
-  type t [@@deriving sexp]
-end
-
-module B : sig
-  type t [@@deriving sexp]
-end
-
-module C : sig
-  type t [@@deriving sexp]
-end
+val of_int : int -> t
+val of_string : string -> t
+val of_bool : bool -> t
+val of_magic : 'a -> t
+val to_int : t -> int
+val to_string : t -> string
+val to_bool : t -> bool
+val to_magic : t -> 'a

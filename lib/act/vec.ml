@@ -36,5 +36,6 @@ let extend t l = List.iter l ~f:(fun v -> push t v)
 let is_empty t = Int.equal t.len 0
 let length t = t.len
 
-let find_map t ~f =
-  Array.find_mapi t.arr ~f:(fun i v -> if i < t.len then f v else None)
+let find t ~f =
+  Array.findi t.arr ~f:(fun i v -> if i < t.len then f v else false)
+  |> Option.map ~f:snd
