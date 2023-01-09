@@ -693,8 +693,8 @@ let assem_of_ir t =
     Hashtbl.find_or_add chan_tbl chan_id ~default:(fun () ->
         Chan_buff.create ())
   in
-  let mem_tbl = Ir.Unguarded_mem.Table.create () in
-  let get_mem (mem : Ir.Unguarded_mem.t) =
+  let mem_tbl = Ir.Mem.Table.create () in
+  let get_mem (mem : Ir.Mem.t) =
     Hashtbl.find_or_add mem_tbl mem ~default:(fun () ->
         Mem_buff.create ~init:mem.d.init
           ~idx_helper_reg:(AB.new_assem_var_id ab))
@@ -786,12 +786,12 @@ let assem_of_ir t =
   (ab, chan_tbl, code_pos_of_instr)
 
 let create ir ~user_sendable_ports ~user_readable_ports =
-  let ir = Ir.N.of_ir ir in
+  let ir = Ir.N.unwrap ir in
   let user_sendable_ports =
-    List.map user_sendable_ports ~f:Ir.Chan.of_ir_wu |> Ir.Chan.U.Set.of_list
+    List.map user_sendable_ports ~f:Ir.Chan.unwrap_wu |> Ir.Chan.U.Set.of_list
   in
   let user_readable_ports =
-    List.map user_readable_ports ~f:Ir.Chan.of_ir_ru |> Ir.Chan.U.Set.of_list
+    List.map user_readable_ports ~f:Ir.Chan.unwrap_ru |> Ir.Chan.U.Set.of_list
   in
   assert (Set.inter user_readable_ports user_sendable_ports |> Set.is_empty);
   let ab, chan_tbl, code_pos_of_instr = assem_of_ir ir in
@@ -982,7 +982,7 @@ let wait' t ?max_steps () =
   print_s [%sexp (wait t ?max_steps () : unit Or_error.t)]
 
 let send t ?loc chan_id value =
-  let chan_id = Ir.Chan.of_ir_w chan_id in
+  let chan_id = Ir.Chan.unwrap_w chan_id in
   let call_site = Code_pos.value_or_psite loc in
   match Hashtbl.mem t.send_instr_of_chan chan_id with
   | true ->
@@ -994,7 +994,7 @@ let send t ?loc chan_id value =
          Sim.create"
 
 let read t ?loc chan_id value =
-  let chan_id = Ir.Chan.of_ir_r chan_id in
+  let chan_id = Ir.Chan.unwrap_r chan_id in
   let call_site = Code_pos.value_or_psite loc in
   match Hashtbl.mem t.read_instr_of_chan chan_id with
   | true ->

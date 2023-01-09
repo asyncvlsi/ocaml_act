@@ -303,7 +303,7 @@ let%expect_test "test_buff 2" =
      "User send did not complete:  called in lib/simulator/ir_test.ml on line 298, on chan created in lib/simulator/ir_test.ml on line 283.") |}]
 
 let%expect_test "mem" =
-  let mem = UnguardedMem.create DType.int_ [| 1; 2; 3; 4 |] in
+  let mem = Mem.create_ug_mem DType.int_ [| 1; 2; 3; 4 |] in
   let var1 = Var.create DType.int_ in
   let ir =
     N.seq
@@ -318,7 +318,7 @@ let%expect_test "mem" =
     4(Ok ()) |}]
 
 let%expect_test "mem" =
-  let mem = UnguardedMem.create DType.int_ [| 1; 2; 3; 4 |] in
+  let mem = Mem.create_ug_mem DType.int_ [| 1; 2; 3; 4 |] in
   let var1 = Var.create DType.int_ in
   let ir =
     N.seq
@@ -336,7 +336,7 @@ let%expect_test "mem" =
      "Mem access out of bounds: in lib/simulator/ir_test.ml on line 326, idx is 4, size of mem is 4.") |}]
 
 let%expect_test "mem" =
-  let mem = UnguardedMem.create DType.int_ [| 1; 2; 3; 4 |] in
+  let mem = Mem.create_ug_mem DType.int_ [| 1; 2; 3; 4 |] in
   let var1 = Var.create DType.int_ in
   let ir =
     N.par

@@ -25,6 +25,9 @@ let library_filenames =
       "lib/act/code_pos.ml";
       "lib/act/act.ml";
       "lib/act/ir.ml";
+      "lib/act/chan.ml";
+      "lib/act/var.ml";
+      "lib/act/node.ml";
       "lib/simulator/sim.ml";
       "list.ml";
       "src/list0.ml";
