@@ -1,6 +1,7 @@
 open! Core
 
-type t [@@deriving sexp]
+type u
+type t = (u[@sexp.opaque]) [@@deriving sexp_of]
 
 let of_magic = Obj.magic
 let of_int = of_magic

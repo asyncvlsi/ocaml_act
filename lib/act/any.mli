@@ -1,6 +1,6 @@
 open! Core
 
-type t [@@deriving sexp]
+type t [@@deriving sexp_of]
 
 val of_int : int -> t
 val of_string : string -> t

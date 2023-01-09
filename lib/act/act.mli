@@ -69,6 +69,7 @@ module Chp : sig
   type t
 
   val loop : t list -> t
+  val seq : t list -> t
   val read : 'a Chan.R.t -> 'a Var.t -> t
   val send : 'a Chan.W.t -> 'a Expr.t -> t
   val send_var : 'a Chan.W.t -> 'a Var.t -> t
@@ -181,7 +182,7 @@ module Sim : sig
     val new_w : 'a Chan.W.t -> 'a list -> t
   end
 
-  type t [@@deriving sexp]
+  type t [@@deriving sexp_of]
 
   val sim : Node.t -> t
   val send : t -> 'a Chan.W.t -> 'a -> unit

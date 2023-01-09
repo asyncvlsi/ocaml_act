@@ -85,7 +85,7 @@ module Expr = struct
     | Map of Any.t t * (Any.t -> 'a)
     | Map2 of Any.t t * Any.t t * (Any.t -> Any.t -> 'a)
     | BoolNot of CBool.t t
-  [@@deriving sexp]
+  [@@deriving sexp_of]
 
   let untype t : Any.t t = Obj.magic t
   let of_var v = Var v
@@ -117,9 +117,10 @@ module Chp = struct
     | BoolSelect of CBool.t Var.t * t list * t list
     | Assign of (Any.t Var.t * Any.t Expr.t)
     | Log of string Expr.t
-  [@@deriving sexp]
+  [@@deriving sexp_of]
 
   let loop stmts = Loop stmts
+  let seq stmts = Seq stmts
   let read chan var = Read (Chan.R.untype chan, Var.untype var)
   let send chan expr = Send (Chan.W.untype chan, Expr.untype expr)
   let send_var chan var = send chan (Expr.of_var var)
@@ -140,7 +141,7 @@ module Node = struct
       in_ : Any.t Chan.R.t list;
       out : (Any.t Chan.W.t * Any.t Chan.R.t) list;
     }
-    [@@deriving sexp]
+    [@@deriving sexp_of]
   end
 
   type t =
@@ -148,7 +149,7 @@ module Node = struct
     | Cluster of D.t * t list
     | NullInst of Context.t
     | Tie of (Context.t * Any.t Chan.R.t * Any.t Chan.W.t)
-  [@@deriving sexp]
+  [@@deriving sexp_of]
 
   module type Port_type = sig
     module W : sig
@@ -287,7 +288,7 @@ module Sim = struct
     let new_w _ _ = failwith "unimplemented"
   end
 
-  type t [@@deriving sexp]
+  type t [@@deriving sexp_of]
 
   let sim _ = failwith "unimplemented"
   let send _ _ _ = failwith "unimplemented"
