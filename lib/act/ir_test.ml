@@ -73,21 +73,25 @@ let%expect_test "test3" =
   in
   Sim.wait' sim ();
   [%expect {|
-    start |}];
+    start
+    (Ok ()) |}];
   Sim.send sim chan.w 100;
   Sim.wait' sim ();
   [%expect {|
-    recv 1 |}];
+    recv 1
+    (Ok ()) |}];
   Sim.send sim chan.w 200;
   Sim.wait' sim ();
   [%expect {|
-    recv 2 |}];
+    recv 2
+    (Ok ()) |}];
   Sim.wait' sim ();
-  [%expect {||}];
+  [%expect {| (Ok ()) |}];
   Sim.send sim chan.w 300;
   Sim.wait' sim ();
   [%expect {|
-    done |}]
+    done
+    (Ok ()) |}]
 
 let%expect_test "test3" =
   let var1 = Var.create DType.int_ in
@@ -111,16 +115,19 @@ let%expect_test "test3" =
   in
   Sim.wait' sim ();
   [%expect {|
-    start |}];
+    start
+    (Ok ()) |}];
   Sim.send sim chan1.w 200;
   Sim.wait' sim ();
   [%expect {|
-    recv 1 |}];
+    recv 1
+    (Ok ()) |}];
   Sim.read sim chan2.r 200;
   Sim.wait' sim ();
   [%expect {|
     send 1
-    done |}]
+    done
+    (Ok ()) |}]
 
 let%expect_test "test4" =
   let var1 = Var.create DType.int_ in
@@ -147,17 +154,19 @@ let%expect_test "test4" =
   in
   Sim.wait' sim ();
   [%expect {|
-    start |}];
+    start
+    (Ok ()) |}];
   Sim.send sim chan1.w 200;
   Sim.wait' sim ();
   [%expect {|
-    recv 1 |}];
+    recv 1
+    (Ok ()) |}];
   Sim.read sim chan2.r 200;
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
   [%expect
     {|
       send 1
-      (Error "Assertion failed: in lib/act/ir_test.ml on line 140.") |}]
+      (Error "Assertion failed: in lib/act/ir_test.ml on line 147.") |}]
 
 let%expect_test "test5" =
   let var1 = Var.create DType.int_ in
@@ -169,7 +178,7 @@ let%expect_test "test5" =
       ~user_readable_ports:[ chan2.r.u ]
   in
   Sim.wait' sim ();
-  [%expect {| |}];
+  [%expect {| (Ok ()) |}];
   Sim.send sim chan1.w 1;
   Sim.send sim chan1.w 2;
   Sim.send sim chan1.w 3;
@@ -185,7 +194,7 @@ let%expect_test "test5" =
   [%expect
     {|
       (Error
-       "User read has wrong value: got 4, but expected 5 based on `send' function call in lib/act/ir_test.ml on line 182, on chan created in lib/act/ir_test.ml on line 165.") |}]
+       "User read has wrong value: got 4, but expected 5 based on `send' function call in lib/act/ir_test.ml on line 191, on chan created in lib/act/ir_test.ml on line 174.") |}]
 
 let split ~dtype i1 o1 o2 =
   let var1 = Var.create dtype in
@@ -267,7 +276,7 @@ let%expect_test "test_buff 1" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in lib/act/ir_test.ml on line 265, on chan created in lib/act/ir_test.ml on line 231.") |}]
+     "User send did not complete:  called in lib/act/ir_test.ml on line 274, on chan created in lib/act/ir_test.ml on line 240.") |}]
 
 let%expect_test "test_buff 2" =
   let dtype = DType.int_ in
@@ -291,30 +300,61 @@ let%expect_test "test_buff 2" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in lib/act/ir_test.ml on line 289, on chan created in lib/act/ir_test.ml on line 274.") |}]
+     "User send did not complete:  called in lib/act/ir_test.ml on line 298, on chan created in lib/act/ir_test.ml on line 283.") |}]
 
 let%expect_test "mem" =
-  let mem = UnguardedMem.create_init_array DType.int_  [| 1;2;3;4 |] in
+  let mem = UnguardedMem.create DType.int_ [| 1; 2; 3; 4 |] in
   let var1 = Var.create DType.int_ in
-  let ir = N.seq [ N.read_ug_mem mem ~idx:Expr.(const 3) ~dst:var1; N.log Expr.(var var1 |> map ~f:Int.to_string)
-  ] in let sim =
-    Sim.create ir ~user_sendable_ports:[]
-      ~user_readable_ports:[]
+  let ir =
+    N.seq
+      [
+        N.read_ug_mem mem ~idx:Expr.(const 3) ~dst:var1;
+        N.log Expr.(var var1 |> map ~f:Int.to_string);
+      ]
   in
+  let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
   Sim.wait' sim ();
-  [%expect {| 4 |}];
+  [%expect {|
+    4(Ok ()) |}]
 
-  let mem = UnguardedMem.create_init_array DType.int_  [| 1;2;3;4 |] in
+let%expect_test "mem" =
+  let mem = UnguardedMem.create DType.int_ [| 1; 2; 3; 4 |] in
   let var1 = Var.create DType.int_ in
-  let ir = N.par [
-  N.seq [ N.read_ug_mem mem ~idx:Expr.(const 3) ~dst:var1; N.log Expr.(var var1 |> map ~f:Int.to_string)
-  ];
-N.seq [ N.read_ug_mem mem ~idx:Expr.(const 3) ~dst:var1; N.log Expr.(var var1 |> map ~f:Int.to_string)
-  ]
-  ] in let sim =
-    Sim.create ir ~user_sendable_ports:[]
-      ~user_readable_ports:[]
+  let ir =
+    N.seq
+      [
+        N.read_ug_mem mem ~idx:Expr.(const 4) ~dst:var1;
+        N.log Expr.(var var1 |> map ~f:Int.to_string);
+      ]
   in
+  let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
   Sim.wait' sim ();
-  (* TODO this test is wrong *) 
-  [%expect {| |}]
+  (* TODO this test is wrong *)
+  [%expect {|
+    (Error
+     "Mem access out of bounds: in lib/act/ir_test.ml on line 327, idx is 4, size of mem is 4.") |}]
+
+let%expect_test "mem" =
+  let mem = UnguardedMem.create DType.int_ [| 1; 2; 3; 4 |] in
+  let var1 = Var.create DType.int_ in
+  let ir =
+    N.par
+      [
+        N.seq
+          [
+            N.read_ug_mem mem ~idx:Expr.(const 3) ~dst:var1;
+            N.log Expr.(var var1 |> map ~f:Int.to_string);
+          ];
+        N.seq
+          [
+            N.read_ug_mem mem ~idx:Expr.(const 3) ~dst:var1;
+            N.log Expr.(var var1 |> map ~f:Int.to_string);
+          ];
+      ]
+  in
+  let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
+  Sim.wait' sim ();
+  (* This is of the dummy variable assoiated with the mem. This is misleading, and should report a better message *)
+  [%expect {|
+    (Error
+     "Simulatnious writes of variable: statement 1 in lib/act/ir_test.ml on line 351, statement 2 in lib/act/ir_test.ml on line 346, create in lib/act/ir_test.ml on line 340.") |}]

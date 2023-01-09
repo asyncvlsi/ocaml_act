@@ -300,6 +300,7 @@ module Sim = struct
       | Read_dequeuer_wrong_value of Instr_idx.t * Any.t * Any.t * int
       | Read_dequeuer_not_done of Instr_idx.t * int
       | Send_enqueuer_not_done of Instr_idx.t * int
+      | Mem_out_of_bounds of Instr_idx.t * int * int
     [@@deriving sexp_of]
   end
 
@@ -472,14 +473,20 @@ module Sim = struct
     | ReadMem (idx_expr, dst_id, mem) ->
         unguard pc;
         let idx = Var_table.eval_int t.var_table idx_expr in
-        Var_table.set t.var_table ~var_id:dst_id ~value:mem.arr.(idx);
-        set_pc_and_guard ~pc_idx (pc + 1)
+        if idx < 0 || idx >= Array.length mem.arr then
+          Error (`Mem_out_of_bounds (pc, idx, Array.length mem.arr))
+        else (
+          Var_table.set t.var_table ~var_id:dst_id ~value:mem.arr.(idx);
+          set_pc_and_guard ~pc_idx (pc + 1))
     | WriteMem (idx_expr, src_expr, mem) ->
         unguard pc;
         let idx = Var_table.eval_int t.var_table idx_expr in
-        let value = Var_table.eval t.var_table src_expr in
-        mem.arr.(idx) <- value;
-        set_pc_and_guard ~pc_idx (pc + 1)
+        if idx < 0 || idx >= Array.length mem.arr then
+          Error (`Mem_out_of_bounds (pc, idx, Array.length mem.arr))
+        else
+          let value = Var_table.eval t.var_table src_expr in
+          mem.arr.(idx) <- value;
+          set_pc_and_guard ~pc_idx (pc + 1)
 
   let step t =
     if Vec.is_empty t.pcs then Error `Stuck
@@ -525,6 +532,8 @@ module Sim = struct
         Error (Select_multiple_guards_true (branch_idxs, pc))
     | `Read_dequeuer_wrong_value (pc, expected, actual, idx) ->
         Error (Read_dequeuer_wrong_value (pc, expected, actual, idx))
+    | `Mem_out_of_bounds (pc, idx, len) ->
+        Error (Mem_out_of_bounds (pc, idx, len))
 
   let queuers_unfinished_check t =
     match

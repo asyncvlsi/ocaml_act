@@ -18,6 +18,13 @@ module DType = struct
   let string_ = of_module (module String)
 end
 
+module type Comparable_and_hashable = sig
+  type t [@@deriving sexp_of, compare, equal, hash]
+
+  include Comparable with type t := t
+  include Hashable with type t := t
+end
+
 module Chan_ = struct
   module U = struct
     module T = struct
@@ -141,6 +148,9 @@ module UnguardedMem = struct
         init :
           (Any.t array
           [@hash.ignore] [@compare.ignore] [@equal.ignore] [@sexp.opaque]);
+        kind :
+          ([ `Mem | `Rom ]
+          [@hash.ignore] [@compare.ignore] [@equal.ignore] [@sexp.opaque]);
       }
       [@@deriving hash, compare, equal, sexp]
     end
@@ -151,35 +161,26 @@ module UnguardedMem = struct
 
     let next_int = ref 0
 
-    let create dtype init creation_code_pos =
+    let create dtype init creation_code_pos kind =
       let id = !next_int in
       incr next_int;
-      { id; dtype = Obj.magic dtype; creation_code_pos; init }
+      { id; dtype = Obj.magic dtype; creation_code_pos; init; kind }
   end
 
-  type 'a t = { u : U.t }
+  type 'a t = { u : U.t } [@@deriving sexp]
 
-  let create ?loc dtype ~len ~default =
-    {
-      u =
-        U.create dtype
-          (Array.create ~len (Any.of_magic default))
-          (Code_pos.value_or_psite loc);
-    }
-
-  let create_init ?loc dtype ~len ~f =
-    {
-      u =
-        U.create dtype
-          (Array.init len ~f:(fun i -> Any.of_magic (f i)))
-          (Code_pos.value_or_psite loc);
-    }
-
-  let create_init_array ?loc dtype arr =
-    { u = U.create dtype (Obj.magic arr) (Code_pos.value_or_psite loc) }
+  let create ?loc dtype arr =
+    { u = U.create dtype (Obj.magic arr) (Code_pos.value_or_psite loc) `Mem }
 end
 
-module UnguardedRom = UnguardedMem
+module UnguardedRom = struct
+  module U = UnguardedMem.U
+
+  type 'a t = { u : U.t } [@@deriving sexp]
+
+  let create ?loc dtype arr =
+    { u = U.create dtype (Obj.magic arr) (Code_pos.value_or_psite loc) `Rom }
+end
 
 module Expr = struct
   type 'a t =
@@ -701,13 +702,21 @@ module Sim = struct
               "User send did not complete:  called %s, on chan created %s."
               (s_of_cp code_pos) (s_of_chan chan_id)
           else sprintf "User send did not complete."
+      | Mem_out_of_bounds (mem_instr, idx, len) ->
+          if line_numbers then
+            sprintf
+              "Mem access out of bounds: %s, idx is %d, size of mem is %d."
+              (s_of_instr mem_instr) idx len
+          else
+            sprintf "Mem access out of bounds: idx is %d, size of mem is %d."
+              idx len
     in
     let status = Result.map_error status ~f:decode_error in
     let status = Result.map_error status ~f:Error.of_string in
     Result.iter_error status ~f:(fun _ -> t.is_done <- true);
     status
 
-  let wait' t ?max_steps () = ignore (wait t ?max_steps () : unit Or_error.t)
+  let wait' t ?max_steps () = print_s [%sexp (wait t ?max_steps () : unit Or_error.t)]
 
   let send t ?loc (chan_id : 'a Chan_.t) (value : 'a) =
     let call_site = Code_pos.value_or_psite loc in

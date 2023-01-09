@@ -13,14 +13,16 @@ module DType : sig
   val of_module : (module DTypeable with type t = 'a) -> 'a t
 end
 
+module type Comparable_and_hashable = sig
+  type t [@@deriving sexp_of, compare, equal, hash]
+
+  include Comparable with type t := t
+  include Hashable with type t := t
+end
+
 module Chan : sig
   module R : sig
-    module U : sig
-      type t [@@deriving sexp_of, compare, equal, hash]
-
-      include Comparable with type t := t
-      include Hashable with type t := t
-    end
+    module U : Comparable_and_hashable
 
     type 'a t = { u : U.t } [@@deriving sexp_of]
 
@@ -28,12 +30,7 @@ module Chan : sig
   end
 
   module W : sig
-    module U : sig
-      type t [@@deriving sexp_of, compare, equal, hash]
-
-      include Comparable with type t := t
-      include Hashable with type t := t
-    end
+    module U : Comparable_and_hashable
 
     type 'a t = { u : U.t } [@@deriving sexp_of]
 
@@ -46,9 +43,7 @@ module Chan : sig
 end
 
 module Var : sig
-  module U : sig
-    type t [@@deriving sexp_of]
-  end
+  module U : Comparable_and_hashable
 
   type 'a t = { u : U.t } [@@deriving sexp_of]
 
@@ -58,25 +53,19 @@ end
 (* It is not allowed to have operation on the memory from two different locations
    in the program simultaniously. *)
 module UnguardedMem : sig
-  type 'a t
+  module U : Comparable_and_hashable
 
-  val create : ?loc:Code_pos.t -> 'a DType.t -> len:int -> default:'a -> 'a t
+  type 'a t = { u : U.t } [@@deriving sexp_of]
 
-  val create_init :
-    ?loc:Code_pos.t -> 'a DType.t -> len:int -> f:(int -> 'a) -> 'a t
-
-  val create_init_array : ?loc:Code_pos.t -> 'a DType.t -> 'a array -> 'a t
+  val create : ?loc:Code_pos.t -> 'a DType.t -> 'a array -> 'a t
 end
 
 module UnguardedRom : sig
-  type 'a t
+  module U : Comparable_and_hashable
 
-  val create : ?loc:Code_pos.t -> 'a DType.t -> len:int -> default:'a -> 'a t
+  type 'a t = { u : U.t } [@@deriving sexp_of]
 
-  val create_init :
-    ?loc:Code_pos.t -> 'a DType.t -> len:int -> f:(int -> 'a) -> 'a t
-
-  val create_init_array : ?loc:Code_pos.t -> 'a DType.t -> 'a array -> 'a t
+  val create : ?loc:Code_pos.t -> 'a DType.t -> 'a array -> 'a t
 end
 
 module Expr : sig

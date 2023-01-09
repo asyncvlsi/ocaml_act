@@ -115,6 +115,7 @@ module Sim : sig
       | Read_dequeuer_wrong_value of Instr_idx.t * Any.t * Any.t * int
       | Read_dequeuer_not_done of Instr_idx.t * int
       | Send_enqueuer_not_done of Instr_idx.t * int
+      | Mem_out_of_bounds of Instr_idx.t * int * int
     [@@deriving sexp_of]
   end
 
