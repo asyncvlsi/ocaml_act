@@ -137,132 +137,22 @@ module N : sig
     ?loc:Code_pos.t -> (bool Expr.t * t) list -> else_:t option -> t
 end
 
+module Sim : sig
+  type t [@@deriving sexp_of]
+
+  val create :
+    N.t ->
+    user_sendable_ports:Chan.W.U.t list ->
+    user_readable_ports:Chan.R.U.t list ->
+    t
+
+  val wait :
+    t -> ?max_steps:int -> ?line_numbers:bool -> unit -> unit Or_error.t
+
+  val wait' : t -> ?max_steps:int -> unit -> unit
+  val send : t -> ?loc:Code_pos.t -> 'a Chan.W.t -> 'a -> unit
+  val read : t -> ?loc:Code_pos.t -> 'a Chan.R.t -> 'a -> unit
+end
+
 val block11 :
   'i1 Chan.W.t -> 'o1 Chan.R.t -> f:('i1 Chan.R.t -> 'o1 Chan.W.t -> N.t) -> N.t
-
-(* The internal data structures. These are only meant to be constructed throguh the above interfaces. *)
-module Internal_rep : sig
-  module type DTypeable = sig
-    type t [@@deriving sexp_of, equal]
-  end
-
-  module DType : sig
-    type 'a t = { equal : Any.t -> Any.t -> bool; sexp_of_t : Any.t -> Sexp.t }
-  end
-
-  module Chan : sig
-    module U : sig
-      module Id : Identifiable
-
-      module D : sig
-        type t = {
-          dtype : Any.t DType.t;
-          creation_code_pos : Code_pos.t;
-          (* I have not come up with a way to add which direction is passive into
-               the type system. These two fields help with error reporting *)
-          mutable wait_readable_code_pos : Code_pos.t option;
-          mutable wait_sendable_code_pos : Code_pos.t option;
-        }
-      end
-
-      type t = {
-        id : Id.t;
-        d : (D.t[@hash.ignore] [@compare.ignore] [@equal.ignore]);
-      }
-
-      include Comparable with type t := t
-      include Hashable with type t := t
-    end
-
-    type 'a t = { u : U.t } [@@deriving sexp_of]
-  end
-
-  module Var : sig
-    module U : sig
-      module Id : Identifiable
-
-      module D : sig
-        type t = {
-          dtype : Any.t DType.t;
-          creation_code_pos : Code_pos.t;
-          init : Any.t option;
-        }
-      end
-
-      type t = {
-        id : Id.t;
-        d : (D.t[@hash.ignore] [@compare.ignore] [@equal.ignore]);
-      }
-
-      include Comparable with type t := t
-      include Hashable with type t := t
-    end
-
-    type 'a t = { u : U.t } [@@deriving sexp_of]
-  end
-
-  module Unguarded_mem : sig
-    module Id : Identifiable
-
-    module D : sig
-      type t = {
-        dtype : Any.t DType.t;
-        creation_code_pos : Code_pos.t;
-        init : Any.t array;
-        kind : [ `Mem | `Rom ];
-      }
-    end
-
-    type t = {
-      id : Id.t;
-      d : (D.t[@hash.ignore] [@compare.ignore] [@equal.ignore]);
-    }
-
-    include Comparable with type t := t
-    include Hashable with type t := t
-  end
-
-  module Expr : sig
-    type 'a t =
-      | Var : 'a Var.t -> 'a t
-      | Const : 'a -> 'a t
-      | Map : Any.t t * (Any.t -> 'a) -> 'a t
-      | Add : int t * int t -> int t
-      | Sub : int t * int t -> int t
-      | Mul : int t * int t -> int t
-      | Div : int t * int t -> int t
-      | Mod : int t * int t -> int t
-      | LShift : int t * int t -> int t
-      | LogicalRShift : int t * int t -> int t
-      | ArithRShift : int t * int t -> int t
-      | BitAnd : int t * int t -> int t
-      | BitOr : int t * int t -> int t
-      | BitXor : int t * int t -> int t
-      | Eq : int t * int t -> bool t
-      | Ne : int t * int t -> bool t
-      | Not : bool t -> bool t
-    [@@deriving sexp_of]
-
-    module U : sig
-      type nonrec t = Any.t t
-    end
-
-    val untype : 'a t -> U.t
-  end
-
-  module N : sig
-    type t =
-      | Assign of Code_pos.t * Var.U.t * Expr.U.t
-      | Log of Code_pos.t * string Expr.t
-      | Assert of Code_pos.t * bool Expr.t
-      | Seq of Code_pos.t * t list
-      | Par of Code_pos.t * t list
-      | Read of Code_pos.t * Chan.U.t * Var.U.t
-      | Send of Code_pos.t * Chan.U.t * Expr.U.t
-      | Loop of Code_pos.t * t
-      | WhileLoop of Code_pos.t * bool Expr.t * t
-      | SelectImm of Code_pos.t * (bool Expr.t * t) list * t option
-      | ReadUGMem of Code_pos.t * Unguarded_mem.t * int Expr.t * Var.U.t
-      | WriteUGMem of Code_pos.t * Unguarded_mem.t * int Expr.t * Expr.U.t
-  end
-end

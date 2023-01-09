@@ -330,9 +330,10 @@ let%expect_test "mem" =
   let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
   Sim.wait' sim ();
   (* TODO this test is wrong *)
-  [%expect {|
+  [%expect
+    {|
     (Error
-     "Mem access out of bounds: in lib/act/ir_test.ml on line 327, idx is 4, size of mem is 4.") |}]
+     "Mem access out of bounds: in lib/act/ir_test.ml on line 326, idx is 4, size of mem is 4.") |}]
 
 let%expect_test "mem" =
   let mem = UnguardedMem.create DType.int_ [| 1; 2; 3; 4 |] in
@@ -355,6 +356,7 @@ let%expect_test "mem" =
   let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
   Sim.wait' sim ();
   (* This is of the dummy variable assoiated with the mem. This is misleading, and should report a better message *)
-  [%expect {|
+  [%expect
+    {|
     (Error
      "Simulatnious writes of variable: statement 1 in lib/act/ir_test.ml on line 351, statement 2 in lib/act/ir_test.ml on line 346, create in lib/act/ir_test.ml on line 340.") |}]

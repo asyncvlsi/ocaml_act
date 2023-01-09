@@ -10,3 +10,13 @@ val to_int : t -> int
 val to_string : t -> string
 val to_bool : t -> bool
 val to_magic : t -> 'a
+
+module Option : sig
+  val of_magic : 'a option -> t option
+  val to_magic : t option -> 'a option
+end
+
+module Array : sig
+  val of_magic : 'a array -> t array
+  val to_magic : t array -> 'a array
+end

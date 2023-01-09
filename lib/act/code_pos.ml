@@ -24,6 +24,7 @@ let library_filenames =
     [
       "lib/act/code_pos.ml";
       "lib/act/ir.ml";
+      "lib/act/sim.ml";
       "list.ml";
       "src/list0.ml";
       "collector/expect_test_collector.ml";
