@@ -1,5 +1,6 @@
 open! Core
-module Ir = Ir.Internal_rep
+open! Act
+module Ir = Internal_rep
 
 module Var_id = struct
   include Int

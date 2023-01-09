@@ -1,5 +1,8 @@
 open! Core
 
+module Any = Any
+module Vec = Vec
+
 module type DTypeable = sig
   type t [@@deriving sexp_of, equal]
 end
@@ -19,6 +22,7 @@ module DType = struct
   let untype (t : 'a t) : Any.t t = Obj.magic t
 end
 
+module Code_pos = Code_pos
 module type Comparable_and_hashable = sig
   type t [@@deriving sexp_of, compare, equal, hash]
 
@@ -328,9 +332,23 @@ module Internal_rep = struct
   module type DTypeable = DTypeable
 
   module DType = DType
-  module Chan = Chan_
+
+  module Chan = struct
+    include Chan_
+
+    let of_ir_r t = t.u
+    let of_ir_w t = t.u
+    let of_ir_ru t = t
+    let of_ir_wu t = t
+  end
+
   module Var = Var
   module Unguarded_mem = UnguardedMemRom_u
   module Expr = Expr
-  module N = N
+
+  module N = struct
+    include N
+
+    let of_ir t = t
+  end
 end

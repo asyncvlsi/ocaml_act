@@ -1,5 +1,5 @@
 open! Core
-open Ir
+open! Act
 
 let%expect_test "test1" =
   let ir =
@@ -166,7 +166,7 @@ let%expect_test "test4" =
   [%expect
     {|
       send 1
-      (Error "Assertion failed: in lib/act/ir_test.ml on line 147.") |}]
+      (Error "Assertion failed: in lib/simulator/ir_test.ml on line 147.") |}]
 
 let%expect_test "test5" =
   let var1 = Var.create DType.int_ in
@@ -194,7 +194,7 @@ let%expect_test "test5" =
   [%expect
     {|
       (Error
-       "User read has wrong value: got 4, but expected 5 based on `send' function call in lib/act/ir_test.ml on line 191, on chan created in lib/act/ir_test.ml on line 174.") |}]
+       "User read has wrong value: got 4, but expected 5 based on `send' function call in lib/simulator/ir_test.ml on line 191, on chan created in lib/simulator/ir_test.ml on line 174.") |}]
 
 let split ~dtype i1 o1 o2 =
   let var1 = Var.create dtype in
@@ -276,7 +276,7 @@ let%expect_test "test_buff 1" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in lib/act/ir_test.ml on line 274, on chan created in lib/act/ir_test.ml on line 240.") |}]
+     "User send did not complete:  called in lib/simulator/ir_test.ml on line 274, on chan created in lib/simulator/ir_test.ml on line 240.") |}]
 
 let%expect_test "test_buff 2" =
   let dtype = DType.int_ in
@@ -300,7 +300,7 @@ let%expect_test "test_buff 2" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in lib/act/ir_test.ml on line 298, on chan created in lib/act/ir_test.ml on line 283.") |}]
+     "User send did not complete:  called in lib/simulator/ir_test.ml on line 298, on chan created in lib/simulator/ir_test.ml on line 283.") |}]
 
 let%expect_test "mem" =
   let mem = UnguardedMem.create DType.int_ [| 1; 2; 3; 4 |] in
@@ -333,7 +333,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Mem access out of bounds: in lib/act/ir_test.ml on line 326, idx is 4, size of mem is 4.") |}]
+     "Mem access out of bounds: in lib/simulator/ir_test.ml on line 326, idx is 4, size of mem is 4.") |}]
 
 let%expect_test "mem" =
   let mem = UnguardedMem.create DType.int_ [| 1; 2; 3; 4 |] in
@@ -359,4 +359,4 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Simulatnious writes of variable: statement 1 in lib/act/ir_test.ml on line 351, statement 2 in lib/act/ir_test.ml on line 346, create in lib/act/ir_test.ml on line 340.") |}]
+     "Simulatnious writes of variable: statement 1 in lib/simulator/ir_test.ml on line 351, statement 2 in lib/simulator/ir_test.ml on line 346, create in lib/simulator/ir_test.ml on line 340.") |}]

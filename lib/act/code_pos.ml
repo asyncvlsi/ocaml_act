@@ -23,8 +23,9 @@ let library_filenames =
   String.Set.of_list
     [
       "lib/act/code_pos.ml";
+      "lib/act/act.ml";
       "lib/act/ir.ml";
-      "lib/act/sim.ml";
+      "lib/simulator/sim.ml";
       "list.ml";
       "src/list0.ml";
       "collector/expect_test_collector.ml";

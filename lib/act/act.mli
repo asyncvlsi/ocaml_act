@@ -1,5 +1,8 @@
 open! Core
 
+module Any = Any
+module Vec = Vec
+
 module type DTypeable = sig
   type t [@@deriving sexp_of, equal]
 end
@@ -12,6 +15,8 @@ module DType : sig
   val string_ : string t
   val of_module : (module DTypeable with type t = 'a) -> 'a t
 end
+
+module Code_pos = Code_pos
 
 module type Comparable_and_hashable = sig
   type t [@@deriving sexp_of, compare, equal, hash]
@@ -175,6 +180,11 @@ module Internal_rep : sig
     end
 
     type 'a t = { u : U.t } [@@deriving sexp_of]
+
+    val of_ir_r : 'a Chan.R.t -> U.t
+    val of_ir_w : 'a Chan.W.t -> U.t
+    val of_ir_ru : Chan.R.U.t -> U.t
+    val of_ir_wu : Chan.W.U.t -> U.t
   end
 
   module Var : sig
@@ -264,5 +274,7 @@ module Internal_rep : sig
       | SelectImm of Code_pos.t * (bool Expr.t * t) list * t option
       | ReadUGMem of Code_pos.t * Unguarded_mem.t * int Expr.t * Var.U.t
       | WriteUGMem of Code_pos.t * Unguarded_mem.t * int Expr.t * Expr.U.t
+
+    val of_ir : N.t -> t
   end
 end
