@@ -1,8 +1,0 @@
-open! Core
-
-type t = bool [@@deriving sexp]
-
-let not t = not t
-let true_ = true
-let false_ = false
-let of_bool t = t
