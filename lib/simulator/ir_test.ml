@@ -338,6 +338,7 @@ let%expect_test "mem" =
 let%expect_test "mem" =
   let mem = Mem.create_ug_mem DType.int_ [| 1; 2; 3; 4 |] in
   let var1 = Var.create DType.int_ in
+  let var2 = Var.create DType.int_ in
   let ir =
     N.par
       [
@@ -348,15 +349,49 @@ let%expect_test "mem" =
           ];
         N.seq
           [
-            N.read_ug_mem mem ~idx:Expr.(const 3) ~dst:var1;
-            N.log Expr.(var var1 |> map ~f:Int.to_string);
+            N.read_ug_mem mem ~idx:Expr.(const 3) ~dst:var2;
+            N.log Expr.(var var2 |> map ~f:Int.to_string);
           ];
       ]
   in
   let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
   Sim.wait' sim ();
-  (* This is of the dummy variable assoiated with the mem. This is misleading, and should report a better message *)
   [%expect
     {|
     (Error
-     "Simulatnious writes of variable: statement 1 in lib/simulator/ir_test.ml on line 351, statement 2 in lib/simulator/ir_test.ml on line 346, create in lib/simulator/ir_test.ml on line 340.") |}]
+     "Simulatnious accesses of a memory/rom: statement 1 in lib/simulator/ir_test.ml on line 352, statement 2 in lib/simulator/ir_test.ml on line 347.") |}]
+
+let%expect_test "test probes" =
+  let var = Var.create DType.int_ in
+  let chan = Chan.create DType.int_ in
+  let ir =
+    N.par
+      [
+        N.seq
+          [
+            N.log (Expr.const "A ");
+            N.wait_probe_w chan.w;
+            N.log (Expr.const "B ");
+            N.log (Expr.const "C ");
+            N.send chan.w Expr.(const 3);
+            N.log (Expr.const "D ");
+            N.log (Expr.const "E ");
+            N.log (Expr.const "F ");
+          ];
+        N.seq
+          [
+            N.log (Expr.const "1 ");
+            N.log (Expr.const "2 ");
+            N.log (Expr.const "3 ");
+            N.log (Expr.const "4 ");
+            N.read chan.r var;
+            N.log (Expr.const "5 ");
+          ];
+      ]
+  in
+  let sim =
+    Sim.create ir ~user_sendable_ports:[ chan.w.u ] ~user_readable_ports:[]
+  in
+  Sim.wait' sim ();
+  [%expect {|
+    A 1 2 3 4 B C D E 5 F (Ok ()) |}]

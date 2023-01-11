@@ -39,3 +39,6 @@ let length t = t.len
 let find t ~f =
   Array.findi t.arr ~f:(fun i v -> if i < t.len then f v else false)
   |> Option.map ~f:snd
+
+let iter t ~f = Array.iteri t.arr ~f:(fun i v -> if i < t.len then f v else ())
+let clear t = t.len <- 0

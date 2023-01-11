@@ -14,6 +14,8 @@ module T = struct
     | SelectImm of Code_pos.t * (bool Expr.Ir.t * t) list * t option
     | ReadUGMem of Code_pos.t * Mem.Ir.t * int Expr.Ir.t * Var.Ir.U.t
     | WriteUGMem of Code_pos.t * Mem.Ir.t * int Expr.Ir.t * Expr.Ir.U.t
+    | WaitUntilReadReady of Code_pos.t * Chan.Ir.U.t
+    | WaitUntilSendReady of Code_pos.t * Chan.Ir.U.t
 end
 
 include T
@@ -36,6 +38,38 @@ let send ?loc chan_id expr =
     (Code_pos.value_or_psite loc, Chan.Ir.unwrap_w chan_id, Expr.Ir.untype' expr)
 
 let send' ?loc chan_id var_id = send ?loc chan_id Expr.(var var_id)
+
+let wait_probe_r ?loc chan_id =
+  let loc = Code_pos.value_or_psite loc in
+  let chan = Chan.Ir.unwrap_r chan_id in
+  match chan.d.wait_sendable_code_pos with
+  | Some wait_sendable_code_pos ->
+      failwith
+        [%string
+          "Trying to wait until a channel is readable, but line \
+           %{wait_sendable_code_pos.line_number#Int} in \
+           %{wait_sendable_code_pos.filename} is waiting for this channel to \
+           be sendable. A channel can be probed on at most one side."]
+  | None ->
+      if Option.is_none chan.d.wait_readable_code_pos then
+        chan.d.wait_readable_code_pos <- Some loc;
+      WaitUntilSendReady (loc, chan)
+
+let wait_probe_w ?loc chan_id =
+  let loc = Code_pos.value_or_psite loc in
+  let chan = Chan.Ir.unwrap_w chan_id in
+  match chan.d.wait_readable_code_pos with
+  | Some wait_readable_code_pos ->
+      failwith
+        [%string
+          "Trying to wait until a channel is sendable, but line \
+           %{wait_readable_code_pos.line_number#Int} in \
+           %{wait_readable_code_pos.filename} is waiting for this channel to \
+           be readable. A channel can be probed on at most one side."]
+  | None ->
+      if Option.is_none chan.d.wait_sendable_code_pos then
+        chan.d.wait_sendable_code_pos <- Some loc;
+      WaitUntilReadReady (loc, chan)
 
 (* interacting with memories *)
 let read_ug_mem ?loc (mem : 'a Mem.ug_mem) ~idx ~(dst : 'a Var.t) =

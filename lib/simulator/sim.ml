@@ -189,6 +189,8 @@ module Chan_buff = struct
     mutable send_ready : bool;
     mutable send_instr : Instr_idx.t;
     mutable send_expr : Expr.t;
+    mutable waiting_on_send_ready : Instr_idx.t Vec.t;
+    mutable waiting_on_read_ready : Instr_idx.t Vec.t;
   }
   [@@deriving sexp_of]
 
@@ -200,6 +202,8 @@ module Chan_buff = struct
       send_instr = Instr_idx.dummy_val;
       read_dst_var_id = 0;
       send_expr = Const (Obj.magic 0);
+      waiting_on_send_ready = Vec.create ~cap:10 ~default:0;
+      waiting_on_read_ready = Vec.create ~cap:10 ~default:0;
     }
 end
 
@@ -262,6 +266,11 @@ module N = struct
        should be placed immediatly after the assoiated send/read instruction *)
     | Send_enqueuer of Send_enqueuer.t
     | Read_dequeuer of Read_dequeuer.t
+    | WaitUntilReadReady of Chan_id.t
+    | WaitUntilSendReady of Chan_id.t
+    (* These allow for probabilistic testing that a probe is stable *)
+    | AssertStillReadReady of Chan_id.t
+    | AssertStillSendReady of Chan_id.t
   [@@deriving sexp_of]
 
   let read_ids t =
@@ -277,7 +286,9 @@ module N = struct
     | Read_dequeuer d -> [ d.var_id ]
     | ReadMem (idx_expr, _, _, _) -> Expr.var_ids idx_expr
     | WriteMem (idx_expr, src_expr, _, _) ->
-        Expr.var_ids idx_expr @ Expr.var_ids src_expr)
+        Expr.var_ids idx_expr @ Expr.var_ids src_expr
+    | WaitUntilSendReady _ | WaitUntilReadReady _ -> []
+    | AssertStillReadReady _ | AssertStillSendReady _ -> [])
     |> Var_id.Set.of_list
 
   let write_ids t =
@@ -290,7 +301,9 @@ module N = struct
     | Send_enqueuer d -> [ d.var_id ]
     | Read_dequeuer _ -> []
     | ReadMem (_, dst, mem_idx_reg, _) -> [ dst; mem_idx_reg ]
-    | WriteMem (_, _, mem_idx_reg, _) -> [ mem_idx_reg ])
+    | WriteMem (_, _, mem_idx_reg, _) -> [ mem_idx_reg ]
+    | WaitUntilSendReady _ | WaitUntilReadReady _ -> []
+    | AssertStillReadReady _ | AssertStillSendReady _ -> [])
     |> Var_id.Set.of_list
 end
 
@@ -513,6 +526,11 @@ let step' t ~pc_idx =
         chan.read_instr <- pc;
         chan.read_dst_var_id <- dst_id;
         Vec.remove t.pcs pc_idx;
+        Vec.iter chan.waiting_on_read_ready ~f:(fun waiting_pc ->
+            (* It doesnt need gaurding becaus the waiting_pc is required to be a WaitUntilReadable
+               or WaitUntilSendable node, which has no read/written variables *)
+            Vec.push t.pcs waiting_pc);
+        Vec.clear chan.waiting_on_read_ready;
         step_chan chan)
   | Send (expr, chan_idx) ->
       (* unguard pc; *)
@@ -523,7 +541,36 @@ let step' t ~pc_idx =
         chan.send_instr <- pc;
         chan.send_expr <- expr;
         Vec.remove t.pcs pc_idx;
+        Vec.iter chan.waiting_on_send_ready ~f:(fun waiting_pc ->
+            (* It doesnt need gaurding becaus the waiting_pc is required to be a WaitUntilReadable
+               or WaitUntilSendable node, which has no read/written variables *)
+            Vec.push t.pcs waiting_pc);
+        Vec.clear chan.waiting_on_send_ready;
         step_chan chan)
+  | WaitUntilSendReady chan_idx ->
+      (* unguard pc; *)
+      let chan = t.chan_table.(chan_idx) in
+      if chan.send_ready then set_pc_and_guard ~pc_idx (pc + 1)
+      else (
+        Vec.remove t.pcs pc_idx;
+        Vec.push chan.waiting_on_send_ready (pc + 1);
+        Ok ())
+  | WaitUntilReadReady chan_idx ->
+      (* unguard pc; *)
+      let chan = t.chan_table.(chan_idx) in
+      if chan.read_ready then set_pc_and_guard ~pc_idx (pc + 1)
+      else (
+        Vec.remove t.pcs pc_idx;
+        Vec.push chan.waiting_on_read_ready (pc + 1);
+        Ok ())
+  | AssertStillSendReady chan_idx ->
+      let chan = t.chan_table.(chan_idx) in
+      if chan.read_ready then set_pc_and_guard ~pc_idx (pc + 1)
+      else Error (`Unstable_wait_until_send_ready (pc, chan_idx))
+  | AssertStillReadReady chan_idx ->
+      let chan = t.chan_table.(chan_idx) in
+      if chan.read_ready then set_pc_and_guard ~pc_idx (pc + 1)
+      else Error (`Unstable_wait_until_read_ready (pc, chan_idx))
   | Send_enqueuer d ->
       unguard pc;
       assert (not d.is_done);
@@ -710,6 +757,10 @@ let resolve_step_err t e ~line_numbers =
         [%string
           "Mem access out of bounds: %{str_i pc}, idx is %{idx#Int}, size of \
            mem is %{len#Int}."]
+  | `Unstable_wait_until_read_ready (pc, _) ->
+      Error [%string "Unstable wait_until_read_ready: %{str_i pc}."]
+  | `Unstable_wait_until_send_ready (pc, _) ->
+      Error [%string "Unstable wait_until_send_ready: %{str_i pc}."]
 
 let schedual_user_chan_ops t ~user_sends ~user_reads =
   let set_user_sends t ~values ~send_instr =
@@ -920,6 +971,14 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
         let mem_idx_reg, mem_id = get_mem mem in
         push_instr loc
           (WriteMem (convert_expr idx, convert_expr value, mem_idx_reg, mem_id))
+    | WaitUntilReadReady (loc, chan) ->
+        let chan_idx = get_chan chan in
+        let (_ : Instr_idx.t) = push_instr loc (WaitUntilReadReady chan_idx) in
+        push_instr loc (AssertStillReadReady chan_idx)
+    | WaitUntilSendReady (loc, chan) ->
+        let chan_idx = get_chan chan in
+        let (_ : Instr_idx.t) = push_instr loc (WaitUntilSendReady chan_idx) in
+        push_instr loc (AssertStillSendReady chan_idx)
   in
 
   (* Build the main program. An initial jump is required. *)

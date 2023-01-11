@@ -9,6 +9,10 @@ val read : ?loc:Code_pos.t -> 'a Chan.R.t -> 'a Var.t -> t
 val send : ?loc:Code_pos.t -> 'a Chan.W.t -> 'a Expr.t -> t
 val send' : ?loc:Code_pos.t -> 'a Chan.W.t -> 'a Var.t -> t
 
+(* probes *)
+val wait_probe_r : ?loc:Code_pos.t -> 'a Chan.R.t -> t
+val wait_probe_w : ?loc:Code_pos.t -> 'a Chan.W.t -> t
+
 (* interacting with memories *)
 val read_ug_mem :
   ?loc:Code_pos.t -> 'a Mem.ug_mem -> idx:int Expr.t -> dst:'a Var.t -> t
@@ -52,6 +56,8 @@ module Ir : sig
     | SelectImm of Code_pos.t * (bool Expr.Ir.t * t) list * t option
     | ReadUGMem of Code_pos.t * Mem.Ir.t * int Expr.Ir.t * Var.Ir.U.t
     | WriteUGMem of Code_pos.t * Mem.Ir.t * int Expr.Ir.t * Expr.Ir.U.t
+    | WaitUntilReadReady of Code_pos.t * Chan.Ir.U.t
+    | WaitUntilSendReady of Code_pos.t * Chan.Ir.U.t
 
   val unwrap : outer -> t
 end
