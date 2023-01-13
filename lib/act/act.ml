@@ -1,6 +1,7 @@
 open! Core
 module Any = Any
 module Chan = Chan
+module CInt = Cint
 module Code_pos = Code_pos
 module DType = Dtype
 module Expr = Expr

@@ -189,8 +189,8 @@ module Chan_buff = struct
     mutable send_ready : bool;
     mutable send_instr : Instr_idx.t;
     mutable send_expr : Expr.t;
-    mutable waiting_on_send_ready : Instr_idx.t Vec.t;
-    mutable waiting_on_read_ready : Instr_idx.t Vec.t;
+    waiting_on_send_ready : Instr_idx.t Vec.t;
+    waiting_on_read_ready : Instr_idx.t Vec.t;
   }
   [@@deriving sexp_of]
 
@@ -422,15 +422,15 @@ type t = {
   all_dequeuers : (Instr_idx.t * Read_dequeuer.t) list;
   var_id_pool : Var_id_pool.t;
   chan_id_pool : Chan_id_pool.t;
-  mem_id_pool : Mem_id_pool.t;
+  (* mem_id_pool : Mem_id_pool.t; *)
   (* per-wait state *)
-  mutable queued_user_ops : Queued_user_op.t Queue.t;
+  queued_user_ops : Queued_user_op.t Queue.t;
   (* simulation state *)
-  mutable pcs : Instr_idx.t Vec.t;
-  mutable var_table : Var_table.t;
-  mutable chan_table : Chan_buff.t array;
-  mutable mem_table : Mem_buff.t array;
-  mutable rng : (Random.State.t[@sexp.opaque]);
+  pcs : Instr_idx.t Vec.t;
+  var_table : Var_table.t;
+  chan_table : Chan_buff.t array;
+  mem_table : Mem_buff.t array;
+  rng : (Random.State.t[@sexp.opaque]);
   mutable is_done : bool;
 }
 
@@ -1055,7 +1055,6 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
     all_dequeuers;
     var_id_pool;
     chan_id_pool;
-    mem_id_pool;
     queued_user_ops = Queue.create ();
     pcs;
     var_table;

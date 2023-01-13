@@ -6,7 +6,7 @@ end
 
 type 'a t
 
-val int_ : int t
+val int_ : Cint.t t
 val bool_ : bool t
 val string_ : string t
 val of_module : (module DTypeable with type t = 'a) -> 'a t

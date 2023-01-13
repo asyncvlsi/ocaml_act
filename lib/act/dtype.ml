@@ -12,7 +12,7 @@ let create ~(equal : 'a -> 'a -> bool) ~(sexp_of_t : 'a -> Sexp.t) : 'a t =
 let of_module (type a) (module M : DTypeable with type t = a) : a t =
   create ~equal:M.equal ~sexp_of_t:M.sexp_of_t
 
-let int_ = of_module (module Int)
+let int_ = of_module (module Cint)
 let bool_ = of_module (module Bool)
 let string_ = of_module (module String)
 

@@ -12,8 +12,8 @@ module T = struct
     | Loop of Code_pos.t * t
     | WhileLoop of Code_pos.t * bool Expr.Ir.t * t
     | SelectImm of Code_pos.t * (bool Expr.Ir.t * t) list * t option
-    | ReadUGMem of Code_pos.t * Mem.Ir.t * int Expr.Ir.t * Var.Ir.U.t
-    | WriteUGMem of Code_pos.t * Mem.Ir.t * int Expr.Ir.t * Expr.Ir.U.t
+    | ReadUGMem of Code_pos.t * Mem.Ir.t * Cint.t Expr.Ir.t * Var.Ir.U.t
+    | WriteUGMem of Code_pos.t * Mem.Ir.t * Cint.t Expr.Ir.t * Expr.Ir.U.t
     | WaitUntilReadReady of Code_pos.t * Chan.Ir.U.t
     | WaitUntilSendReady of Code_pos.t * Chan.Ir.U.t
 end
@@ -25,7 +25,7 @@ let assign ?loc var_id expr =
     (Code_pos.value_or_psite loc, Var.Ir.untype' var_id, Expr.Ir.untype' expr)
 
 let toggle ?loc var_id = assign ?loc var_id Expr.(var var_id |> not_)
-let incr ?loc var_id = assign ?loc var_id Expr.(var var_id |> add (const 1))
+let incr ?loc var_id = assign ?loc var_id Expr.(var var_id |> add (cint 1))
 
 let read ?loc chan_id var_id =
   Read

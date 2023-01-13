@@ -5,19 +5,19 @@ module T = struct
     | Var : 'a Var.Ir.t -> 'a t
     | Const : 'a -> 'a t
     | Map : Any.t t * (Any.t -> 'a) -> 'a t
-    | Add : int t * int t -> int t
-    | Sub : int t * int t -> int t
-    | Mul : int t * int t -> int t
-    | Div : int t * int t -> int t
-    | Mod : int t * int t -> int t
-    | LShift : int t * int t -> int t
-    | LogicalRShift : int t * int t -> int t
-    | ArithRShift : int t * int t -> int t
-    | BitAnd : int t * int t -> int t
-    | BitOr : int t * int t -> int t
-    | BitXor : int t * int t -> int t
-    | Eq : int t * int t -> bool t
-    | Ne : int t * int t -> bool t
+    | Add : Cint.t t * Cint.t t -> Cint.t t
+    | Sub : Cint.t t * Cint.t t -> Cint.t t
+    | Mul : Cint.t t * Cint.t t -> Cint.t t
+    | Div : Cint.t t * Cint.t t -> Cint.t t
+    | Mod : Cint.t t * Cint.t t -> Cint.t t
+    | LShift : Cint.t t * Cint.t t -> Cint.t t
+    | LogicalRShift : Cint.t t * Cint.t t -> Cint.t t
+    | ArithRShift : Cint.t t * Cint.t t -> Cint.t t
+    | BitAnd : Cint.t t * Cint.t t -> Cint.t t
+    | BitOr : Cint.t t * Cint.t t -> Cint.t t
+    | BitXor : Cint.t t * Cint.t t -> Cint.t t
+    | Eq : Cint.t t * Cint.t t -> bool t
+    | Ne : Cint.t t * Cint.t t -> bool t
     | Not : bool t -> bool t
   [@@deriving sexp_of]
 
@@ -31,6 +31,7 @@ module T = struct
   (* main operations *)
   let var v = Var (Var.Ir.unwrap v)
   let const c = Const c
+  let cint i = Const (Cint.of_int i)
   let map (e : 'a t) ~(f : 'a -> 'b) = Map (untype e, Obj.magic f)
 
   (* ops *)

@@ -4,7 +4,7 @@ type t
 
 val assign : ?loc:Code_pos.t -> 'a Var.t -> 'a Expr.t -> t
 val toggle : ?loc:Code_pos.t -> bool Var.t -> t
-val incr : ?loc:Code_pos.t -> int Var.t -> t
+val incr : ?loc:Code_pos.t -> Cint.t Var.t -> t
 val read : ?loc:Code_pos.t -> 'a Chan.R.t -> 'a Var.t -> t
 val send : ?loc:Code_pos.t -> 'a Chan.W.t -> 'a Expr.t -> t
 val send' : ?loc:Code_pos.t -> 'a Chan.W.t -> 'a Var.t -> t
@@ -15,16 +15,16 @@ val wait_probe_w : ?loc:Code_pos.t -> 'a Chan.W.t -> t
 
 (* interacting with memories *)
 val read_ug_mem :
-  ?loc:Code_pos.t -> 'a Mem.ug_mem -> idx:int Expr.t -> dst:'a Var.t -> t
+  ?loc:Code_pos.t -> 'a Mem.ug_mem -> idx:Cint.t Expr.t -> dst:'a Var.t -> t
 
 val write_ug_mem :
-  ?loc:Code_pos.t -> 'a Mem.ug_mem -> idx:int Expr.t -> value:'a Expr.t -> t
+  ?loc:Code_pos.t -> 'a Mem.ug_mem -> idx:Cint.t Expr.t -> value:'a Expr.t -> t
 
 val write_ug_mem' :
-  ?loc:Code_pos.t -> 'a Mem.ug_mem -> idx:int Expr.t -> value:'a Var.t -> t
+  ?loc:Code_pos.t -> 'a Mem.ug_mem -> idx:Cint.t Expr.t -> value:'a Var.t -> t
 
 val read_ug_rom :
-  ?loc:Code_pos.t -> 'a Mem.ug_rom -> idx:int Expr.t -> dst:'a Var.t -> t
+  ?loc:Code_pos.t -> 'a Mem.ug_rom -> idx:Cint.t Expr.t -> dst:'a Var.t -> t
 
 (* phantom instructions *)
 val log : ?loc:Code_pos.t -> string Expr.t -> t
@@ -54,8 +54,8 @@ module Ir : sig
     | Loop of Code_pos.t * t
     | WhileLoop of Code_pos.t * bool Expr.Ir.t * t
     | SelectImm of Code_pos.t * (bool Expr.Ir.t * t) list * t option
-    | ReadUGMem of Code_pos.t * Mem.Ir.t * int Expr.Ir.t * Var.Ir.U.t
-    | WriteUGMem of Code_pos.t * Mem.Ir.t * int Expr.Ir.t * Expr.Ir.U.t
+    | ReadUGMem of Code_pos.t * Mem.Ir.t * Cint.t Expr.Ir.t * Var.Ir.U.t
+    | WriteUGMem of Code_pos.t * Mem.Ir.t * Cint.t Expr.Ir.t * Expr.Ir.U.t
     | WaitUntilReadReady of Code_pos.t * Chan.Ir.U.t
     | WaitUntilSendReady of Code_pos.t * Chan.Ir.U.t
 

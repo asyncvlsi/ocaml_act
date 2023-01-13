@@ -8,14 +8,14 @@ let%expect_test "test1" =
     let chan2 = Chan.create DType.int_ in
     N.seq
       [
-        N.assign var0 (Expr.const 12345);
+        N.assign var0 (Expr.cint 12345);
         N.par
           [
             N.loop [ N.send chan2.w (Expr.var var0) ];
             N.seq
               [
                 N.read chan2.r var1;
-                N.log Expr.(var var1 |> map ~f:Int.to_string);
+                N.log Expr.(var var1 |> map ~f:CInt.to_string);
               ];
           ];
       ]
@@ -27,24 +27,22 @@ let%expect_test "test1" =
 
 let%expect_test "test2" =
   let ir =
-    let var0 = Var.create DType.int_ ~init:123456 in
-    let var1 = Var.create DType.int_ ~init:1 in
+    let var0 = Var.create DType.int_ ~init:(CInt.of_int 123456) in
+    let var1 = Var.create DType.int_ ~init:(CInt.of_int 1) in
     N.seq
       [
-        N.assign var0 (Expr.const 123456);
-        N.assign var1 (Expr.const 1);
+        N.assign var0 (Expr.cint 123456);
+        N.assign var1 (Expr.cint 1);
         N.while_loop
-          Expr.(ne (var var0) (const 1))
+          Expr.(ne (var var0) (cint 1))
           [
-            N.assign var1 Expr.(var var1 |> add (const 1));
+            N.assign var1 Expr.(var var1 |> add (cint 1));
             N.if_else
-              Expr.(mod_ (var var0) (const 2) |> eq (const 0))
-              [ N.assign var0 Expr.(div (var var0) (const 2)) ]
-              [
-                N.assign var0 Expr.(var var0 |> mul (const 3) |> add (const 1));
-              ];
+              Expr.(mod_ (var var0) (cint 2) |> eq (cint 0))
+              [ N.assign var0 Expr.(div (var var0) (cint 2)) ]
+              [ N.assign var0 Expr.(var var0 |> mul (cint 3) |> add (cint 1)) ];
           ];
-        N.log Expr.(var var1 |> map ~f:(sprintf "%d\n"));
+        N.log Expr.(var var1 |> map ~f:(fun v -> [%string "%{v#CInt}\n"]));
       ]
   in
   let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
@@ -75,19 +73,19 @@ let%expect_test "test3" =
   [%expect {|
     start
     (Ok ()) |}];
-  Sim.send sim chan.w 100;
+  Sim.send sim chan.w (CInt.of_int 100);
   Sim.wait' sim ();
   [%expect {|
     recv 1
     (Ok ()) |}];
-  Sim.send sim chan.w 200;
+  Sim.send sim chan.w (CInt.of_int 200);
   Sim.wait' sim ();
   [%expect {|
     recv 2
     (Ok ()) |}];
   Sim.wait' sim ();
   [%expect {| (Ok ()) |}];
-  Sim.send sim chan.w 300;
+  Sim.send sim chan.w (CInt.of_int 300);
   Sim.wait' sim ();
   [%expect {|
     done
@@ -105,7 +103,7 @@ let%expect_test "test3" =
         N.log (Expr.const "recv 1\n");
         N.send chan2.w Expr.(var var1);
         N.log (Expr.const "send 1\n");
-        N.assert_ Expr.(var var1 |> eq (const 200));
+        N.assert_ Expr.(var var1 |> eq (cint 200));
         N.log (Expr.const "done\n");
       ]
   in
@@ -117,12 +115,12 @@ let%expect_test "test3" =
   [%expect {|
     start
     (Ok ()) |}];
-  Sim.send sim chan1.w 200;
+  Sim.send sim chan1.w (CInt.of_int 200);
   Sim.wait' sim ();
   [%expect {|
     recv 1
     (Ok ()) |}];
-  Sim.read sim chan2.r 200;
+  Sim.read sim chan2.r (CInt.of_int 200);
   Sim.wait' sim ();
   [%expect {|
     send 1
@@ -144,7 +142,7 @@ let%expect_test "test4" =
         N.log (Expr.const "recv 1\n");
         N.send chan2.w Expr.(var var1);
         N.log (Expr.const "send 1\n");
-        N.assert_ Expr.(var var1 |> eq (const 210));
+        N.assert_ Expr.(var var1 |> eq (cint 210));
         N.log (Expr.const "done\n");
       ]
   in
@@ -156,17 +154,17 @@ let%expect_test "test4" =
   [%expect {|
     start
     (Ok ()) |}];
-  Sim.send sim chan1.w 200;
+  Sim.send sim chan1.w (CInt.of_int 200);
   Sim.wait' sim ();
   [%expect {|
     recv 1
     (Ok ()) |}];
-  Sim.read sim chan2.r 200;
+  Sim.read sim chan2.r (CInt.of_int 200);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
   [%expect
     {|
       send 1
-      (Error "Assertion failed: in lib/simulator/ir_test.ml on line 147.") |}]
+      (Error "Assertion failed: in lib/simulator/ir_test.ml on line 145.") |}]
 
 let%expect_test "test5" =
   let var1 = Var.create DType.int_ in
@@ -179,22 +177,22 @@ let%expect_test "test5" =
   in
   Sim.wait' sim ();
   [%expect {| (Ok ()) |}];
-  Sim.send sim chan1.w 1;
-  Sim.send sim chan1.w 2;
-  Sim.send sim chan1.w 3;
-  Sim.send sim chan1.w 4;
-  Sim.send sim chan1.w 5;
+  Sim.send sim chan1.w (CInt.of_int 1);
+  Sim.send sim chan1.w (CInt.of_int 2);
+  Sim.send sim chan1.w (CInt.of_int 3);
+  Sim.send sim chan1.w (CInt.of_int 4);
+  Sim.send sim chan1.w (CInt.of_int 5);
 
-  Sim.read sim chan2.r 1;
-  Sim.read sim chan2.r 2;
-  Sim.read sim chan2.r 3;
-  Sim.read sim chan2.r 5;
-  Sim.read sim chan2.r 5;
+  Sim.read sim chan2.r (CInt.of_int 1);
+  Sim.read sim chan2.r (CInt.of_int 2);
+  Sim.read sim chan2.r (CInt.of_int 3);
+  Sim.read sim chan2.r (CInt.of_int 5);
+  Sim.read sim chan2.r (CInt.of_int 5);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
   [%expect
     {|
       (Error
-       "User read has wrong value: got 4, but expected 5 based on `send' function call in lib/simulator/ir_test.ml on line 191, on chan created in lib/simulator/ir_test.ml on line 174.") |}]
+       "User read has wrong value: got 4, but expected 5 based on `send' function call in lib/simulator/ir_test.ml on line 189, on chan created in lib/simulator/ir_test.ml on line 172.") |}]
 
 let split ~dtype i1 o1 o2 =
   let var1 = Var.create dtype in
@@ -243,40 +241,40 @@ let%expect_test "test_buff 1" =
   let sim =
     Sim.create ir ~user_sendable_ports:[ i.u ] ~user_readable_ports:[ o.u ]
   in
-  Sim.send sim i 7;
+  Sim.send sim i (CInt.of_int 7);
 
-  Sim.read sim o 7;
+  Sim.read sim o (CInt.of_int 7);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
   [%expect {|
     (Ok ()) |}];
 
-  Sim.send sim i 1;
-  Sim.send sim i 2;
+  Sim.send sim i (CInt.of_int 1);
+  Sim.send sim i (CInt.of_int 2);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
 
-  Sim.read sim o 1;
-  Sim.read sim o 2;
+  Sim.read sim o (CInt.of_int 1);
+  Sim.read sim o (CInt.of_int 2);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
   [%expect {|
     (Ok ())
     (Ok ()) |}];
 
-  Sim.read sim o 8;
-  Sim.read sim o 88;
-  Sim.send sim i 8;
-  Sim.send sim i 88;
+  Sim.read sim o (CInt.of_int 8);
+  Sim.read sim o (CInt.of_int 88);
+  Sim.send sim i (CInt.of_int 8);
+  Sim.send sim i (CInt.of_int 88);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
   [%expect {|
     (Ok ()) |}];
 
-  Sim.send sim i 12;
-  Sim.send sim i 13;
-  Sim.send sim i 14;
+  Sim.send sim i (CInt.of_int 12);
+  Sim.send sim i (CInt.of_int 13);
+  Sim.send sim i (CInt.of_int 14);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
   [%expect
     {|
     (Error
-     "User send did not complete:  called in lib/simulator/ir_test.ml on line 274, on chan created in lib/simulator/ir_test.ml on line 240.") |}]
+     "User send did not complete:  called in lib/simulator/ir_test.ml on line 272, on chan created in lib/simulator/ir_test.ml on line 238.") |}]
 
 let%expect_test "test_buff 2" =
   let dtype = DType.int_ in
@@ -287,29 +285,32 @@ let%expect_test "test_buff 2" =
     Sim.create ir ~user_sendable_ports:[ i.u ] ~user_readable_ports:[ o.u ]
   in
 
-  List.iter [ 1; 2; 3; 4; 5; 6 ] ~f:(fun v -> Sim.send sim i v);
+  List.iter [ 1; 2; 3; 4; 5; 6 ] ~f:(fun v -> Sim.send sim i (CInt.of_int v));
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
-  List.iter [ 1; 2; 3; 4; 5; 6 ] ~f:(fun v -> Sim.read sim o v);
+  List.iter [ 1; 2; 3; 4; 5; 6 ] ~f:(fun v -> Sim.read sim o (CInt.of_int v));
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
   [%expect {|
     (Ok ())
     (Ok ()) |}];
 
-  List.iter [ 1; 2; 3; 4; 5; 6; 7 ] ~f:(fun v -> Sim.send sim i v);
+  List.iter [ 1; 2; 3; 4; 5; 6; 7 ] ~f:(fun v -> Sim.send sim i (CInt.of_int v));
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
   [%expect
     {|
     (Error
-     "User send did not complete:  called in lib/simulator/ir_test.ml on line 298, on chan created in lib/simulator/ir_test.ml on line 283.") |}]
+     "User send did not complete:  called in lib/simulator/ir_test.ml on line 296, on chan created in lib/simulator/ir_test.ml on line 281.") |}]
 
 let%expect_test "mem" =
-  let mem = Mem.create_ug_mem DType.int_ [| 1; 2; 3; 4 |] in
+  let mem =
+    let arr = [| 1; 2; 3; 4 |] |> Array.map ~f:CInt.of_int in
+    Mem.create_ug_mem DType.int_ arr
+  in
   let var1 = Var.create DType.int_ in
   let ir =
     N.seq
       [
-        N.read_ug_mem mem ~idx:Expr.(const 3) ~dst:var1;
-        N.log Expr.(var var1 |> map ~f:Int.to_string);
+        N.read_ug_mem mem ~idx:Expr.(cint 3) ~dst:var1;
+        N.log Expr.(var var1 |> map ~f:CInt.to_string);
       ]
   in
   let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
@@ -318,13 +319,16 @@ let%expect_test "mem" =
     4(Ok ()) |}]
 
 let%expect_test "mem" =
-  let mem = Mem.create_ug_mem DType.int_ [| 1; 2; 3; 4 |] in
+  let mem =
+    let arr = [| 1; 2; 3; 4 |] |> Array.map ~f:CInt.of_int in
+    Mem.create_ug_mem DType.int_ arr
+  in
   let var1 = Var.create DType.int_ in
   let ir =
     N.seq
       [
-        N.read_ug_mem mem ~idx:Expr.(const 4) ~dst:var1;
-        N.log Expr.(var var1 |> map ~f:Int.to_string);
+        N.read_ug_mem mem ~idx:Expr.(cint 4) ~dst:var1;
+        N.log Expr.(var var1 |> map ~f:CInt.to_string);
       ]
   in
   let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
@@ -333,10 +337,13 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Mem access out of bounds: in lib/simulator/ir_test.ml on line 326, idx is 4, size of mem is 4.") |}]
+     "Mem access out of bounds: in lib/simulator/ir_test.ml on line 330, idx is 4, size of mem is 4.") |}]
 
 let%expect_test "mem" =
-  let mem = Mem.create_ug_mem DType.int_ [| 1; 2; 3; 4 |] in
+  let mem =
+    let arr = [| 1; 2; 3; 4 |] |> Array.map ~f:CInt.of_int in
+    Mem.create_ug_mem DType.int_ arr
+  in
   let var1 = Var.create DType.int_ in
   let var2 = Var.create DType.int_ in
   let ir =
@@ -344,13 +351,13 @@ let%expect_test "mem" =
       [
         N.seq
           [
-            N.read_ug_mem mem ~idx:Expr.(const 3) ~dst:var1;
-            N.log Expr.(var var1 |> map ~f:Int.to_string);
+            N.read_ug_mem mem ~idx:Expr.(cint 3) ~dst:var1;
+            N.log Expr.(var var1 |> map ~f:CInt.to_string);
           ];
         N.seq
           [
-            N.read_ug_mem mem ~idx:Expr.(const 3) ~dst:var2;
-            N.log Expr.(var var2 |> map ~f:Int.to_string);
+            N.read_ug_mem mem ~idx:Expr.(cint 3) ~dst:var2;
+            N.log Expr.(var var2 |> map ~f:CInt.to_string);
           ];
       ]
   in
@@ -359,7 +366,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Simulatnious accesses of a memory/rom: statement 1 in lib/simulator/ir_test.ml on line 352, statement 2 in lib/simulator/ir_test.ml on line 347.") |}]
+     "Simulatnious accesses of a memory/rom: statement 1 in lib/simulator/ir_test.ml on line 359, statement 2 in lib/simulator/ir_test.ml on line 354.") |}]
 
 let%expect_test "test probes" =
   let var = Var.create DType.int_ in
@@ -373,7 +380,7 @@ let%expect_test "test probes" =
             N.wait_probe_w chan.w;
             N.log (Expr.const "B ");
             N.log (Expr.const "C ");
-            N.send chan.w Expr.(const 3);
+            N.send chan.w Expr.(cint 3);
             N.log (Expr.const "D ");
             N.log (Expr.const "E ");
             N.log (Expr.const "F ");
