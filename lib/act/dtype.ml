@@ -4,25 +4,26 @@ module type DTypeable = sig
   type t [@@deriving sexp_of, equal]
 end
 
-type 'a t = { equal : 'a -> 'a -> bool; sexp_of_t : 'a -> Sexp.t }
-
-let create ~(equal : 'a -> 'a -> bool) ~(sexp_of_t : 'a -> Sexp.t) : 'a t =
-  { equal = Obj.magic equal; sexp_of_t = Obj.magic sexp_of_t }
-
-let of_module (type a) (module M : DTypeable with type t = a) : a t =
-  create ~equal:M.equal ~sexp_of_t:M.sexp_of_t
-
-let int_ = of_module (module Cint)
-let bool_ = of_module (module Bool)
-let string_ = of_module (module String)
-
-module Ir = struct
-  type 'a outer = 'a t
-
-  type nonrec 'a t = 'a t = {
+module T = struct
+  type 'a t = {
     equal : 'a -> 'a -> bool;
     sexp_of_t : 'a -> Sexp.t;
+    width : Width.t;
   }
+end
+
+include T
+
+let int32 = { equal = Cint.equal; sexp_of_t = Cint.sexp_of_t; width = Fixed 32 }
+let bool_ = { equal = Bool.equal; sexp_of_t = Bool.sexp_of_t; width = Fixed 1 }
+
+let string_ =
+  { equal = String.equal; sexp_of_t = String.sexp_of_t; width = Unlimited }
+
+module Ir = struct
+  include T
+
+  type 'a outer = 'a t
 
   let untype (t : 'a t) : Any.t t = Obj.magic t
   let untype' (t : 'a outer) : Any.t t = untype t
@@ -33,4 +34,6 @@ module Ir = struct
 
   let sexp_of_t_fn (t : 'a t) =
     Staged.stage (Obj.magic t.sexp_of_t : 'a -> Sexp.t)
+
+  let width t = t.width
 end

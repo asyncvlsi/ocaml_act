@@ -115,7 +115,7 @@ module Var_id_pool = struct
       fun (type a) (x : a Ir.Expr.t) ->
         match x with
         | Ir.Expr.Var var_id -> Expr.Var (to_assem_id t var_id.u)
-        | Const c -> Const (Any.of_magic c)
+        | Const (c, _width) -> Const (Any.of_magic c)
         | Map (v, f) -> Expr.map (convert v) ~f
         | Add (a, b) -> imap2 a b Int.( + )
         | Sub (a, b) -> imap2 a b Int.( - )
@@ -123,8 +123,7 @@ module Var_id_pool = struct
         | Div (a, b) -> imap2 a b Int.( / )
         | Mod (a, b) -> imap2 a b Int.( % )
         | LShift (a, b) -> imap2 a b Int.shift_left
-        | LogicalRShift (a, b) -> imap2 a b Int.shift_right
-        | ArithRShift (a, b) -> imap2 a b Int.shift_right_logical
+        | LogicalRShift (a, b) -> imap2 a b Int.shift_right_logical
         | BitAnd (a, b) -> imap2 a b Int.bit_and
         | BitOr (a, b) -> imap2 a b Int.bit_or
         | BitXor (a, b) -> imap2 a b Int.bit_xor
@@ -588,9 +587,10 @@ let step' t ~pc_idx =
       let value = Var_table.at t.var_table ~var_id:d.var_id in
       let expected = d.expected_reads.(d.idx) in
       if not (d.equals value expected.value) then
-        let value = d.ir_chan.d.dtype.sexp_of_t value in
+        let value = DType.Ir.sexp_of_t_ d.ir_chan.d.dtype value in
         let expected =
-          With_origin.map expected ~f:d.ir_chan.d.dtype.sexp_of_t
+          With_origin.map expected ~f:(fun expected ->
+              DType.Ir.sexp_of_t_ d.ir_chan.d.dtype expected)
         in
         Error
           (`Read_dequeuer_wrong_value (pc, d.ir_chan, value, expected, d.idx))
@@ -996,7 +996,9 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
     let var_id = Var_id_pool.new_id var_id_pool Read_deq_reg in
     let read_instr = push_instr Code_pos.dummy_loc (Read (var_id, chan_idx)) in
     let dequeuer =
-      Read_dequeuer.create ~var_id ~equals:chan.d.dtype.equal chan
+      Read_dequeuer.create ~var_id
+        ~equals:(DType.Ir.equal_fn chan.d.dtype |> Staged.unstage)
+        chan
     in
     let _ = push_instr Code_pos.dummy_loc (Read_dequeuer dequeuer) in
     Chan_id_pool.set_dequeuer_exn chan_id_pool chan_idx ~dequeuer ~read_instr

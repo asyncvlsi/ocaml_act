@@ -20,12 +20,28 @@ end
 
 include T
 
-let assign ?loc var_id expr =
+let assign' ?loc var_id expr =
   Assign
     (Code_pos.value_or_psite loc, Var.Ir.untype' var_id, Expr.Ir.untype' expr)
 
-let toggle ?loc var_id = assign ?loc var_id Expr.(var var_id |> not_)
-let incr ?loc var_id = assign ?loc var_id Expr.(var var_id |> add (cint 1))
+let assign ?loc var_id expr =
+  (match (Dtype.Ir.width (Var.Ir.unwrap var_id).u.d.dtype, Expr.width expr) with
+  | Fixed _, Unlimited ->
+      failwith
+        "Trying to assign an expression of unknown width to fixed bitwidth \
+         variable. Must use N.CInt_.assign_assume or N.CInt_.assign_clip"
+  | Fixed var, Fixed expr ->
+      if var < expr then
+        failwith
+          [%string
+            "Trying to assign an expression of width %{expr#Int} to a variable \
+             of width %{var#Int}. Must use N.CInt_.assign_assume or \
+             N.CInt_.assign_clip"]
+      else ()
+  | Unlimited, _ -> ());
+  assign' ?loc var_id expr
+
+let toggle ?loc var_id = assign ?loc var_id Expr.CBool_.(var var_id |> not_)
 
 let read ?loc chan_id var_id =
   Read
@@ -117,6 +133,17 @@ let select_imm ?loc branches ~else_ =
     ( Code_pos.value_or_psite loc,
       List.map branches ~f:(fun (guard, stmt) -> (Expr.Ir.unwrap guard, stmt)),
       else_ )
+
+module CInt_ = struct
+  let assign_assume ?loc var expr = assign' ?loc var expr
+
+  let incr_assume ?loc var_id =
+    assign_assume ?loc var_id Expr.CInt_.(var var_id |> add (cint 1))
+
+  let read ?loc chan_id var_id = read ?loc chan_id var_id
+  let send ?loc chan_id expr = send ?loc chan_id expr
+  let send' ?loc chan_id var_id = send' ?loc chan_id var_id
+end
 
 module Ir = struct
   include T

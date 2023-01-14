@@ -4,7 +4,6 @@ type t
 
 val assign : ?loc:Code_pos.t -> 'a Var.t -> 'a Expr.t -> t
 val toggle : ?loc:Code_pos.t -> bool Var.t -> t
-val incr : ?loc:Code_pos.t -> Cint.t Var.t -> t
 val read : ?loc:Code_pos.t -> 'a Chan.R.t -> 'a Var.t -> t
 val send : ?loc:Code_pos.t -> 'a Chan.W.t -> 'a Expr.t -> t
 val send' : ?loc:Code_pos.t -> 'a Chan.W.t -> 'a Var.t -> t
@@ -39,6 +38,14 @@ val while_loop : ?loc:Code_pos.t -> bool Expr.t -> t list -> t
 
 val select_imm :
   ?loc:Code_pos.t -> (bool Expr.t * t) list -> else_:t option -> t
+
+module CInt_ : sig
+  val assign_assume : ?loc:Code_pos.t -> Cint.t Var.t -> Cint.t Expr.t -> t
+  val incr_assume : ?loc:Code_pos.t -> Cint.t Var.t -> t
+  val read : ?loc:Code_pos.t -> Cint.t Chan.R.t -> Cint.t Var.t -> t
+  val send : ?loc:Code_pos.t -> Cint.t Chan.W.t -> Cint.t Expr.t -> t
+  val send' : ?loc:Code_pos.t -> Cint.t Chan.W.t -> Cint.t Var.t -> t
+end
 
 module Ir : sig
   type outer = t
