@@ -7,7 +7,8 @@ end
 type 'a t
 
 val int32 : Cint.t t
-val bool_ : bool t
+val int_ : bits:int -> Cint.t t
+val bool_ : Cbool.t t
 val string_ : string t
 
 module Ir : sig
@@ -21,5 +22,7 @@ module Ir : sig
   val sexp_of_t_ : 'a t -> 'a -> Sexp.t
   val equal_fn : 'a t -> ('a -> 'a -> bool) Staged.t
   val sexp_of_t_fn : 'a t -> ('a -> Sexp.t) Staged.t
-  val width : 'a t -> Width.t
+  val max_layout_of : 'a t -> 'a -> Layout.t
+  val layout : 'a t -> Layout.t
+  val fits_value : 'a t -> value:Layout.t -> bool
 end

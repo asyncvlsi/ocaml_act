@@ -4,14 +4,14 @@ module T = struct
   type t =
     | Assign of Code_pos.t * Var.Ir.U.t * Expr.Ir.U.t
     | Log of Code_pos.t * string Expr.Ir.t
-    | Assert of Code_pos.t * bool Expr.Ir.t
+    | Assert of Code_pos.t * Cbool.t Expr.Ir.t
     | Seq of Code_pos.t * t list
     | Par of Code_pos.t * t list
     | Read of Code_pos.t * Chan.Ir.U.t * Var.Ir.U.t
     | Send of Code_pos.t * Chan.Ir.U.t * Expr.Ir.U.t
     | Loop of Code_pos.t * t
-    | WhileLoop of Code_pos.t * bool Expr.Ir.t * t
-    | SelectImm of Code_pos.t * (bool Expr.Ir.t * t) list * t option
+    | WhileLoop of Code_pos.t * Cbool.t Expr.Ir.t * t
+    | SelectImm of Code_pos.t * (Cbool.t Expr.Ir.t * t) list * t option
     | ReadUGMem of Code_pos.t * Mem.Ir.t * Cint.t Expr.Ir.t * Var.Ir.U.t
     | WriteUGMem of Code_pos.t * Mem.Ir.t * Cint.t Expr.Ir.t * Expr.Ir.U.t
     | WaitUntilReadReady of Code_pos.t * Chan.Ir.U.t
@@ -20,38 +20,63 @@ end
 
 include T
 
-let assign' ?loc var_id expr =
-  Assign
-    (Code_pos.value_or_psite loc, Var.Ir.untype' var_id, Expr.Ir.untype' expr)
+module No_width_checks = struct
+  let assign ?loc var_id expr =
+    Assign
+      (Code_pos.value_or_psite loc, Var.Ir.untype' var_id, Expr.Ir.untype' expr)
+
+  let read ?loc chan_id var_id =
+    Read
+      ( Code_pos.value_or_psite loc,
+        Chan.Ir.unwrap_r chan_id,
+        Var.Ir.untype' var_id )
+
+  let send ?loc chan_id expr =
+    Send
+      ( Code_pos.value_or_psite loc,
+        Chan.Ir.unwrap_w chan_id,
+        Expr.Ir.untype' expr )
+end
 
 let assign ?loc var_id expr =
-  (match (Dtype.Ir.width (Var.Ir.unwrap var_id).u.d.dtype, Expr.width expr) with
-  | Fixed _, Unlimited ->
-      failwith
-        "Trying to assign an expression of unknown width to fixed bitwidth \
-         variable. Must use N.CInt_.assign_assume or N.CInt_.assign_clip"
-  | Fixed var, Fixed expr ->
-      if var < expr then
-        failwith
-          [%string
-            "Trying to assign an expression of width %{expr#Int} to a variable \
-             of width %{var#Int}. Must use N.CInt_.assign_assume or \
-             N.CInt_.assign_clip"]
-      else ()
-  | Unlimited, _ -> ());
-  assign' ?loc var_id expr
+  let expr_layout = Expr.Ir.max_layout (Expr.Ir.unwrap expr) in
+  let var_dtype = (Var.Ir.unwrap var_id).u.d.dtype in
+  if not (Dtype.Ir.fits_value var_dtype ~value:expr_layout) then
+    failwith
+      [%string
+        "Trying to assign an expression with max_layout %{Layout.sexp_of_t \
+         expr_layout#Sexp} to a variable of dtype %{Layout.sexp_of_t \
+         (Dtype.Ir.layout var_dtype)#Sexp}. You must use N.CInt_.assign to \
+         specifify the overflow behavior."];
+  No_width_checks.assign ?loc var_id expr
 
 let toggle ?loc var_id = assign ?loc var_id Expr.CBool_.(var var_id |> not_)
 
 let read ?loc chan_id var_id =
-  Read
-    ( Code_pos.value_or_psite loc,
-      Chan.Ir.unwrap_r chan_id,
-      Var.Ir.untype' var_id )
+  let chan_layout =
+    Chan.Ir.max_possible_layout_of_value (Chan.Ir.unwrap_r chan_id)
+  in
+  let var_dtype = (Var.Ir.unwrap var_id).u.d.dtype in
+  if not (Dtype.Ir.fits_value var_dtype ~value:chan_layout) then
+    failwith
+      [%string
+        "Trying to assign from a channel with max_layout %{Layout.sexp_of_t \
+         chan_layout#Sexp} to a variable of dtype %{Layout.sexp_of_t \
+         (Dtype.Ir.layout var_dtype)#Sexp}. You must use N.CInt_.read to \
+         specifify the overflow behavior."];
+  No_width_checks.read ?loc chan_id var_id
 
 let send ?loc chan_id expr =
-  Send
-    (Code_pos.value_or_psite loc, Chan.Ir.unwrap_w chan_id, Expr.Ir.untype' expr)
+  let expr_layout = Expr.Ir.max_layout (Expr.Ir.unwrap expr) in
+  let chan_dtype = (Chan.Ir.unwrap_w chan_id).d.dtype in
+  if not (Dtype.Ir.fits_value chan_dtype ~value:expr_layout) then
+    failwith
+      [%string
+        "Trying to send an expression with max_layout %{Layout.sexp_of_t \
+         expr_layout#Sexp} to a channel of dtype %{Layout.sexp_of_t \
+         (Dtype.Ir.layout chan_dtype)#Sexp}. You must use N.CInt_.send to \
+         specifify the overflow behavior."];
+  No_width_checks.send ?loc chan_id expr
 
 let send' ?loc chan_id var_id = send ?loc chan_id Expr.(var var_id)
 
@@ -134,11 +159,30 @@ let select_imm ?loc branches ~else_ =
       List.map branches ~f:(fun (guard, stmt) -> (Expr.Ir.unwrap guard, stmt)),
       else_ )
 
-module CInt_ = struct
-  let assign_assume ?loc var expr = assign' ?loc var expr
+module Overflow_behavior = struct
+  type t = Cant | Mask [@@deriving sexp]
+end
 
-  let incr_assume ?loc var_id =
-    assign_assume ?loc var_id Expr.CInt_.(var var_id |> add (cint 1))
+module CInt_ = struct
+  let assign ?loc var expr ~overflow =
+    match overflow with
+    | Overflow_behavior.Cant -> No_width_checks.assign ?loc var expr
+    | Mask ->
+        let expr =
+          match (Var.Ir.unwrap var).u.d.dtype |> Dtype.Ir.layout with
+          | Fixed width_ ->
+              let mask = Cint.(pow (of_int 2) (of_int width_) - of_int 1) in
+              Expr.CInt_.(bit_and expr (const mask))
+          | _ ->
+              failwith
+                "unreachable: It should not be possible to have a variable \
+                 with paramater type cint but dtype.kind not int"
+        in
+        assign ?loc var expr
+
+  let incr ?loc var_id ~overflow =
+    let expr = Expr.CInt_.(var var_id |> add (cint 1)) in
+    assign ?loc var_id expr ~overflow
 
   let read ?loc chan_id var_id = read ?loc chan_id var_id
   let send ?loc chan_id expr = send ?loc chan_id expr

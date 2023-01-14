@@ -34,15 +34,16 @@ let%expect_test "test2" =
         N.while_loop
           Expr.CInt_.(ne (var var0) (cint 1))
           [
-            N.CInt_.assign_assume var1 Expr.CInt_.(var var1 |> add (cint 1));
+            N.CInt_.assign var1
+              Expr.CInt_.(var var1 |> add (cint 1))
+              ~overflow:Cant;
             N.if_else
               Expr.CInt_.(mod_ (var var0) (cint 2) |> eq (cint 0))
+              [ N.assign var0 Expr.CInt_.(div (var var0) (cint 2)) ]
               [
-                N.assign var0 Expr.CInt_.(div (var var0) (cint 2));
-              ]
-              [
-                N.CInt_.assign_assume var0
-                  Expr.CInt_.(var var0 |> mul (cint 3) |> add (cint 1));
+                N.CInt_.assign var0
+                  Expr.CInt_.(var var0 |> mul (cint 3) |> add (cint 1))
+                  ~overflow:Cant;
               ];
           ];
         N.log Expr.(var var1 |> map ~f:(fun v -> [%string "%{v#CInt}\n"]));
@@ -55,8 +56,9 @@ let%expect_test "test2" =
     (Ok ()) |}]
 
 let%expect_test "test3" =
-  let var = Var.create DType.int32 in
-  let chan = Chan.create DType.int32 in
+  let dtype = DType.int_ ~bits:9 in
+  let var = Var.create dtype in
+  let chan = Chan.create dtype in
   let ir =
     N.seq
       [
@@ -167,7 +169,7 @@ let%expect_test "test4" =
   [%expect
     {|
       send 1
-      (Error "Assertion failed: in lib/simulator/ir_test.ml on line 148.") |}]
+      (Error "Assertion failed: in lib/simulator/ir_test.ml on line 150.") |}]
 
 let%expect_test "test5" =
   let var1 = Var.create DType.int32 in
@@ -195,11 +197,11 @@ let%expect_test "test5" =
   [%expect
     {|
       (Error
-       "User read has wrong value: got 4, but expected 5 based on `send' function call in lib/simulator/ir_test.ml on line 192, on chan created in lib/simulator/ir_test.ml on line 175.") |}]
+       "User read has wrong value: got 4, but expected 5 based on `send' function call in lib/simulator/ir_test.ml on line 194, on chan created in lib/simulator/ir_test.ml on line 177.") |}]
 
 let split ~dtype i1 o1 o2 =
   let var1 = Var.create dtype in
-  let b1 = Var.create DType.bool_ ~init:false in
+  let b1 = Var.create DType.bool_ ~init:CBool.false_ in
   N.loop
     [
       N.read i1 var1;
@@ -209,7 +211,7 @@ let split ~dtype i1 o1 o2 =
 
 let merge ~dtype i1 i2 o1 =
   let var1 = Var.create dtype in
-  let b1 = Var.create DType.bool_ ~init:false in
+  let b1 = Var.create DType.bool_ ~init:CBool.false_ in
   N.loop
     [
       N.if_else Expr.(var b1) [ N.read i1 var1 ] [ N.read i2 var1 ];
@@ -277,7 +279,7 @@ let%expect_test "test_buff 1" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in lib/simulator/ir_test.ml on line 275, on chan created in lib/simulator/ir_test.ml on line 241.") |}]
+     "User send did not complete:  called in lib/simulator/ir_test.ml on line 277, on chan created in lib/simulator/ir_test.ml on line 243.") |}]
 
 let%expect_test "test_buff 2" =
   let dtype = DType.int32 in
@@ -301,7 +303,7 @@ let%expect_test "test_buff 2" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in lib/simulator/ir_test.ml on line 299, on chan created in lib/simulator/ir_test.ml on line 284.") |}]
+     "User send did not complete:  called in lib/simulator/ir_test.ml on line 301, on chan created in lib/simulator/ir_test.ml on line 286.") |}]
 
 let%expect_test "mem" =
   let mem =
@@ -340,7 +342,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Mem access out of bounds: in lib/simulator/ir_test.ml on line 333, idx is 4, size of mem is 4.") |}]
+     "Mem access out of bounds: in lib/simulator/ir_test.ml on line 335, idx is 4, size of mem is 4.") |}]
 
 let%expect_test "mem" =
   let mem =
@@ -369,7 +371,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Simulatnious accesses of a memory/rom: statement 1 in lib/simulator/ir_test.ml on line 362, statement 2 in lib/simulator/ir_test.ml on line 357.") |}]
+     "Simulatnious accesses of a memory/rom: statement 1 in lib/simulator/ir_test.ml on line 364, statement 2 in lib/simulator/ir_test.ml on line 359.") |}]
 
 let%expect_test "test probes" =
   let var = Var.create DType.int32 in

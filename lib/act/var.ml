@@ -41,7 +41,7 @@ module T = struct
 
     let create dtype init creation_code_pos =
       let id = Id.create () in
-      let dtype = Dtype.Ir.untype' dtype in
+      let dtype = Dtype.Ir.untype dtype in
       let init = Any.Option.of_magic init in
       { id; d = { dtype; creation_code_pos; init } }
   end
@@ -49,6 +49,17 @@ module T = struct
   type 'a t = { u : U.t } [@@deriving sexp_of]
 
   let create ?loc ?init (dtype : 'a Dtype.t) : 'a t =
+    let dtype = Dtype.Ir.unwrap dtype in
+    (match init with
+    | None -> ()
+    | Some init ->
+        let init_layout = Dtype.Ir.max_layout_of dtype init in
+        if not (Dtype.Ir.fits_value dtype ~value:init_layout) then
+          failwith
+            [%string
+              "Trying to initialize a variable of dtype \
+               %{Layout.sexp_of_t (Dtype.Ir.layout dtype)#Sexp} with a \
+               value of max_layout %{Layout.sexp_of_t init_layout#Sexp}."]);
     { u = U.create dtype init (Code_pos.value_or_psite loc) }
 end
 

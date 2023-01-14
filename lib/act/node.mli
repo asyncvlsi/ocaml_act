@@ -3,7 +3,7 @@ open! Core
 type t
 
 val assign : ?loc:Code_pos.t -> 'a Var.t -> 'a Expr.t -> t
-val toggle : ?loc:Code_pos.t -> bool Var.t -> t
+val toggle : ?loc:Code_pos.t -> Cbool.t Var.t -> t
 val read : ?loc:Code_pos.t -> 'a Chan.R.t -> 'a Var.t -> t
 val send : ?loc:Code_pos.t -> 'a Chan.W.t -> 'a Expr.t -> t
 val send' : ?loc:Code_pos.t -> 'a Chan.W.t -> 'a Var.t -> t
@@ -27,21 +27,33 @@ val read_ug_rom :
 
 (* phantom instructions *)
 val log : ?loc:Code_pos.t -> string Expr.t -> t
-val assert_ : ?loc:Code_pos.t -> bool Expr.t -> t
+val assert_ : ?loc:Code_pos.t -> Cbool.t Expr.t -> t
 
 (* control flow *)
 val seq : ?loc:Code_pos.t -> t list -> t
 val par : ?loc:Code_pos.t -> t list -> t
-val if_else : ?loc:Code_pos.t -> bool Expr.t -> t list -> t list -> t
+val if_else : ?loc:Code_pos.t -> Cbool.t Expr.t -> t list -> t list -> t
 val loop : ?loc:Code_pos.t -> t list -> t
-val while_loop : ?loc:Code_pos.t -> bool Expr.t -> t list -> t
+val while_loop : ?loc:Code_pos.t -> Cbool.t Expr.t -> t list -> t
 
 val select_imm :
-  ?loc:Code_pos.t -> (bool Expr.t * t) list -> else_:t option -> t
+  ?loc:Code_pos.t -> (Cbool.t Expr.t * t) list -> else_:t option -> t
+
+module Overflow_behavior : sig
+  type t = Cant | Mask [@@deriving sexp]
+end
 
 module CInt_ : sig
-  val assign_assume : ?loc:Code_pos.t -> Cint.t Var.t -> Cint.t Expr.t -> t
-  val incr_assume : ?loc:Code_pos.t -> Cint.t Var.t -> t
+  val assign :
+    ?loc:Code_pos.t ->
+    Cint.t Var.t ->
+    Cint.t Expr.t ->
+    overflow:Overflow_behavior.t ->
+    t
+
+  val incr :
+    ?loc:Code_pos.t -> Cint.t Var.t -> overflow:Overflow_behavior.t -> t
+
   val read : ?loc:Code_pos.t -> Cint.t Chan.R.t -> Cint.t Var.t -> t
   val send : ?loc:Code_pos.t -> Cint.t Chan.W.t -> Cint.t Expr.t -> t
   val send' : ?loc:Code_pos.t -> Cint.t Chan.W.t -> Cint.t Var.t -> t
@@ -53,14 +65,14 @@ module Ir : sig
   type t =
     | Assign of Code_pos.t * Var.Ir.U.t * Expr.Ir.U.t
     | Log of Code_pos.t * string Expr.Ir.t
-    | Assert of Code_pos.t * bool Expr.Ir.t
+    | Assert of Code_pos.t * Cbool.t Expr.Ir.t
     | Seq of Code_pos.t * t list
     | Par of Code_pos.t * t list
     | Read of Code_pos.t * Chan.Ir.U.t * Var.Ir.U.t
     | Send of Code_pos.t * Chan.Ir.U.t * Expr.Ir.U.t
     | Loop of Code_pos.t * t
-    | WhileLoop of Code_pos.t * bool Expr.Ir.t * t
-    | SelectImm of Code_pos.t * (bool Expr.Ir.t * t) list * t option
+    | WhileLoop of Code_pos.t * Cbool.t Expr.Ir.t * t
+    | SelectImm of Code_pos.t * (Cbool.t Expr.Ir.t * t) list * t option
     | ReadUGMem of Code_pos.t * Mem.Ir.t * Cint.t Expr.Ir.t * Var.Ir.U.t
     | WriteUGMem of Code_pos.t * Mem.Ir.t * Cint.t Expr.Ir.t * Expr.Ir.U.t
     | WaitUntilReadReady of Code_pos.t * Chan.Ir.U.t

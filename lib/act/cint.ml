@@ -2,11 +2,10 @@ open! Core
 include Int
 
 let of_int i = i
-let width t = match t with 0 -> 1 | _ -> Int.num_bits - Int.clz t
-let width' t = Width.Fixed (width t)
+let bitwidth t = match t with 0 -> 1 | _ -> Int.num_bits - Int.clz t
 
 let%expect_test "width" =
-  let f i = print_s [%sexp ((i, width' (of_int i)) : int * Width.t)] in
+  let f i = print_s [%sexp ((i, bitwidth (of_int i)) : int * int)] in
   f 0;
   f 1;
   f 2;
@@ -17,11 +16,11 @@ let%expect_test "width" =
   f 260;
   [%expect
     {|
-    (0 (Fixed 1))
-    (1 (Fixed 1))
-    (2 (Fixed 2))
-    (3 (Fixed 2))
-    (7 (Fixed 3))
-    (8 (Fixed 4))
-    (19 (Fixed 5))
-    (260 (Fixed 9)) |}]
+    (0 1)
+    (1 1)
+    (2 2)
+    (3 2)
+    (7 3)
+    (8 4)
+    (19 5)
+    (260 9) |}]

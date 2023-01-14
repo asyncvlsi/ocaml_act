@@ -4,16 +4,15 @@ type 'a t [@@deriving sexp_of]
 
 val var : 'a Var.t -> 'a t
 val map : 'a t -> f:('a -> 'b) -> 'b t
-val width : 'a t -> Width.t
 
 module CBool_ : sig
-  val var : bool Var.t -> bool t
-  val true_ : bool t
-  val false_ : bool t
-  val not_ : bool t -> bool t
-  (* val and_ : bool t -> bool t -> bool t
-     val or_ : bool t -> bool t -> bool t
-     val xor_ : bool t -> bool t -> bool t *)
+  val var : Cbool.t Var.t -> Cbool.t t
+  val true_ : Cbool.t t
+  val false_ : Cbool.t t
+  val not_ : Cbool.t t -> Cbool.t t
+  (* val and_ : Cbool.t t -> Cbool.t t -> Cbool.t t
+     val or_ : Cbool.t t -> Cbool.t t -> Cbool.t t
+     val xor_ : Cbool.t t -> Cbool.t t -> Cbool.t t *)
 end
 
 module String_ : sig
@@ -36,8 +35,8 @@ module CInt_ : sig
   val bit_and : Cint.t t -> Cint.t t -> Cint.t t
   val bit_or : Cint.t t -> Cint.t t -> Cint.t t
   val bit_xor : Cint.t t -> Cint.t t -> Cint.t t
-  val eq : Cint.t t -> Cint.t t -> bool t
-  val ne : Cint.t t -> Cint.t t -> bool t
+  val eq : Cint.t t -> Cint.t t -> Cbool.t t
+  val ne : Cint.t t -> Cint.t t -> Cbool.t t
 end
 
 module Ir : sig
@@ -45,7 +44,7 @@ module Ir : sig
 
   type 'a t =
     | Var : 'a Var.Ir.t -> 'a t
-    | Const : 'a * Width.t -> 'a t
+    | Const : 'a * Layout.t -> 'a t
     | Map : Any.t t * (Any.t -> 'a) -> 'a t
     | Add : Cint.t t * Cint.t t -> Cint.t t
     | Sub : Cint.t t * Cint.t t -> Cint.t t
@@ -57,15 +56,16 @@ module Ir : sig
     | BitAnd : Cint.t t * Cint.t t -> Cint.t t
     | BitOr : Cint.t t * Cint.t t -> Cint.t t
     | BitXor : Cint.t t * Cint.t t -> Cint.t t
-    | Eq : Cint.t t * Cint.t t -> bool t
-    | Ne : Cint.t t * Cint.t t -> bool t
-    | Not : bool t -> bool t
+    | Eq : Cint.t t * Cint.t t -> Cbool.t t
+    | Ne : Cint.t t * Cint.t t -> Cbool.t t
+    | Not : Cbool.t t -> Cbool.t t
   [@@deriving sexp_of]
 
   module U : sig
     type nonrec t = Any.t t
   end
 
+  val max_layout : 'a t -> Layout.t
   val unwrap : 'a outer -> 'a t
   val untype : 'a t -> U.t
   val untype' : 'a outer -> U.t

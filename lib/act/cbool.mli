@@ -6,8 +6,7 @@ include Comparable with type t := t
 include Hashable with type t := t
 include Stringable with type t := t
 
-val of_int : int -> t
+val true_ : t
+val false_ : t
+val of_bool : bool -> t
 val bitwidth : t -> int
-val pow : t -> t -> t
-val ( + ) : t -> t -> t
-val ( - ) : t -> t -> t
