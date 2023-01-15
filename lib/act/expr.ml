@@ -17,6 +17,7 @@ module T = struct
     | Eq : Cint0.t t * Cint0.t t -> Cbool0.t t
     | Ne : Cint0.t t * Cint0.t t -> Cbool0.t t
     | Not : Cbool0.t t -> Cbool0.t t
+    | Magic_enum_eq : Any.t t * Any.t t -> Cbool0.t t
   [@@deriving sexp_of]
 end
 
@@ -66,6 +67,7 @@ module Wrap = struct
     | BitOr (a, b) -> Layout.imax (max_layout a) (max_layout b)
     | BitXor (a, b) -> Layout.imax (max_layout a) (max_layout b)
     | Eq (_, _) -> Bits_fixed 1
+    | Magic_enum_eq (_, _) -> Bits_fixed 1
     | Ne (_, _) -> Bits_fixed 1
     | Not _ -> Bits_fixed 1
 end

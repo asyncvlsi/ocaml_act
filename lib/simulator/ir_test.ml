@@ -406,60 +406,95 @@ let%expect_test "test probes" =
   [%expect {|
     A 1 2 3 4 B C D E 5 F (Ok ()) |}]
 
+module Op : sig
+  type t = Add | Mul | And | Or [@@deriving sexp, equal]
+
+  (* autoogenerate the rest of this *)
+
+  val dtype : t DType.t
+
+  module E : sig
+    val var : t Var.t -> t Expr.t
+    val const : t -> t Expr.t
+    val eq : t Expr.t -> t Expr.t -> CBool.t Expr.t
+  end
+
+  module N : sig
+    val match_ : t Var.t -> f:(t -> N.t) -> N.t
+  end
+end = struct
+  type t = Add | Mul | And | Or [@@deriving sexp, equal]
+
+  let all = [ Add; Mul; And; Or ]
+
+  (* autoogenerate the rest of this *)
+
+  let to_int t = match t with Add -> 0 | Mul -> 1 | And -> 2 | Or -> 3
+  let bitwidth t = to_int t |> CInt.of_int |> CInt.bitwidth
+
+  let max_bitwidth =
+    List.map all ~f:bitwidth
+    |> List.max_elt ~compare:Int.compare
+    |> Option.value_exn
+
+  let dtype =
+    DType.create ~equal ~sexp_of_t
+      ~max_layout_of:(fun t -> Bits_fixed (bitwidth t))
+      ~layout:(Bits_fixed max_bitwidth)
+
+  module E = struct
+    let var v = Expr.var v
+
+    let const c =
+      Internal_rep.Expr.Const (c, Bits_fixed (bitwidth c))
+      |> Internal_rep.Expr.wrap
+
+    let eq a b =
+      let module Ir = Internal_rep in
+      Ir.Expr.Magic_enum_eq (Ir.Expr.untype' a, Ir.Expr.untype' b)
+      |> Ir.Expr.wrap
+  end
+
+  module N = struct
+    let match_ var0 ~f =
+      N.select_imm ~else_:None
+        (List.map all ~f:(fun o ->
+             let guard = E.(eq (const o) (var var0)) in
+             (guard, f o)))
+  end
+end
+
 module Mini_alu = struct
-  let op_dtype = CInt.dtype ~bits:2
   let val_dtype = CInt.dtype ~bits:8
 
   let alu =
-    let op = Chan.create op_dtype in
+    let op = Chan.create Op.dtype in
     let arg0 = Chan.create val_dtype in
     let arg1 = Chan.create val_dtype in
     let result = Chan.create val_dtype in
-    let op_v = Var.create op_dtype in
+    let op_v = Var.create Op.dtype in
     let arg0_v = Var.create val_dtype in
     let arg1_v = Var.create val_dtype in
-    let branch op_code =
-      let read_2_args = N.par [ N.read arg0.r arg0_v; N.read arg1.r arg1_v ] in
-      let guard = CInt.E.(var op_v |> eq (cint op_code)) in
-      let stmts =
-        match op_code with
-        | 0 ->
-            N.seq
-              [
-                read_2_args;
-                (let v = CInt.E.(add (var arg0_v) (var arg1_v)) in
-                 CInt.N.send result.w v ~overflow:Mask);
-              ]
-        | 1 ->
-            N.seq
-              [
-                read_2_args;
-                (let v = CInt.E.(mul (var arg0_v) (var arg1_v)) in
-                 CInt.N.send result.w v ~overflow:Mask);
-              ]
-        | 2 ->
-            N.seq
-              [
-                read_2_args;
-                N.send result.w CInt.E.(bit_and (var arg0_v) (var arg1_v));
-              ]
-        | 3 ->
-            N.seq
-              [
-                read_2_args;
-                N.send result.w CInt.E.(bit_or (var arg0_v) (var arg1_v));
-              ]
-        | _ -> failwith "unreachable"
-      in
-      (guard, stmts)
+    let read_2_args = N.par [ N.read arg0.r arg0_v; N.read arg1.r arg1_v ] in
+    let branch = function
+      | Op.Add ->
+          let expr = CInt.E.(add (var arg0_v) (var arg1_v)) in
+          let send = CInt.N.send result.w expr ~overflow:Mask in
+          N.seq [ read_2_args; send ]
+      | Op.Mul ->
+          let expr = CInt.E.(mul (var arg0_v) (var arg1_v)) in
+          let send = CInt.N.send result.w expr ~overflow:Mask in
+          N.seq [ read_2_args; send ]
+      | Op.And ->
+          let expr = CInt.E.(bit_and (var arg0_v) (var arg1_v)) in
+          let send = N.send result.w expr in
+          N.seq [ read_2_args; send ]
+      | Op.Or ->
+          let expr = CInt.E.(bit_or (var arg0_v) (var arg1_v)) in
+          let send = N.send result.w expr in
+          N.seq [ read_2_args; send ]
     in
-    let ir =
-      N.loop
-        [
-          N.read op.r op_v;
-          N.select_imm [ branch 0; branch 1; branch 2; branch 3 ] ~else_:None;
-        ]
-    in
+    let ir = N.loop [ N.read op.r op_v; Op.N.match_ op_v ~f:branch ] in
     (ir, op.w, arg0.w, arg1.w, result.r)
 end
 
@@ -473,7 +508,7 @@ let%expect_test "mini cpu" =
   [%expect {|
     (Ok ()) |}];
 
-  Sim.send sim op (CInt.of_int 0);
+  Sim.send sim op Add;
   Sim.send sim arg0 (CInt.of_int 3);
   Sim.send sim arg1 (CInt.of_int 7);
   Sim.read sim result (CInt.of_int 10);
@@ -488,11 +523,11 @@ let%expect_test "error send too big value" =
         Sim.create ir ~user_sendable_ports:[ op.u; arg0.u; arg1.u ]
           ~user_readable_ports:[ result.u ]
       in
-      Sim.send sim op (CInt.of_int 5));
+      Sim.send sim arg0 (CInt.of_int 1000));
   [%expect
     {|
     (Failure
-     "Sent value doesnt fit in chan: got value 5 but channel has layout (Bits_fixed 2).") |}]
+     "Sent value doesnt fit in chan: got value 1000 but channel has layout (Bits_fixed 8).") |}]
 
 let%expect_test "error read too big value" =
   Expect_test_helpers_core.require_does_raise [%here] (fun () ->
@@ -543,4 +578,4 @@ let%expect_test "test2" =
   [%expect
     {|
     (Error
-     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in lib/simulator/ir_test.ml on line 526.") |}]
+     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in lib/simulator/ir_test.ml on line 559.") |}]

@@ -53,6 +53,7 @@ module Ir : sig
     | Eq : Cint0.t t * Cint0.t t -> Cbool0.t t
     | Ne : Cint0.t t * Cint0.t t -> Cbool0.t t
     | Not : Cbool0.t t -> Cbool0.t t
+    | Magic_enum_eq : Any.t t * Any.t t -> Cbool0.t t
   [@@deriving sexp_of]
 
   module U : sig

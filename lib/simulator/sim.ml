@@ -130,6 +130,7 @@ module Var_id_pool = struct
         | BitOr (a, b) -> imap2 a b Int.bit_or
         | BitXor (a, b) -> imap2 a b Int.bit_xor
         | Eq (a, b) -> imap2 a b Int.equal
+        | Magic_enum_eq (a, b) -> imap2 a b Int.equal
         | Ne (a, b) -> imap2 a b (fun a b -> not (Int.equal a b))
         | Not a -> Expr.map (convert a) ~f:not
     in
