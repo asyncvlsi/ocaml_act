@@ -1,64 +1,58 @@
 open! Core
 
-type 'a t [@@deriving sexp_of]
+module Wrap : sig
+  type 'a t [@@deriving sexp_of]
 
-val var : 'a Var.t -> 'a t
-val map : 'a t -> f:('a -> 'b) -> 'b t
-
-module CBool_ : sig
-  val var : Cbool.t Var.t -> Cbool.t t
-  val true_ : Cbool.t t
-  val false_ : Cbool.t t
-  val not_ : Cbool.t t -> Cbool.t t
-  (* val and_ : Cbool.t t -> Cbool.t t -> Cbool.t t
-     val or_ : Cbool.t t -> Cbool.t t -> Cbool.t t
-     val xor_ : Cbool.t t -> Cbool.t t -> Cbool.t t *)
+  val var : 'a Var.Wrap.t -> 'a t
 end
 
-module String_ : sig
-  val const : string -> string t
+module CBool_ : sig
+  val var : Cbool0.t Var.Wrap.t -> Cbool0.t Wrap.t
+  val true_ : Cbool0.t Wrap.t
+  val false_ : Cbool0.t Wrap.t
+  val not_ : Cbool0.t Wrap.t -> Cbool0.t Wrap.t
+  (* val and_ : Cbool0.t t -> Cbool0.t t -> Cbool0.t t
+     val or_ : Cbool0.t t -> Cbool0.t t -> Cbool0.t t
+     val xor_ : Cbool0.t t -> Cbool0.t t -> Cbool0.t t *)
 end
 
 module CInt_ : sig
-  val var : Cint.t Var.t -> Cint.t t
-  val const : Cint.t -> Cint.t t
-  val cint : int -> Cint.t t
+  val var : Cint0.t Var.Wrap.t -> Cint0.t Wrap.t
+  val const : Cint0.t -> Cint0.t Wrap.t
+  val cint : int -> Cint0.t Wrap.t
 
   (* ops *)
-  val add : Cint.t t -> Cint.t t -> Cint.t t
-  val sub : Cint.t t -> Cint.t t -> Cint.t t
-  val mul : Cint.t t -> Cint.t t -> Cint.t t
-  val div : Cint.t t -> Cint.t t -> Cint.t t
-  val mod_ : Cint.t t -> Cint.t t -> Cint.t t
-  val lshift : Cint.t t -> amt:Cint.t t -> Cint.t t
-  val rshift : Cint.t t -> amt:Cint.t t -> Cint.t t
-  val bit_and : Cint.t t -> Cint.t t -> Cint.t t
-  val bit_or : Cint.t t -> Cint.t t -> Cint.t t
-  val bit_xor : Cint.t t -> Cint.t t -> Cint.t t
-  val eq : Cint.t t -> Cint.t t -> Cbool.t t
-  val ne : Cint.t t -> Cint.t t -> Cbool.t t
+  val add : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
+  val sub : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
+  val mul : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
+  val div : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
+  val mod_ : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
+  val lshift : Cint0.t Wrap.t -> amt:Cint0.t Wrap.t -> Cint0.t Wrap.t
+  val rshift : Cint0.t Wrap.t -> amt:Cint0.t Wrap.t -> Cint0.t Wrap.t
+  val bit_and : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
+  val bit_or : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
+  val bit_xor : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
+  val eq : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cbool0.t Wrap.t
+  val ne : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cbool0.t Wrap.t
 end
 
 module Ir : sig
-  type 'a outer = 'a t
-
   type 'a t =
     | Var : 'a Var.Ir.t -> 'a t
     | Const : 'a * Layout.t -> 'a t
-    | Map : Any.t t * (Any.t -> 'a) -> 'a t
-    | Add : Cint.t t * Cint.t t -> Cint.t t
-    | Sub : Cint.t t * Cint.t t -> Cint.t t
-    | Mul : Cint.t t * Cint.t t -> Cint.t t
-    | Div : Cint.t t * Cint.t t -> Cint.t t
-    | Mod : Cint.t t * Cint.t t -> Cint.t t
-    | LShift : Cint.t t * Cint.t t -> Cint.t t
-    | LogicalRShift : Cint.t t * Cint.t t -> Cint.t t
-    | BitAnd : Cint.t t * Cint.t t -> Cint.t t
-    | BitOr : Cint.t t * Cint.t t -> Cint.t t
-    | BitXor : Cint.t t * Cint.t t -> Cint.t t
-    | Eq : Cint.t t * Cint.t t -> Cbool.t t
-    | Ne : Cint.t t * Cint.t t -> Cbool.t t
-    | Not : Cbool.t t -> Cbool.t t
+    | Add : Cint0.t t * Cint0.t t -> Cint0.t t
+    | Sub : Cint0.t t * Cint0.t t -> Cint0.t t
+    | Mul : Cint0.t t * Cint0.t t -> Cint0.t t
+    | Div : Cint0.t t * Cint0.t t -> Cint0.t t
+    | Mod : Cint0.t t * Cint0.t t -> Cint0.t t
+    | LShift : Cint0.t t * Cint0.t t -> Cint0.t t
+    | LogicalRShift : Cint0.t t * Cint0.t t -> Cint0.t t
+    | BitAnd : Cint0.t t * Cint0.t t -> Cint0.t t
+    | BitOr : Cint0.t t * Cint0.t t -> Cint0.t t
+    | BitXor : Cint0.t t * Cint0.t t -> Cint0.t t
+    | Eq : Cint0.t t * Cint0.t t -> Cbool0.t t
+    | Ne : Cint0.t t * Cint0.t t -> Cbool0.t t
+    | Not : Cbool0.t t -> Cbool0.t t
   [@@deriving sexp_of]
 
   module U : sig
@@ -66,7 +60,8 @@ module Ir : sig
   end
 
   val max_layout : 'a t -> Layout.t
-  val unwrap : 'a outer -> 'a t
+  val unwrap : 'a Wrap.t -> 'a t
+  val wrap : 'a t -> 'a Wrap.t
   val untype : 'a t -> U.t
-  val untype' : 'a outer -> U.t
+  val untype' : 'a Wrap.t -> U.t
 end

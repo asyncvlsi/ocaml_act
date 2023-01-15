@@ -1,6 +1,6 @@
 (library
  (name simulator)
- (libraries core act)
+ (libraries core act expect_test_helpers_core)
  (preprocess
   (pps ppx_jane))
  (inline_tests))

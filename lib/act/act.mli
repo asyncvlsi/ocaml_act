@@ -1,18 +1,4 @@
 open! Core
-module Any = Any
-module Chan = Chan
-module CInt = Cint
-module CBool = Cbool
-module Code_pos = Code_pos
-module DType = Dtype
-module Expr = Expr
-module Mem = Mem
-module N = Node
-module Var = Var
-module Vec = Vec
-
-val block11 :
-  'i1 Chan.W.t -> 'o1 Chan.R.t -> f:('i1 Chan.R.t -> 'o1 Chan.W.t -> N.t) -> N.t
 
 (* The internal data structures. These are only meant to be constructed throguh the above interfaces. *)
 module Internal_rep : sig
@@ -22,4 +8,20 @@ module Internal_rep : sig
   module Mem = Mem.Ir
   module N = Node.Ir
   module Var = Var.Ir
+  module Layout = Layout
 end
+
+module Any = Any
+module Chan = Chan.Wrap
+module CInt = Cint
+module CBool = Cbool
+module Code_pos = Code_pos
+module DType = Dtype.Wrap
+module Expr = Expr.Wrap
+module Mem = Mem.Wrap
+module N = Node.Wrap
+module Var = Var.Wrap
+module Vec = Vec
+
+val block11 :
+  'i1 Chan.W.t -> 'o1 Chan.R.t -> f:('i1 Chan.R.t -> 'o1 Chan.W.t -> N.t) -> N.t

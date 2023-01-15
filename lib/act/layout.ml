@@ -1,3 +1,3 @@
 open! Core
 
-type t = Fixed of int | Unknown [@@deriving sexp_of]
+type t = Bits_fixed of int [@@deriving sexp_of]

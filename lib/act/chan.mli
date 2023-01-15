@@ -1,24 +1,26 @@
 open! Core
 
-module R : sig
-  module U : Comparable_and_hashable.S
+module Wrap : sig
+  module R : sig
+    module U : Comparable_and_hashable.S
 
-  type 'a t = { u : U.t } [@@deriving sexp_of]
+    type 'a t = { u : U.t } [@@deriving sexp_of]
 
-  val create : ?loc:Code_pos.t -> 'a Dtype.t -> 'a t
+    val create : ?loc:Code_pos.t -> 'a Dtype.Wrap.t -> 'a t
+  end
+
+  module W : sig
+    module U : Comparable_and_hashable.S
+
+    type 'a t = { u : U.t } [@@deriving sexp_of]
+
+    val create : ?loc:Code_pos.t -> 'a Dtype.Wrap.t -> 'a t
+  end
+
+  type 'a t = { r : 'a R.t; w : 'a W.t } [@@deriving sexp_of]
+
+  val create : ?loc:Code_pos.t -> 'a Dtype.Wrap.t -> 'a t
 end
-
-module W : sig
-  module U : Comparable_and_hashable.S
-
-  type 'a t = { u : U.t } [@@deriving sexp_of]
-
-  val create : ?loc:Code_pos.t -> 'a Dtype.t -> 'a t
-end
-
-type 'a t = { r : 'a R.t; w : 'a W.t } [@@deriving sexp_of]
-
-val create : ?loc:Code_pos.t -> 'a Dtype.t -> 'a t
 
 module Ir : sig
   module U : sig
@@ -46,11 +48,11 @@ module Ir : sig
 
   type 'a t = { u : U.t } [@@deriving sexp_of]
 
-  val unwrap_r : 'a R.t -> U.t
-  val unwrap_w : 'a W.t -> U.t
-  val unwrap_ru : R.U.t -> U.t
-  val unwrap_wu : W.U.t -> U.t
-  val r_of_w : 'a W.t -> 'a R.t
-  val w_of_r : 'a R.t -> 'a W.t
+  val unwrap_r : 'a Wrap.R.t -> U.t
+  val unwrap_w : 'a Wrap.W.t -> U.t
+  val unwrap_ru : Wrap.R.U.t -> U.t
+  val unwrap_wu : Wrap.W.U.t -> U.t
+  val r_of_w : 'a Wrap.W.t -> 'a Wrap.R.t
+  val w_of_r : 'a Wrap.R.t -> 'a Wrap.W.t
   val max_possible_layout_of_value : U.t -> Layout.t
 end

@@ -47,25 +47,31 @@ end
 
 module U = UnguardedMemRom_u
 
-type ('kind, 'a) t = { u : U.t } [@@deriving sexp_of]
-type 'a ug_mem = ([ `Mem ], 'a) t
-type 'a ug_rom = ([ `Rom ], 'a) t
+module Wrap = struct
+  type ('kind, 'a) t = { u : U.t } [@@deriving sexp_of]
+  type 'a ug_mem = ([ `Mem ], 'a) t
+  type 'a ug_rom = ([ `Rom ], 'a) t
 
-let create_ug_mem ?loc dtype (arr : 'a array) : 'a ug_mem =
-  {
-    u =
-      U.create dtype (Any.Array.of_magic arr) (Code_pos.value_or_psite loc) `Mem;
-  }
+  let create_ug_mem ?loc dtype (arr : 'a array) : 'a ug_mem =
+    {
+      u =
+        U.create dtype (Any.Array.of_magic arr)
+          (Code_pos.value_or_psite loc)
+          `Mem;
+    }
 
-let create_ug_rom ?loc dtype (arr : 'a array) : 'a ug_rom =
-  {
-    u =
-      U.create dtype (Any.Array.of_magic arr) (Code_pos.value_or_psite loc) `Rom;
-  }
+  let create_ug_rom ?loc dtype (arr : 'a array) : 'a ug_rom =
+    {
+      u =
+        U.create dtype (Any.Array.of_magic arr)
+          (Code_pos.value_or_psite loc)
+          `Rom;
+    }
+end
 
 module Ir = struct
   include UnguardedMemRom_u
 
-  let unwrap_ug_mem t = t.u
-  let unwrap_ug_rom t = t.u
+  let unwrap_ug_mem t = t.Wrap.u
+  let unwrap_ug_rom t = t.Wrap.u
 end
