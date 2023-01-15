@@ -118,7 +118,7 @@ module Var_id_pool = struct
       fun (type a) (x : a Ir.Expr.t) ->
         match x with
         | Ir.Expr.Var var_id -> Expr.Var (to_assem_id t var_id.u)
-        | Const (c, _width) -> Const (Any.of_magic c)
+        | Const c -> Const (Any.of_magic (c : CInt.t))
         | Add (a, b) -> imap2 a b Int.( + )
         | Sub (a, b) -> imap2 a b Int.( - )
         | Mul (a, b) -> imap2 a b Int.( * )
@@ -130,9 +130,10 @@ module Var_id_pool = struct
         | BitOr (a, b) -> imap2 a b Int.bit_or
         | BitXor (a, b) -> imap2 a b Int.bit_xor
         | Eq (a, b) -> imap2 a b Int.equal
-        | Magic_enum_eq (a, b) -> imap2 a b Int.equal
         | Ne (a, b) -> imap2 a b (fun a b -> not (Int.equal a b))
         | Not a -> Expr.map (convert a) ~f:not
+        | Magic_EnumToCInt (a, f) -> Expr.map (convert a) ~f
+        | Magic_EnumOfCInt (a, f) -> Expr.map (convert a) ~f
     in
     convert expr
 

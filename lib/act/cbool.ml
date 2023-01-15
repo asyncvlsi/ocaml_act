@@ -1,19 +1,25 @@
 open! Core
+
+include Enum.Make (struct
+  include Cbool0
+
+  let mapping = [ (false_, Cint0.of_int 0); (true_, Cint0.of_int 1) ]
+end)
+
 include Cbool0
 
-let dtype =
-  Dtype.Wrap.create ~equal ~sexp_of_t
-    ~max_layout_of:(fun _ -> Bits_fixed 1)
-    ~layout:(Bits_fixed 1)
-
 module E = struct
-  type t = Cbool0.t Expr.Wrap.t
+  include E
 
-  include Expr.CBool_
+  let true_ = const Cbool0.true_
+  let false_ = const Cbool0.false_
+  let of_bool b = match b with true -> true_ | false -> false_
+  let not_ e = Expr.Ir.Not (Expr.Ir.unwrap e) |> Expr.Ir.wrap
 end
 
 module N = struct
-  type t = Node.Wrap.t
+  include N
 
-  let toggle ?loc var_id = Node.Wrap.assign ?loc var_id E.(var var_id |> not_)
+  let toggle ?loc (var_id : Cbool0.t Var.Wrap.t) =
+    Node.Wrap.assign ?loc var_id E.(var var_id |> not_)
 end

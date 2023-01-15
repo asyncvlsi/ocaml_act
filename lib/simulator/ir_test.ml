@@ -2,7 +2,7 @@ open! Core
 open! Act
 
 (* TODO switch stuff 4.14.0
-   opam install core dune ocamlfmt expect_test_helpers_core
+   opam install core dune ocamlfmt expect_test_helpers_core bignum
 *)
 
 let%expect_test "test1" =
@@ -407,61 +407,25 @@ let%expect_test "test probes" =
     A 1 2 3 4 B C D E 5 F (Ok ()) |}]
 
 module Op : sig
-  type t = Add | Mul | And | Or [@@deriving sexp, equal]
+  type t = Add | Mul | And | Or [@@deriving sexp, equal, hash, compare]
 
-  (* autoogenerate the rest of this *)
-
-  val dtype : t DType.t
-
-  module E : sig
-    val var : t Var.t -> t Expr.t
-    val const : t -> t Expr.t
-    val eq : t Expr.t -> t Expr.t -> CBool.t Expr.t
-  end
-
-  module N : sig
-    val match_ : t Var.t -> f:(t -> N.t) -> N.t
-  end
+  include Enum.S with type t := t
 end = struct
-  type t = Add | Mul | And | Or [@@deriving sexp, equal]
+  (* TODO autogenerate this with a ppx *)
+  module T = struct
+    type t = Add | Mul | And | Or [@@deriving sexp, equal, hash, compare]
 
-  let all = [ Add; Mul; And; Or ]
-
-  (* autoogenerate the rest of this *)
-
-  let to_int t = match t with Add -> 0 | Mul -> 1 | And -> 2 | Or -> 3
-  let bitwidth t = to_int t |> CInt.of_int |> CInt.bitwidth
-
-  let max_bitwidth =
-    List.map all ~f:bitwidth
-    |> List.max_elt ~compare:Int.compare
-    |> Option.value_exn
-
-  let dtype =
-    DType.create ~equal ~sexp_of_t
-      ~max_layout_of:(fun t -> Bits_fixed (bitwidth t))
-      ~layout:(Bits_fixed max_bitwidth)
-
-  module E = struct
-    let var v = Expr.var v
-
-    let const c =
-      Internal_rep.Expr.Const (c, Bits_fixed (bitwidth c))
-      |> Internal_rep.Expr.wrap
-
-    let eq a b =
-      let module Ir = Internal_rep in
-      Ir.Expr.Magic_enum_eq (Ir.Expr.untype' a, Ir.Expr.untype' b)
-      |> Ir.Expr.wrap
+    let mapping =
+      [
+        (Add, CInt.of_int 0);
+        (Mul, CInt.of_int 1);
+        (And, CInt.of_int 2);
+        (Or, CInt.of_int 3);
+      ]
   end
 
-  module N = struct
-    let match_ var0 ~f =
-      N.select_imm ~else_:None
-        (List.map all ~f:(fun o ->
-             let guard = E.(eq (const o) (var var0)) in
-             (guard, f o)))
-  end
+  include T
+  include Enum.Make (T)
 end
 
 module Mini_alu = struct
@@ -476,25 +440,28 @@ module Mini_alu = struct
     let arg0_v = Var.create val_dtype in
     let arg1_v = Var.create val_dtype in
     let read_2_args = N.par [ N.read arg0.r arg0_v; N.read arg1.r arg1_v ] in
-    let branch = function
-      | Op.Add ->
-          let expr = CInt.E.(add (var arg0_v) (var arg1_v)) in
-          let send = CInt.N.send result.w expr ~overflow:Mask in
-          N.seq [ read_2_args; send ]
-      | Op.Mul ->
-          let expr = CInt.E.(mul (var arg0_v) (var arg1_v)) in
-          let send = CInt.N.send result.w expr ~overflow:Mask in
-          N.seq [ read_2_args; send ]
-      | Op.And ->
-          let expr = CInt.E.(bit_and (var arg0_v) (var arg1_v)) in
-          let send = N.send result.w expr in
-          N.seq [ read_2_args; send ]
-      | Op.Or ->
-          let expr = CInt.E.(bit_or (var arg0_v) (var arg1_v)) in
-          let send = N.send result.w expr in
-          N.seq [ read_2_args; send ]
+    let ir =
+      N.loop
+        [
+          N.read op.r op_v;
+          Op.N.match_ op_v ~f:(fun op_code ->
+              let read_args = read_2_args in
+              let send_result =
+                match op_code with
+                | Op.Add ->
+                    let expr = CInt.E.(add (var arg0_v) (var arg1_v)) in
+                    CInt.N.send result.w expr ~overflow:Mask
+                | Op.Mul ->
+                    let expr = CInt.E.(mul (var arg0_v) (var arg1_v)) in
+                    CInt.N.send result.w expr ~overflow:Mask
+                | Op.And ->
+                    N.send result.w CInt.E.(bit_and (var arg0_v) (var arg1_v))
+                | Op.Or ->
+                    N.send result.w CInt.E.(bit_or (var arg0_v) (var arg1_v))
+              in
+              N.seq [ read_args; send_result ]);
+        ]
     in
-    let ir = N.loop [ N.read op.r op_v; Op.N.match_ op_v ~f:branch ] in
     (ir, op.w, arg0.w, arg1.w, result.r)
 end
 
@@ -578,4 +545,4 @@ let%expect_test "test2" =
   [%expect
     {|
     (Error
-     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in lib/simulator/ir_test.ml on line 559.") |}]
+     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in lib/simulator/ir_test.ml on line 526.") |}]

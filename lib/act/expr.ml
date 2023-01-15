@@ -3,7 +3,7 @@ open! Core
 module T = struct
   type 'a t =
     | Var : 'a Var.Ir.t -> 'a t
-    | Const : 'a * Layout.t -> 'a t
+    | Const : Cint0.t -> Cint0.t t
     | Add : Cint0.t t * Cint0.t t -> Cint0.t t
     | Sub : Cint0.t t * Cint0.t t -> Cint0.t t
     | Mul : Cint0.t t * Cint0.t t -> Cint0.t t
@@ -17,7 +17,8 @@ module T = struct
     | Eq : Cint0.t t * Cint0.t t -> Cbool0.t t
     | Ne : Cint0.t t * Cint0.t t -> Cbool0.t t
     | Not : Cbool0.t t -> Cbool0.t t
-    | Magic_enum_eq : Any.t t * Any.t t -> Cbool0.t t
+    | Magic_EnumToCInt : Any.t t * (Any.t -> Cint0.t) -> Cint0.t t
+    | Magic_EnumOfCInt : Cint0.t t * (Cint0.t -> 'a) -> 'a t
   [@@deriving sexp_of]
 end
 
@@ -55,7 +56,7 @@ module Wrap = struct
 
   let rec max_layout : type a. a t -> Layout.t = function
     | Var var_id -> Dtype.Ir.layout var_id.u.d.dtype
-    | Const (_, layout) -> layout
+    | Const c -> Bits_fixed (Cint0.bitwidth c)
     | Add (a, b) -> Layout.(iadd1 (imax (max_layout a) (max_layout b)))
     | Sub (a, _) -> (* this is not allowed to underflow *) max_layout a
     | Mul (a, b) -> Layout.(iadd (max_layout a) (max_layout b))
@@ -67,25 +68,17 @@ module Wrap = struct
     | BitOr (a, b) -> Layout.imax (max_layout a) (max_layout b)
     | BitXor (a, b) -> Layout.imax (max_layout a) (max_layout b)
     | Eq (_, _) -> Bits_fixed 1
-    | Magic_enum_eq (_, _) -> Bits_fixed 1
     | Ne (_, _) -> Bits_fixed 1
     | Not _ -> Bits_fixed 1
-end
-
-module CBool_ = struct
-  include T
-
-  let var v = Wrap.var v
-  let true_ = Const (Cbool0.true_, Bits_fixed 1)
-  let false_ = Const (Cbool0.false_, Bits_fixed 1)
-  let not_ a = Not a
+    | Magic_EnumToCInt (c, _) -> max_layout c
+    | Magic_EnumOfCInt (c, _) -> max_layout c
 end
 
 module CInt_ = struct
   include T
 
   let var v = Wrap.var v
-  let const c = Const (c, Bits_fixed (Cint0.bitwidth c))
+  let const c = Const c
   let cint i = const (Cint0.of_int i)
 
   (* ops *)
@@ -112,4 +105,11 @@ module Ir = struct
   let wrap t = t
   let untype' t = untype t
   let max_layout t = Wrap.max_layout t
+
+  let magic_EnumToCInt (enum : 'a t) ~(f : 'a -> Cint0.t) =
+    let enum : Any.t t = Obj.magic enum in
+    let f : Any.t -> Cint0.t = Obj.magic f in
+    Magic_EnumToCInt (enum, f)
+
+  let magic_EnumOfCInt cint ~f = Magic_EnumOfCInt (cint, f)
 end

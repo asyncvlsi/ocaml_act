@@ -18,6 +18,7 @@ module CInt = Cint
 module CBool = Cbool
 module Code_pos = Code_pos
 module DType = Dtype.Wrap
+module Enum = Enum
 module Expr = Expr.Wrap
 module Mem = Mem.Wrap
 module N = Node.Wrap

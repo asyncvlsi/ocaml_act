@@ -6,16 +6,6 @@ module Wrap : sig
   val var : 'a Var.Wrap.t -> 'a t
 end
 
-module CBool_ : sig
-  val var : Cbool0.t Var.Wrap.t -> Cbool0.t Wrap.t
-  val true_ : Cbool0.t Wrap.t
-  val false_ : Cbool0.t Wrap.t
-  val not_ : Cbool0.t Wrap.t -> Cbool0.t Wrap.t
-  (* val and_ : Cbool0.t t -> Cbool0.t t -> Cbool0.t t
-     val or_ : Cbool0.t t -> Cbool0.t t -> Cbool0.t t
-     val xor_ : Cbool0.t t -> Cbool0.t t -> Cbool0.t t *)
-end
-
 module CInt_ : sig
   val var : Cint0.t Var.Wrap.t -> Cint0.t Wrap.t
   val const : Cint0.t -> Cint0.t Wrap.t
@@ -39,7 +29,7 @@ end
 module Ir : sig
   type 'a t =
     | Var : 'a Var.Ir.t -> 'a t
-    | Const : 'a * Layout.t -> 'a t
+    | Const : Cint0.t -> Cint0.t t
     | Add : Cint0.t t * Cint0.t t -> Cint0.t t
     | Sub : Cint0.t t * Cint0.t t -> Cint0.t t
     | Mul : Cint0.t t * Cint0.t t -> Cint0.t t
@@ -53,7 +43,8 @@ module Ir : sig
     | Eq : Cint0.t t * Cint0.t t -> Cbool0.t t
     | Ne : Cint0.t t * Cint0.t t -> Cbool0.t t
     | Not : Cbool0.t t -> Cbool0.t t
-    | Magic_enum_eq : Any.t t * Any.t t -> Cbool0.t t
+    | Magic_EnumToCInt : Any.t t * (Any.t -> Cint0.t) -> Cint0.t t
+    | Magic_EnumOfCInt : Cint0.t t * (Cint0.t -> 'a) -> 'a t
   [@@deriving sexp_of]
 
   module U : sig
@@ -62,6 +53,8 @@ module Ir : sig
 
   val max_layout : 'a t -> Layout.t
   val unwrap : 'a Wrap.t -> 'a t
+  val magic_EnumToCInt : 'a Wrap.t -> f:('a -> Cint0.t) -> Cint0.t Wrap.t
+  val magic_EnumOfCInt : Cint0.t Wrap.t -> f:(Cint0.t -> 'a) -> 'a Wrap.t
   val wrap : 'a t -> 'a Wrap.t
   val untype : 'a t -> U.t
   val untype' : 'a Wrap.t -> U.t

@@ -1,6 +1,6 @@
 (library
  (name act)
- (libraries core)
+ (libraries core bignum zarith)
  (preprocess
   (pps ppx_jane))
  (inline_tests))

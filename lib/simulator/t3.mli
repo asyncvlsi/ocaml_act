@@ -1,6 +1,6 @@
 open! Core
 open! Act
 
-type t = A | B | C [@@deriving sexp]
+type t = A | B | C
 
-val dtype : t DType.t
+include Enum.S with type t := t

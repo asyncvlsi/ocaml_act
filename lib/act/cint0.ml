@@ -1,8 +1,40 @@
 open! Core
-include Int
 
-let of_int i = i
-let bitwidth t = match t with 0 -> 1 | _ -> Int.num_bits - Int.clz t
+module T = struct
+  type t = Bigint.t [@@deriving hash, compare, equal]
+
+  let sexp_of_t t = Bigint.sexp_of_t t
+
+  let t_of_sexp sexp =
+    let i = Bigint.t_of_sexp sexp in
+    assert (Bigint.(i >= zero));
+    i
+end
+
+include T
+
+let of_string s = Sexp.of_string s |> t_of_sexp
+let to_string t = Sexp.to_string (sexp_of_t t)
+
+include Comparable.Make (T)
+include Hashable.Make (T)
+
+let of_int (i : int) =
+  assert (Int.(i >= 0));
+  Bigint.of_int i
+
+let bitwidth t =
+  if Bigint.equal t (of_int 0) then 1
+  else Bigint.to_zarith_bigint t |> Z.numbits
+
+let ( + ) a b = Bigint.(a + b)
+
+let ( - ) a b =
+  let r = Bigint.(a - b) in
+  assert (Bigint.(r >= zero));
+  r
+
+let pow a b = Bigint.(pow a b)
 
 let%expect_test "width" =
   let f i = print_s [%sexp ((i, bitwidth (of_int i)) : int * int)] in
