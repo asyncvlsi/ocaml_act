@@ -4,7 +4,7 @@ module T = struct
   type t =
     | Assign of Code_pos.t * Var.Ir.U.t * Expr.Ir.U.t
     | Log of Code_pos.t * string
-    | Log1 of Code_pos.t * Var.Ir.U.t * (Any.t -> string)
+    | Log1 of Code_pos.t * Expr.Ir.U.t * (Any.t -> string)
     | Assert of Code_pos.t * Cbool0.t Expr.Ir.t
     | Seq of Code_pos.t * t list
     | Par of Code_pos.t * t list
@@ -161,8 +161,10 @@ module Wrap = struct
 
   let log ?loc str = Log (Code_pos.value_or_psite loc, str)
 
-  let log1 ?loc var ~f =
-    Log1 (Code_pos.value_or_psite loc, Var.Ir.untype' var, Obj.magic f)
+  let log1' ?loc expr ~f =
+    Log1 (Code_pos.value_or_psite loc, Expr.Ir.untype' expr, Obj.magic f)
+
+  let log1 ?loc var ~f =log1' ?loc (Expr.Wrap.var var) ~f
 
   let assert_ ?loc expr =
     Assert (Code_pos.value_or_psite loc, Expr.Ir.unwrap expr)

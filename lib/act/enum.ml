@@ -7,13 +7,15 @@ module type E_S = sig
   val var : elt Var.Wrap.t -> elt Expr.Wrap.t
   val const : elt -> elt Expr.Wrap.t
   val eq : elt Expr.Wrap.t -> elt Expr.Wrap.t -> Cbool0.t Expr.Wrap.t
+  val to_int : elt Expr.Wrap.t -> Cint0.t Expr.Wrap.t
+  val of_int : Cint0.t Expr.Wrap.t -> elt Expr.Wrap.t
 end
 
 module type N_S = sig
   type elt
   type t = Node.Wrap.t
 
-  val match_ : elt Var.Wrap.t -> f:(elt -> t) -> t
+  val match_ : elt Expr.Wrap.t -> f:(elt -> t) -> t
 end
 
 module type S = sig
@@ -25,6 +27,8 @@ module type S = sig
 
   val dtype : t Dtype.Wrap.t
   val bitwidth : t -> int
+  val to_int : t -> Cint0.t
+  val of_int : Cint0.t -> t
 
   module E : E_S with type elt := t
   module N : N_S with type elt := t
@@ -65,23 +69,21 @@ end) : S with type t := X.t = struct
     type t = X.t Expr.Wrap.t
 
     let var v = Expr.Wrap.var v
-
-    let const c =
-      Expr.Ir.magic_EnumOfCInt (Expr.CInt_.const (to_int c)) ~f:of_int
-
-    let eq a b =
-      let a = Expr.Ir.magic_EnumToCInt a ~f:to_int in
-      let b = Expr.Ir.magic_EnumToCInt b ~f:to_int in
-      Expr.CInt_.eq a b
+    let expr_of_int_expr i = Expr.Ir.magic_EnumOfCInt i ~f:of_int
+    let expr_to_int_expr o = Expr.Ir.magic_EnumToCInt o ~f:to_int
+    let const c = to_int c |> Expr.CInt_.const |> expr_of_int_expr
+    let eq a b = Expr.CInt_.eq (expr_to_int_expr a) (expr_to_int_expr b)
+    let of_int = expr_of_int_expr
+    let to_int = expr_to_int_expr
   end
 
   module N = struct
     type t = Node.Wrap.t
 
-    let match_ var0 ~f =
+    let match_ expr ~f =
       Node.Wrap.select_imm ~else_:None
         (List.map X.mapping ~f:(fun (op, _) ->
-             let guard = E.(eq (const op) (var var0)) in
+             let guard = E.(eq (const op) expr) in
              (guard, f op)))
   end
 end

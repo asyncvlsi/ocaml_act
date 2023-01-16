@@ -23,11 +23,16 @@ module Expr = struct
     | Const of Any.t
     | Map of t * (Any.t -> Any.t)
     | Map2 of t * t * (Any.t -> Any.t -> Any.t)
+    | AssertMap2 of
+        t * t * (Any.t -> Any.t -> string option) * (Any.t -> Any.t -> Any.t)
   [@@deriving sexp_of]
 
   let sexp_of_t _ = String.sexp_of_t "<expr>"
   let map e ~f = Map (e, Obj.magic f)
   let map2 e1 e2 ~f = Map2 (e1, e2, Obj.magic f)
+
+  let assert_map2 e1 e2 ~assert_fn ~f =
+    AssertMap2 (e1, e2, Obj.magic assert_fn, Obj.magic f)
 
   let rec var_ids t =
     match t with
@@ -35,6 +40,7 @@ module Expr = struct
     | Const _ -> []
     | Map (e, _) -> var_ids e
     | Map2 (e1, e2, _) -> var_ids e1 @ var_ids e2
+    | AssertMap2 (e1, e2, _, _) -> var_ids e1 @ var_ids e2
 end
 
 module With_origin = struct
@@ -81,6 +87,20 @@ end
 module Var_id_src = struct
   type t = Var of Ir.Var.U.t | Mem_idx_reg | Read_deq_reg | Send_enq_reg
 end
+(*
+   module Var = struct
+     type t = {
+     (* immutable data *)
+     var_id: Var_id.t;
+     src: Var_id_src.t;
+     dtype: Any.t Ir.DType.t;
+
+     (* mutable *)
+     mutable value: Any.t option;
+     mutable read_ct: int;
+     mutable write_ct: int
+     }
+   end *)
 
 module Var_id_pool = struct
   type t = {
@@ -119,21 +139,33 @@ module Var_id_pool = struct
         match x with
         | Ir.Expr.Var var_id -> Expr.Var (to_assem_id t var_id.u)
         | Const c -> Const (Any.of_magic (c : CInt.t))
-        | Add (a, b) -> imap2 a b Int.( + )
-        | Sub (a, b) -> imap2 a b Int.( - )
-        | Mul (a, b) -> imap2 a b Int.( * )
-        | Div (a, b) -> imap2 a b Int.( / )
-        | Mod (a, b) -> imap2 a b Int.( % )
-        | LShift (a, b) -> imap2 a b Int.shift_left
-        | LogicalRShift (a, b) -> imap2 a b Int.shift_right_logical
-        | BitAnd (a, b) -> imap2 a b Int.bit_and
-        | BitOr (a, b) -> imap2 a b Int.bit_or
-        | BitXor (a, b) -> imap2 a b Int.bit_xor
-        | Eq (a, b) -> imap2 a b Int.equal
-        | Ne (a, b) -> imap2 a b (fun a b -> not (Int.equal a b))
+        | Add (a, b) -> imap2 a b CInt.( + )
+        | Sub (a, b) ->
+            Expr.assert_map2 (convert a) (convert b)
+              ~assert_fn:(fun a b ->
+                if CInt.(a >= b) then None
+                else
+                  Some
+                    [%string
+                      "Expr.Sub must have first arg >= second arg but \
+                       %{a#CInt} < %{a#CInt}"])
+              ~f:CInt.( - )
+        | Mul (a, b) -> imap2 a b CInt.( * )
+        | Div (a, b) -> imap2 a b CInt.( / )
+        | Mod (a, b) -> imap2 a b CInt.( % )
+        | LShift (a, b) -> imap2 a b CInt.shift_left
+        | LogicalRShift (a, b) -> imap2 a b CInt.shift_right_logical
+        | BitAnd (a, b) -> imap2 a b CInt.bit_and
+        | BitOr (a, b) -> imap2 a b CInt.bit_or
+        | BitXor (a, b) -> imap2 a b CInt.bit_xor
+        | Eq (a, b) -> imap2 a b CInt.equal
+        | Ne (a, b) -> imap2 a b (fun a b -> not (CInt.equal a b))
         | Not a -> Expr.map (convert a) ~f:not
         | Magic_EnumToCInt (a, f) -> Expr.map (convert a) ~f
         | Magic_EnumOfCInt (a, f) -> Expr.map (convert a) ~f
+        | Clip (a, bits) -> Expr.map (convert a) ~f:(CInt.clip ~bits)
+        | Add_wrap (a, b, bits) -> imap2 a b (CInt.add_wrap ~bits)
+        | Sub_wrap (a, b, bits) -> imap2 a b (CInt.sub_wrap ~bits)
     in
     convert expr
 
@@ -268,7 +300,7 @@ module N = struct
     | Nop
     | Assign of Var_id.t * Expr.t
     | Log0 of string
-    | Log1 of Var_id.t * (Any.t -> string)
+    | Log1 of Expr.t * (Any.t -> string)
     | Assert of Expr.t
     | Par of Instr_idx.t list
     | ParJoin of Par_join.t
@@ -300,7 +332,7 @@ module N = struct
     (match t with
     | End | Nop | Par _ | ParJoin _ -> []
     | Log0 _ | Read (_, _) | Jump _ -> []
-    | Log1 (var_id, _) -> [ var_id ]
+    | Log1 (expr, _) -> Expr.var_ids expr
     | Assign (_, expr) -> Expr.var_ids expr
     | Assert expr | JumpIfFalse (expr, _) -> Expr.var_ids expr
     | SelectImm l | SelectImmElse (l, _) ->
@@ -387,15 +419,30 @@ module Var_table = struct
     Set.find write_ids ~f:(fun write_id -> t.write_cts.(write_id) > 0)
     |> to_unit_result ~f:(fun write_id -> `Writing_written_var (write_id, pc))
 
-  let rec eval t expr =
+  let rec eval t expr ~(on_error : string -> 'b) : (Any.t, 'b) result =
+    let eval e = eval t e ~on_error in
     match expr with
-    | Expr.Var id -> t.values.(id)
-    | Const c -> c
-    | Map (e, f) -> f (eval t e)
-    | Map2 (e1, e2, f) -> f (eval t e1) (eval t e2)
+    | Expr.Var id -> Ok t.values.(id)
+    | Const c -> Ok c
+    | Map (e, f) ->
+        let%map.Result e = eval e in
+        f e
+    | Map2 (e1, e2, f) ->
+        let%bind.Result e1 = eval e1 in
+        let%map.Result e2 = eval e2 in
+        f e1 e2
+    | AssertMap2 (e1, e2, assert_fn, f) -> (
+        let%bind.Result e1 = eval e1 in
+        let%bind.Result e2 = eval e2 in
+        match assert_fn e1 e2 with
+        | None -> Ok (f e1 e2)
+        | Some raw_error -> Error (on_error raw_error))
 
-  let eval_int t expr = eval t expr |> Any.to_int
-  let eval_bool t expr = eval t expr |> Any.to_bool
+  let eval_int t expr ~on_error =
+    eval t expr ~on_error |> Result.map ~f:Any.to_int
+
+  let eval_bool t expr ~on_error =
+    eval t expr ~on_error |> Result.map ~f:Any.to_bool
 
   let guard t ~read_ids ~write_ids ~pc =
     let%map.Result () = ok_to_guard t ~read_ids ~write_ids ~pc in
@@ -476,7 +523,10 @@ let step' t ~pc_idx =
       chan.send_ready <- false;
       unguard chan.read_instr;
       unguard chan.send_instr;
-      let value = Var_table.eval t.var_table chan.send_expr in
+      let%bind.Result value =
+        Var_table.eval t.var_table chan.send_expr ~on_error:(fun error_string ->
+            `Eval_send_expr_failed (chan.send_instr, error_string))
+      in
       let%bind.Result () =
         check_value_fits_in_dtype chan.dtype ~value
           ~error:
@@ -505,9 +555,17 @@ let step' t ~pc_idx =
     else Ok ()
   in
   let step_select l ~else_ ~pc ~pc_idx =
+    let%bind.Result branches =
+      List.mapi l ~f:(fun idx (expr, instr) ->
+          let%map.Result guard =
+            eval_bool expr ~on_error:(fun error_string ->
+                `Eval_guard_expr_failed (pc, idx, error_string))
+          in
+          (guard, instr, idx))
+      |> Result.all
+    in
     let true_branches =
-      List.mapi l ~f:(fun idx (expr, instr) -> (eval_bool expr, instr, idx))
-      |> List.filter ~f:(fun (g, _, _) -> g)
+      List.filter branches ~f:(fun (g, _, _) -> g)
       |> List.map ~f:(fun (_, instr, idx) -> (instr, idx))
     in
     match (true_branches, else_) with
@@ -527,7 +585,11 @@ let step' t ~pc_idx =
       set_pc_and_guard ~pc_idx (pc + 1)
   | Assign (var_id, expr) ->
       unguard pc;
-      let value = Var_table.eval t.var_table expr in
+      let%bind.Result value =
+        Var_table.eval t.var_table expr ~on_error:(fun error_string ->
+            `Eval_assign_expr_failed (pc, error_string))
+      in
+
       let%bind.Result () =
         let var_dtype = Var_id_pool.dtype_of_id t.var_id_pool var_id in
         check_value_fits_in_dtype var_dtype ~value
@@ -542,16 +604,24 @@ let step' t ~pc_idx =
       set_pc_and_guard ~pc_idx (pc + 1)
   | Assert expr -> (
       unguard pc;
-      match eval_bool expr with
+      let%bind.Result expr =
+        eval_bool expr ~on_error:(fun error_string ->
+            `Eval_assert_expr_failed (pc, error_string))
+      in
+      match expr with
       | true -> set_pc_and_guard ~pc_idx (pc + 1)
       | false -> Error (`Assert_failure pc))
   | Log0 str ->
       (* unguard pc; *)
       printf "%s" str;
       set_pc_and_guard ~pc_idx (pc + 1)
-  | Log1 (var_id, f) ->
+  | Log1 (expr, f) ->
       unguard pc;
-      printf "%s" (Var_table.at t.var_table ~var_id |> f);
+      let%bind.Result expr =
+        Var_table.eval t.var_table expr ~on_error:(fun error_string ->
+            `Eval_log1_expr_failed (pc, error_string))
+      in
+      printf "%s" (f expr);
       set_pc_and_guard ~pc_idx (pc + 1)
   | Par instrs ->
       (* unguard pc; *)
@@ -572,7 +642,11 @@ let step' t ~pc_idx =
       set_pc_and_guard ~pc_idx inst
   | JumpIfFalse (expr, inst) ->
       unguard pc;
-      set_pc_and_guard ~pc_idx (if eval_bool expr then pc + 1 else inst)
+      let%bind.Result expr =
+        eval_bool expr ~on_error:(fun error_string ->
+            `Eval_Jump_if_false_expr_failed (pc, error_string))
+      in
+      set_pc_and_guard ~pc_idx (if expr then pc + 1 else inst)
   | SelectImm l ->
       unguard pc;
       step_select l ~else_:None ~pc ~pc_idx
@@ -666,7 +740,10 @@ let step' t ~pc_idx =
   | ReadMem (idx_expr, dst_id, _, mem_id) ->
       unguard pc;
       let mem = t.mem_table.(mem_id) in
-      let idx = Var_table.eval_int t.var_table idx_expr in
+      let%bind.Result idx =
+        Var_table.eval_int t.var_table idx_expr ~on_error:(fun error_string ->
+            `Eval_mem_idx_expr_failed (pc, error_string))
+      in
       if idx < 0 || idx >= Array.length mem.arr then
         Error (`Mem_out_of_bounds (pc, idx, Array.length mem.arr))
       else
@@ -689,11 +766,17 @@ let step' t ~pc_idx =
   | WriteMem (idx_expr, src_expr, _, mem_id) ->
       unguard pc;
       let mem = t.mem_table.(mem_id) in
-      let idx = Var_table.eval_int t.var_table idx_expr in
+      let%bind.Result idx =
+        Var_table.eval_int t.var_table idx_expr ~on_error:(fun error_string ->
+            `Eval_mem_idx_expr_failed (pc, error_string))
+      in
       if idx < 0 || idx >= Array.length mem.arr then
         Error (`Mem_out_of_bounds (pc, idx, Array.length mem.arr))
       else
-        let value = Var_table.eval t.var_table src_expr in
+        let%bind.Result value =
+          Var_table.eval t.var_table src_expr ~on_error:(fun error_string ->
+              `Eval_write_mem_value_expr_failed (pc, error_string))
+        in
         let%bind.Result () =
           check_value_fits_in_dtype mem.dtype ~value
             ~error:
@@ -878,6 +961,15 @@ let resolve_step_err t e ~line_numbers =
           "Written value doesnt fit in memory cell: got %{value#Sexp} but \
            memory cell has layout %{Ir.Layout.sexp_of_t mem_cell_layout#Sexp} \
            at %{str_i write_instr}."]
+  | `Eval_Jump_if_false_expr_failed _ -> failwith "TODO - Eval expr failer"
+  | `Eval_assert_expr_failed _ -> failwith "TODO - Eval expr failer"
+  | `Eval_assign_expr_failed _ -> failwith "TODO - Eval expr failer"
+  | `Eval_guard_expr_failed _ -> failwith "TODO - Eval expr failer"
+  | `Eval_mem_idx_expr_failed _ -> failwith "TODO - Eval expr failer"
+  | `Eval_send_expr_failed _ -> failwith "TODO - Eval expr failer"
+  | `Eval_write_mem_value_expr_failed _ -> failwith "TODO - Eval expr failer"
+  | `Eval_log1_expr_failed _ -> failwith "TODO - Eval expr failer"
+  
 
 let schedual_user_chan_ops t ~user_sends ~user_reads =
   let set_user_sends t ~values ~send_instr =
@@ -1034,7 +1126,7 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
     | Ir.N.Assign (loc, id, expr) ->
         push_instr loc (Assign (convert_id id, convert_expr expr))
     | Log (loc, str) -> push_instr loc (Log0 str)
-    | Log1 (loc, var, f) -> push_instr loc (Log1 (convert_id var, f))
+    | Log1 (loc, expr, f) -> push_instr loc (Log1 (convert_expr expr, f))
     | Assert (loc, expr) -> push_instr loc (Assert (convert_expr expr))
     | Seq (loc, stmts) -> (
         match stmts with
@@ -1163,6 +1255,7 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
       Mem_id_pool.id_of_mem mem_id_pool
       |> Hashtbl.to_alist
       |> List.map ~f:(fun (mem, (idx_reg, mem_id)) -> (mem_id, (idx_reg, mem)))
+      |> List.sort ~compare:(fun (id0, _) (id1, _) -> Int.compare id0 id1)
     in
     List.iteri tbl ~f:(fun i (mem_id, _) -> assert (Int.equal i mem_id));
     List.map tbl ~f:snd

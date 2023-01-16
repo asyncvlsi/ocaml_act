@@ -4,17 +4,12 @@ include Comparable with type t := t
 include Hashable with type t := t
 include Stringable with type t := t
 
-val true_ : t
-val false_ : t
-val of_bool : bool -> t
-
 module E : sig
   include Enum.E_S with type elt := t
 
   val true_ : t
   val false_ : t
   val not_ : t -> t
-  val of_bool : bool -> t
 end
 
 module N : sig

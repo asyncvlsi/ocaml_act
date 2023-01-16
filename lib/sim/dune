@@ -1,5 +1,5 @@
 (library
- (name simulator)
+ (name sim)
  (libraries core act expect_test_helpers_core)
  (preprocess
   (pps ppx_jane))

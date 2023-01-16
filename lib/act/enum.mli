@@ -7,13 +7,15 @@ module type E_S = sig
   val var : elt Var.Wrap.t -> elt Expr.Wrap.t
   val const : elt -> elt Expr.Wrap.t
   val eq : elt Expr.Wrap.t -> elt Expr.Wrap.t -> Cbool0.t Expr.Wrap.t
+  val to_int : elt Expr.Wrap.t -> Cint0.t Expr.Wrap.t
+  val of_int : Cint0.t Expr.Wrap.t -> elt Expr.Wrap.t
 end
 
 module type N_S = sig
   type elt
   type t = Node.Wrap.t
 
-  val match_ : elt Var.Wrap.t -> f:(elt -> t) -> t
+  val match_ : elt Expr.Wrap.t -> f:(elt -> t) -> t
 end
 
 module type S = sig
@@ -25,6 +27,8 @@ module type S = sig
 
   val dtype : t Dtype.Wrap.t
   val bitwidth : t -> int
+  val to_int : t -> Cint0.t
+  val of_int : Cint0.t -> t
 
   module E : E_S with type elt := t
   module N : N_S with type elt := t

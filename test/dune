@@ -1,2 +1,6 @@
-(test
- (name ochp))
+(library
+ (name my_test)
+ (libraries core act sim expect_test_helpers_core)
+ (preprocess
+  (pps ppx_jane))
+ (inline_tests))

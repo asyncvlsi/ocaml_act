@@ -1,6 +1,5 @@
 open! Core
-include Cint0
+include Bool
 
-let true_ = of_int 1
-let false_ = of_int 0
-let of_bool b = if b then true_ else false_
+let of_bool b = b
+let bitwidth _ = 1

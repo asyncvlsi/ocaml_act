@@ -3,7 +3,7 @@ open! Core
 include Enum.Make (struct
   include Cbool0
 
-  let mapping = [ (false_, Cint0.of_int 0); (true_, Cint0.of_int 1) ]
+  let mapping = [ (false, Cint0.of_int 0); (true, Cint0.of_int 1) ]
 end)
 
 include Cbool0
@@ -11,9 +11,8 @@ include Cbool0
 module E = struct
   include E
 
-  let true_ = const Cbool0.true_
-  let false_ = const Cbool0.false_
-  let of_bool b = match b with true -> true_ | false -> false_
+  let true_ = const true
+  let false_ = const false
   let not_ e = Expr.Ir.Not (Expr.Ir.unwrap e) |> Expr.Ir.wrap
 end
 

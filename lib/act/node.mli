@@ -44,6 +44,7 @@ module Wrap : sig
   (* phantom instructions *)
   val log : ?loc:Code_pos.t -> string -> t
   val log1 : ?loc:Code_pos.t -> 'a Var.Wrap.t -> f:('a -> string) -> t
+  val log1' : ?loc:Code_pos.t -> 'a Expr.Wrap.t -> f:('a -> string) -> t
   val assert_ : ?loc:Code_pos.t -> Cbool0.t Expr.Wrap.t -> t
 
   (* control flow *)
@@ -61,7 +62,7 @@ module Ir : sig
   type t =
     | Assign of Code_pos.t * Var.Ir.U.t * Expr.Ir.U.t
     | Log of Code_pos.t * string
-    | Log1 of Code_pos.t * Var.Ir.U.t * (Any.t -> string)
+    | Log1 of Code_pos.t * Expr.Ir.U.t * (Any.t -> string)
     | Assert of Code_pos.t * Cbool0.t Expr.Ir.t
     | Seq of Code_pos.t * t list
     | Par of Code_pos.t * t list

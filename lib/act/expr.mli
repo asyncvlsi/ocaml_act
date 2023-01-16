@@ -24,6 +24,9 @@ module CInt_ : sig
   val bit_xor : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
   val eq : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cbool0.t Wrap.t
   val ne : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cbool0.t Wrap.t
+  val clip : Cint0.t Wrap.t -> bits:int -> Cint0.t Wrap.t
+  val add_wrap : Cint0.t Wrap.t -> Cint0.t Wrap.t -> bits:int -> Cint0.t Wrap.t
+  val sub_wrap : Cint0.t Wrap.t -> Cint0.t Wrap.t -> bits:int -> Cint0.t Wrap.t
 end
 
 module Ir : sig
@@ -43,6 +46,9 @@ module Ir : sig
     | Eq : Cint0.t t * Cint0.t t -> Cbool0.t t
     | Ne : Cint0.t t * Cint0.t t -> Cbool0.t t
     | Not : Cbool0.t t -> Cbool0.t t
+    | Clip : Cint0.t t * int -> Cint0.t t
+    | Add_wrap : Cint0.t t * Cint0.t t * int -> Cint0.t t
+    | Sub_wrap : Cint0.t t * Cint0.t t * int -> Cint0.t t
     | Magic_EnumToCInt : Any.t t * (Any.t -> Cint0.t) -> Cint0.t t
     | Magic_EnumOfCInt : Cint0.t t * (Cint0.t -> 'a) -> 'a t
   [@@deriving sexp_of]

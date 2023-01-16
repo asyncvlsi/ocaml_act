@@ -167,7 +167,7 @@ let%expect_test "test4" =
   [%expect
     {|
       send 1
-      (Error "Assertion failed: in lib/simulator/ir_test.ml on line 148.") |}]
+      (Error "Assertion failed: in test/ir_test.ml on line 148.") |}]
 
 let%expect_test "test5" =
   let var1 = Var.create CInt.dtype_32 in
@@ -195,11 +195,11 @@ let%expect_test "test5" =
   [%expect
     {|
       (Error
-       "User read has wrong value: got 4, but expected 5 based on `send' function call in lib/simulator/ir_test.ml on line 192, on chan created in lib/simulator/ir_test.ml on line 175.") |}]
+       "User read has wrong value: got 4, but expected 5 based on `send' function call in lib/sim/sim.ml on line 1320, on chan created in test/ir_test.ml on line 175.") |}]
 
 let split ~dtype i1 o1 o2 =
   let var1 = Var.create dtype in
-  let b1 = Var.create CBool.dtype ~init:CBool.false_ in
+  let b1 = Var.create CBool.dtype ~init:false in
   N.loop
     [
       N.read i1 var1;
@@ -209,7 +209,7 @@ let split ~dtype i1 o1 o2 =
 
 let merge ~dtype i1 i2 o1 =
   let var1 = Var.create dtype in
-  let b1 = Var.create CBool.dtype ~init:CBool.false_ in
+  let b1 = Var.create CBool.dtype ~init:false in
   N.loop
     [
       N.if_else Expr.(var b1) [ N.read i1 var1 ] [ N.read i2 var1 ];
@@ -277,7 +277,7 @@ let%expect_test "test_buff 1" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in lib/simulator/ir_test.ml on line 275, on chan created in lib/simulator/ir_test.ml on line 241.") |}]
+     "User send did not complete:  called in lib/sim/sim.ml on line 1294, on chan created in test/ir_test.ml on line 241.") |}]
 
 let%expect_test "test_buff 2" =
   let dtype = CInt.dtype_32 in
@@ -301,7 +301,7 @@ let%expect_test "test_buff 2" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in lib/simulator/ir_test.ml on line 299, on chan created in lib/simulator/ir_test.ml on line 284.") |}]
+     "User send did not complete:  called in lib/sim/sim.ml on line 1294, on chan created in test/ir_test.ml on line 284.") |}]
 
 let%expect_test "mem" =
   let mem =
@@ -340,7 +340,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Mem access out of bounds: in lib/simulator/ir_test.ml on line 333, idx is 4, size of mem is 4.") |}]
+     "Mem access out of bounds: in test/ir_test.ml on line 333, idx is 4, size of mem is 4.") |}]
 
 let%expect_test "mem" =
   let mem =
@@ -369,7 +369,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Simulatnious accesses of a memory/rom: statement 1 in lib/simulator/ir_test.ml on line 362, statement 2 in lib/simulator/ir_test.ml on line 357.") |}]
+     "Simulatnious accesses of a memory/rom: statement 1 in test/ir_test.ml on line 362, statement 2 in test/ir_test.ml on line 357.") |}]
 
 let%expect_test "test probes" =
   let var = Var.create CInt.dtype_32 in
@@ -444,7 +444,9 @@ module Mini_alu = struct
       N.loop
         [
           N.read op.r op_v;
-          Op.N.match_ op_v ~f:(fun op_code ->
+          Op.N.match_
+            Expr.(var op_v)
+            ~f:(fun op_code ->
               let read_args = read_2_args in
               let send_result =
                 match op_code with
@@ -545,4 +547,4 @@ let%expect_test "test2" =
   [%expect
     {|
     (Error
-     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in lib/simulator/ir_test.ml on line 526.") |}]
+     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in test/ir_test.ml on line 528.") |}]

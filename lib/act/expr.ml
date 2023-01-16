@@ -17,6 +17,9 @@ module T = struct
     | Eq : Cint0.t t * Cint0.t t -> Cbool0.t t
     | Ne : Cint0.t t * Cint0.t t -> Cbool0.t t
     | Not : Cbool0.t t -> Cbool0.t t
+    | Clip : Cint0.t t * int -> Cint0.t t
+    | Add_wrap : Cint0.t t * Cint0.t t * int -> Cint0.t t
+    | Sub_wrap : Cint0.t t * Cint0.t t * int -> Cint0.t t
     | Magic_EnumToCInt : Any.t t * (Any.t -> Cint0.t) -> Cint0.t t
     | Magic_EnumOfCInt : Cint0.t t * (Cint0.t -> 'a) -> 'a t
   [@@deriving sexp_of]
@@ -72,6 +75,11 @@ module Wrap = struct
     | Not _ -> Bits_fixed 1
     | Magic_EnumToCInt (c, _) -> max_layout c
     | Magic_EnumOfCInt (c, _) -> max_layout c
+    | Clip (e, bits) -> Layout.imin (max_layout e) (Bits_fixed bits)
+    | Add_wrap (a, b, bits) ->
+        let add_layout = Layout.(iadd1 (imax (max_layout a) (max_layout b))) in
+        Layout.imin add_layout (Bits_fixed bits)
+    | Sub_wrap (_, _, bits) -> Bits_fixed bits
 end
 
 module CInt_ = struct
@@ -94,6 +102,9 @@ module CInt_ = struct
   let bit_xor a b = BitXor (a, b)
   let eq a b = Eq (a, b)
   let ne a b = Ne (a, b)
+  let clip e ~bits = Clip (e, bits)
+  let add_wrap a b ~bits = Add_wrap (a, b, bits)
+  let sub_wrap a b ~bits = Sub_wrap (a, b, bits)
 end
 
 module Ir = struct

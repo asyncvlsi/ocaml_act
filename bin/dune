@@ -1,6 +1,6 @@
 (executable
  (public_name ochp)
  (name main)
- (libraries act act_utils core)
+ (libraries act core)
  (preprocess
   (pps ppx_jane)))

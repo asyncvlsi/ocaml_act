@@ -42,6 +42,7 @@ module UnguardedMemRom_u = struct
   let create dtype init creation_code_pos kind =
     let id = Id.create () in
     let dtype = Dtype.Ir.untype' dtype in
+    (* TODO check the initial values are compatable with the dtype *)
     { id; d = { dtype; creation_code_pos; init; kind } }
 end
 

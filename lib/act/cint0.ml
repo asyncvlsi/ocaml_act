@@ -19,6 +19,8 @@ let to_string t = Sexp.to_string (sexp_of_t t)
 include Comparable.Make (T)
 include Hashable.Make (T)
 
+let to_int_exn t = Bigint.to_int_exn t
+
 let of_int (i : int) =
   assert (Int.(i >= 0));
   Bigint.of_int i
@@ -27,6 +29,9 @@ let bitwidth t =
   if Bigint.equal t (of_int 0) then 1
   else Bigint.to_zarith_bigint t |> Z.numbits
 
+let zero = of_int 0
+let one = of_int 1
+let two = of_int 2
 let ( + ) a b = Bigint.(a + b)
 
 let ( - ) a b =
@@ -34,7 +39,18 @@ let ( - ) a b =
   assert (Bigint.(r >= zero));
   r
 
-let pow a b = Bigint.(pow a b)
+let ( * ) a b = Bigint.(a * b)
+let ( / ) a b = Bigint.(a / b)
+let ( % ) a b = Bigint.(a % b)
+let shift_left a b = Bigint.shift_left a (Bigint.to_int_exn b)
+let shift_right_logical a b = Bigint.( / ) a (Bigint.pow two b)
+let bit_and a b = Bigint.bit_and a b
+let bit_or a b = Bigint.bit_or a b
+let bit_xor a b = Bigint.bit_xor a b
+let pow a b = Bigint.pow a b
+let clip t ~bits = bit_and t (pow two (of_int bits) - one)
+let add_wrap a b ~bits = clip ~bits (a + b)
+let sub_wrap a b ~bits = (b * pow two (of_int bits)) + a - b |> clip ~bits
 
 let%expect_test "width" =
   let f i = print_s [%sexp ((i, bitwidth (of_int i)) : int * int)] in
