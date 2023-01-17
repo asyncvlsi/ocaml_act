@@ -50,7 +50,7 @@ module Ir : sig
     | Add_wrap : Cint0.t t * Cint0.t t * int -> Cint0.t t
     | Sub_wrap : Cint0.t t * Cint0.t t * int -> Cint0.t t
     | Magic_EnumToCInt : Any.t t * (Any.t -> Cint0.t) -> Cint0.t t
-    | Magic_EnumOfCInt : Cint0.t t * (Cint0.t -> 'a) -> 'a t
+    | Magic_EnumOfCInt : Cint0.t t * (Cint0.t -> 'a option) -> 'a t
   [@@deriving sexp_of]
 
   module U : sig
@@ -60,7 +60,7 @@ module Ir : sig
   val max_layout : 'a t -> Layout.t
   val unwrap : 'a Wrap.t -> 'a t
   val magic_EnumToCInt : 'a Wrap.t -> f:('a -> Cint0.t) -> Cint0.t Wrap.t
-  val magic_EnumOfCInt : Cint0.t Wrap.t -> f:(Cint0.t -> 'a) -> 'a Wrap.t
+  val magic_EnumOfCInt : Cint0.t Wrap.t -> f:(Cint0.t -> 'a option) -> 'a Wrap.t
   val wrap : 'a t -> 'a Wrap.t
   val untype : 'a t -> U.t
   val untype' : 'a Wrap.t -> U.t

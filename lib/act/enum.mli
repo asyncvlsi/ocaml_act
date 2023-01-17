@@ -28,7 +28,7 @@ module type S = sig
   val dtype : t Dtype.Wrap.t
   val bitwidth : t -> int
   val to_int : t -> Cint0.t
-  val of_int : Cint0.t -> t
+  val of_int : Cint0.t -> t option
 
   module E : E_S with type elt := t
   module N : N_S with type elt := t

@@ -62,7 +62,6 @@ module T = struct
                 "Trying to initialize a variable of dtype %{Layout.sexp_of_t \
                  (Dtype.Ir.layout dtype)#Sexp} with a value of max_layout \
                  %{Layout.sexp_of_t init_layout#Sexp}."]));
-
     { u = U.create dtype init (Code_pos.value_or_psite loc) }
 end
 

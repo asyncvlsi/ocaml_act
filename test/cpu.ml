@@ -400,7 +400,8 @@ let%expect_test "fibonacci" =
   Sim.send sim i (CInt.of_int 12);
   Sim.read sim o (CInt.of_int 144);
   print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)];
-  [%expect {|
+  [%expect
+    {|
     (Ok ())
     (Ok ())
     (Ok ())

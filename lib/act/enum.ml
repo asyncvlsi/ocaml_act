@@ -28,7 +28,7 @@ module type S = sig
   val dtype : t Dtype.Wrap.t
   val bitwidth : t -> int
   val to_int : t -> Cint0.t
-  val of_int : Cint0.t -> t
+  val of_int : Cint0.t -> t option
 
   module E : E_S with type elt := t
   module N : N_S with type elt := t
@@ -50,8 +50,8 @@ end) : S with type t := X.t = struct
   let to_int t = List.find_exn X.mapping ~f:(fun (op, _) -> X.equal op t) |> snd
 
   let of_int i =
-    List.find_exn X.mapping ~f:(fun (_, op_code) -> Cint0.equal op_code i)
-    |> fst
+    List.find X.mapping ~f:(fun (_, op_code) -> Cint0.equal op_code i)
+    |> Option.map ~f:fst
 
   let bitwidth t = to_int t |> Cint0.bitwidth
 

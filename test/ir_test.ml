@@ -2,7 +2,7 @@ open! Core
 open! Act
 
 (* TODO switch stuff 4.14.0
-   opam install core dune ocamlfmt expect_test_helpers_core bignum
+   opam install bignum core dune expect_test_helpers_core ocamlfmt
 *)
 
 let%expect_test "test1" =
@@ -336,7 +336,6 @@ let%expect_test "mem" =
   in
   let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
   Sim.wait' sim ();
-  (* TODO this test is wrong *)
   [%expect
     {|
     (Error
@@ -369,7 +368,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Simulatnious accesses of a memory/rom: statement 1 in test/ir_test.ml on line 362, statement 2 in test/ir_test.ml on line 357.") |}]
+     "Simulatnious accesses of a memory/rom: statement 1 in test/ir_test.ml on line 361, statement 2 in test/ir_test.ml on line 356.") |}]
 
 let%expect_test "test probes" =
   let var = Var.create CInt.dtype_32 in
@@ -411,7 +410,6 @@ module Op : sig
 
   include Enum.S with type t := t
 end = struct
-  (* TODO autogenerate this with a ppx *)
   module T = struct
     type t = Add | Mul | And | Or [@@deriving sexp, equal, hash, compare]
 
@@ -496,7 +494,7 @@ let%expect_test "error send too big value" =
   [%expect
     {|
     (Failure
-     "Sent value doesnt fit in chan: got value 1000 but channel has layout (Bits_fixed 8).") |}]
+     "Value doesnt fit in chan: got value 1000 but channel has layout (Bits_fixed 8).") |}]
 
 let%expect_test "error read too big value" =
   Expect_test_helpers_core.require_does_raise [%here] (fun () ->
@@ -509,7 +507,7 @@ let%expect_test "error read too big value" =
   [%expect
     {|
     (Failure
-     "Read value doesnt fit in chan: got value 257 but channel has layout (Bits_fixed 8).") |}]
+     "Value doesnt fit in chan: got value 257 but channel has layout (Bits_fixed 8).") |}]
 
 let%expect_test "test2" =
   let ir dtype init_val =
@@ -547,4 +545,4 @@ let%expect_test "test2" =
   [%expect
     {|
     (Error
-     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in test/ir_test.ml on line 528.") |}]
+     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in test/ir_test.ml on line 526.") |}]

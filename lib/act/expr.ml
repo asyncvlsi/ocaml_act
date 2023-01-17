@@ -21,7 +21,7 @@ module T = struct
     | Add_wrap : Cint0.t t * Cint0.t t * int -> Cint0.t t
     | Sub_wrap : Cint0.t t * Cint0.t t * int -> Cint0.t t
     | Magic_EnumToCInt : Any.t t * (Any.t -> Cint0.t) -> Cint0.t t
-    | Magic_EnumOfCInt : Cint0.t t * (Cint0.t -> 'a) -> 'a t
+    | Magic_EnumOfCInt : Cint0.t t * (Cint0.t -> 'a option) -> 'a t
   [@@deriving sexp_of]
 end
 

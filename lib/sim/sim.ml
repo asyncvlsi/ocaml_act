@@ -38,12 +38,16 @@ module Expr = struct
     | Const of Any.t
     | Map of t * (Any.t -> Any.t)
     | Map2 of t * t * (Any.t -> Any.t -> Any.t)
+    | AssertMap of t * (Any.t -> string option) * (Any.t -> Any.t)
     | AssertMap2 of
         t * t * (Any.t -> Any.t -> string option) * (Any.t -> Any.t -> Any.t)
   [@@deriving sexp_of]
 
   let map e ~f = Map (e, Obj.magic f)
   let map2 e1 e2 ~f = Map2 (e1, e2, Obj.magic f)
+
+  let assert_map e ~assert_fn ~f =
+    AssertMap (e, Obj.magic assert_fn, Obj.magic f)
 
   let assert_map2 e1 e2 ~assert_fn ~f =
     AssertMap2 (e1, e2, Obj.magic assert_fn, Obj.magic f)
@@ -54,6 +58,7 @@ module Expr = struct
     | Const _ -> []
     | Map (e, _) -> var_ids e
     | Map2 (e1, e2, _) -> var_ids e1 @ var_ids e2
+    | AssertMap (e, _, _) -> var_ids e
     | AssertMap2 (e1, e2, _, _) -> var_ids e1 @ var_ids e2
 end
 
@@ -263,6 +268,11 @@ let step' t ~pc_idx =
           let%bind.Result e1 = eval e1 in
           let%map.Result e2 = eval e2 in
           f e1 e2
+      | AssertMap (e, assert_fn, f) -> (
+          let%bind.Result e = eval e in
+          match assert_fn e with
+          | None -> Ok (f e)
+          | Some raw_error -> Error (on_error raw_error))
       | AssertMap2 (e1, e2, assert_fn, f) -> (
           let%bind.Result e1 = eval e1 in
           let%bind.Result e2 = eval e2 in
@@ -337,7 +347,7 @@ let step' t ~pc_idx =
       unguard chan.send_instr;
       let%bind.Result value =
         eval_var_table chan.send_expr ~on_error:(fun error_string ->
-            `Eval_send_expr_failed (chan.send_instr, error_string))
+            `Eval_expr_failed (`Send, chan.send_instr, error_string))
       in
       let%bind.Result () =
         check_value_fits_in_dtype chan.src.d.dtype ~value
@@ -370,7 +380,7 @@ let step' t ~pc_idx =
       List.mapi l ~f:(fun idx (expr, instr) ->
           let%map.Result guard =
             eval_bool expr ~on_error:(fun error_string ->
-                `Eval_guard_expr_failed (pc, idx, error_string))
+                `Eval_expr_failed (`Guard idx, pc, error_string))
           in
           (guard, instr, idx))
       |> Result.all
@@ -399,7 +409,7 @@ let step' t ~pc_idx =
       unguard pc;
       let%bind.Result value =
         eval_var_table expr ~on_error:(fun error_string ->
-            `Eval_assign_expr_failed (pc, error_string))
+            `Eval_expr_failed (`Assign, pc, error_string))
       in
       let%bind.Result () =
         let var_dtype = t.var_table.(var_id).dtype in
@@ -417,7 +427,7 @@ let step' t ~pc_idx =
       unguard pc;
       let%bind.Result expr =
         eval_bool expr ~on_error:(fun error_string ->
-            `Eval_assert_expr_failed (pc, error_string))
+            `Eval_expr_failed (`Assert, pc, error_string))
       in
       match expr with
       | true -> set_pc_and_guard ~pc_idx (pc + 1)
@@ -430,7 +440,7 @@ let step' t ~pc_idx =
       unguard pc;
       let%bind.Result expr =
         eval_var_table expr ~on_error:(fun error_string ->
-            `Eval_log1_expr_failed (pc, error_string))
+            `Eval_expr_failed (`Log1, pc, error_string))
       in
       printf "%s" (f expr);
       set_pc_and_guard ~pc_idx (pc + 1)
@@ -455,7 +465,7 @@ let step' t ~pc_idx =
       unguard pc;
       let%bind.Result expr =
         eval_bool expr ~on_error:(fun error_string ->
-            `Eval_Jump_if_false_expr_failed (pc, error_string))
+            `Eval_expr_failed (`Jump_if_false, pc, error_string))
       in
       set_pc_and_guard ~pc_idx (if expr then pc + 1 else inst)
   | SelectImm l ->
@@ -555,7 +565,7 @@ let step' t ~pc_idx =
       let mem = t.mem_table.(mem_id) in
       let%bind.Result idx =
         eval_int idx_expr ~on_error:(fun error_string ->
-            `Eval_mem_idx_expr_failed (pc, error_string))
+            `Eval_expr_failed (`Mem_idx, pc, error_string))
       in
       if idx < 0 || idx >= Array.length mem.arr then
         Error (`Mem_out_of_bounds (pc, idx, Array.length mem.arr))
@@ -579,14 +589,14 @@ let step' t ~pc_idx =
       let mem = t.mem_table.(mem_id) in
       let%bind.Result idx =
         eval_int idx_expr ~on_error:(fun error_string ->
-            `Eval_mem_idx_expr_failed (pc, error_string))
+            `Eval_expr_failed (`Mem_idx, pc, error_string))
       in
       if idx < 0 || idx >= Array.length mem.arr then
         Error (`Mem_out_of_bounds (pc, idx, Array.length mem.arr))
       else
         let%bind.Result value =
           eval_var_table src_expr ~on_error:(fun error_string ->
-              `Eval_write_mem_value_expr_failed (pc, error_string))
+              `Eval_expr_failed (`Write_mem_value, pc, error_string))
         in
         let%bind.Result () =
           check_value_fits_in_dtype mem.src.d.dtype ~value
@@ -768,22 +778,22 @@ let resolve_step_err t e ~line_numbers =
           "Written value doesnt fit in memory cell: got %{value#Sexp} but \
            memory cell has layout %{Ir.Layout.sexp_of_t mem_cell_layout#Sexp} \
            at %{str_i write_instr}."]
-  | `Eval_Jump_if_false_expr_failed _ ->
-      failwith "TODO - Eval expr Eval_Jump_if_false_expr_failed"
-  | `Eval_assert_expr_failed _ ->
-      failwith "TODO - Eval expr Eval_assert_expr_failed"
-  | `Eval_assign_expr_failed _ ->
-      failwith "TODO - Eval expr Eval_assign_expr_failed"
-  | `Eval_guard_expr_failed _ ->
-      failwith "TODO - Eval expr Eval_guard_expr_failed"
-  | `Eval_mem_idx_expr_failed _ ->
-      failwith "TODO - Eval expr Eval_mem_idx_expr_failed"
-  | `Eval_send_expr_failed _ ->
-      failwith "TODO - Eval expr Eval_send_expr_failed"
-  | `Eval_write_mem_value_expr_failed _ ->
-      failwith "TODO - Eval expr Eval_write_mem_value_expr_failed"
-  | `Eval_log1_expr_failed _ ->
-      failwith "TODO - Eval expr Eval_log1_expr_failed"
+  | `Eval_expr_failed (expr_src, pc, error_string) ->
+      let expr_src =
+        match expr_src with
+        | `Assert -> "assert statement"
+        | `Assign -> "assign statement"
+        | `Guard idx -> [%string "guard of index %{idx#Int}"]
+        | `Jump_if_false -> "while loop guard"
+        | `Log1 -> "log statement"
+        | `Mem_idx -> "index into memeory"
+        | `Send -> "channel send statement"
+        | `Write_mem_value -> "value being written to memory"
+      in
+      Error
+        [%string
+          "Error while evaluating expression from %{expr_src} at %{str_i pc}: \
+           %{error_string}."]
 
 let schedual_user_chan_ops t ~user_sends ~user_reads =
   let set_user_sends t ~values ~send_instr =
@@ -889,33 +899,84 @@ end
 module Var_id_pool = struct
   type t = {
     mutable next_id : int;
-    var_id_of_var : Var_id.t Ir.Var.U.Table.t;
-    src_of_var_id : (Any.t Ir.DType.t * Var_id_src.t) Var_id.Table.t;
+    id_of_var : Var_id.t Ir.Var.U.Table.t;
+    src_of_id : (Any.t Ir.DType.t * Var_id_src.t) Var_id.Table.t;
   }
 
   let create () =
     {
       next_id = 0;
-      var_id_of_var = Ir.Var.U.Table.create ();
-      src_of_var_id = Var_id.Table.create ();
+      id_of_var = Ir.Var.U.Table.create ();
+      src_of_id = Var_id.Table.create ();
     }
 
   let new_id t src dtype =
     let id = t.next_id in
     t.next_id <- t.next_id + 1;
-    Hashtbl.set t.src_of_var_id ~key:id ~data:(dtype, src);
+    Hashtbl.set t.src_of_id ~key:id ~data:(dtype, src);
     id
 
   let to_assem_id t var =
-    Hashtbl.find_or_add t.var_id_of_var var ~default:(fun () ->
+    Hashtbl.find_or_add t.id_of_var var ~default:(fun () ->
         new_id t (Var_id_src.Var var) var.d.dtype)
+end
 
-  let to_assem_expr t expr =
+module Chan_id_pool = struct
+  type t = { mutable next_id : int; id_of_chan : Chan_id.t Ir.Chan.U.Table.t }
+
+  let create () = { next_id = 0; id_of_chan = Ir.Chan.U.Table.create () }
+
+  let new_id t =
+    t.next_id <- t.next_id + 1;
+    t.next_id - 1
+
+  let get_id t chan =
+    Hashtbl.find_or_add t.id_of_chan chan ~default:(fun () -> new_id t)
+end
+
+module Mem_id_pool = struct
+  type t = {
+    mutable next_id : int;
+    id_of_mem : (Var_id.t * Mem_id.t) Ir.Mem.Table.t;
+  }
+
+  let create () = { next_id = 0; id_of_mem = Ir.Mem.Table.create () }
+
+  let new_id t =
+    t.next_id <- t.next_id + 1;
+    t.next_id - 1
+
+  let get_id t var_id_pool mem =
+    Hashtbl.find_or_add t.id_of_mem mem ~default:(fun () ->
+        let mem_idx = new_id t in
+        let helper_reg_var_idx =
+          Var_id_pool.new_id var_id_pool Mem_idx_reg Ir.DType.dummy_val
+        in
+        (helper_reg_var_idx, mem_idx))
+end
+
+let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
+  let ir = Ir.N.unwrap ir in
+  let user_sendable_ports =
+    List.map user_sendable_ports ~f:Ir.Chan.unwrap_wu |> Ir.Chan.U.Set.of_list
+  in
+  let user_readable_ports =
+    List.map user_readable_ports ~f:Ir.Chan.unwrap_ru |> Ir.Chan.U.Set.of_list
+  in
+  assert (Set.inter user_readable_ports user_sendable_ports |> Set.is_empty);
+
+  let ab = Assem_builder.create () in
+  let push_instr loc instr = Assem_builder.push ab loc instr in
+  let edit_instr loc idx instr = Assem_builder.edit ab loc idx instr in
+
+  let var_id_pool = Var_id_pool.create () in
+  let convert_id id = Var_id_pool.to_assem_id var_id_pool id in
+  let convert_expr expr =
     let rec convert : 'a. 'a Ir.Expr.t -> Expr.t =
       let imap2 a b f = Expr.map2 (convert a) (convert b) ~f in
       fun (type a) (x : a Ir.Expr.t) ->
         match x with
-        | Ir.Expr.Var var_id -> Expr.Var (to_assem_id t var_id.u)
+        | Ir.Expr.Var var_id -> Expr.Var (convert_id var_id.u)
         | Const c -> Const (Any.of_magic (c : CInt.t))
         | Add (a, b) -> imap2 a b CInt.( + )
         | Sub (a, b) ->
@@ -940,87 +1001,18 @@ module Var_id_pool = struct
         | Ne (a, b) -> imap2 a b (fun a b -> not (CInt.equal a b))
         | Not a -> Expr.map (convert a) ~f:not
         | Magic_EnumToCInt (a, f) -> Expr.map (convert a) ~f
-        | Magic_EnumOfCInt (a, f) -> Expr.map (convert a) ~f
+        | Magic_EnumOfCInt (a, of_int) ->
+            Expr.assert_map (convert a)
+              ~assert_fn:(fun i ->
+                match of_int i with
+                | Some _ -> None
+                | None -> Some "of_int called on value that is not part of enum")
+              ~f:(fun i -> Option.value_exn (of_int i))
         | Clip (a, bits) -> Expr.map (convert a) ~f:(CInt.clip ~bits)
         | Add_wrap (a, b, bits) -> imap2 a b (CInt.add_wrap ~bits)
         | Sub_wrap (a, b, bits) -> imap2 a b (CInt.sub_wrap ~bits)
     in
-    convert expr
-
-  let var_inits t = t.src_of_var_id
-  (* let dtype_of_id t id = Hashtbl.find_exn t.dtype_of_var_id id *)
-end
-
-module Chan_id_pool = struct
-  type t = {
-    mutable next_id : int;
-    id_of_chan : Chan_id.t Ir.Chan.U.Table.t;
-    chan_of_id : Ir.Chan.U.t Chan_id.Table.t;
-  }
-
-  let create () =
-    {
-      next_id = 0;
-      id_of_chan = Ir.Chan.U.Table.create ();
-      chan_of_id = Chan_id.Table.create ();
-    }
-
-  let new_id t =
-    t.next_id <- t.next_id + 1;
-    t.next_id - 1
-
-  let get_id t chan =
-    Hashtbl.find_or_add t.id_of_chan chan ~default:(fun () ->
-        let id = new_id t in
-        Hashtbl.set t.chan_of_id ~key:id ~data:chan;
-        id)
-
-  let find_exn t chan = Hashtbl.find_exn t.id_of_chan chan
-  let ct t = t.next_id
-  let chan_of_id t id = Hashtbl.find_exn t.chan_of_id id
-end
-
-module Mem_id_pool = struct
-  type t = {
-    mutable next_id : int;
-    id_of_mem : (Var_id.t * Mem_id.t) Ir.Mem.Table.t;
-  }
-
-  let create () = { next_id = 0; id_of_mem = Ir.Mem.Table.create () }
-
-  let new_id t =
-    t.next_id <- t.next_id + 1;
-    t.next_id - 1
-
-  let get_id t var_id_pool mem =
-    Hashtbl.find_or_add t.id_of_mem mem ~default:(fun () ->
-        let mem_idx = new_id t in
-        let helper_reg_var_idx =
-          Var_id_pool.new_id var_id_pool Mem_idx_reg Ir.DType.dummy_val
-        in
-        (helper_reg_var_idx, mem_idx))
-
-  let id_of_mem t = t.id_of_mem
-end
-
-let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
-  let ir = Ir.N.unwrap ir in
-  let user_sendable_ports =
-    List.map user_sendable_ports ~f:Ir.Chan.unwrap_wu |> Ir.Chan.U.Set.of_list
-  in
-  let user_readable_ports =
-    List.map user_readable_ports ~f:Ir.Chan.unwrap_ru |> Ir.Chan.U.Set.of_list
-  in
-  assert (Set.inter user_readable_ports user_sendable_ports |> Set.is_empty);
-
-  let ab = Assem_builder.create () in
-  let push_instr loc instr = Assem_builder.push ab loc instr in
-  let edit_instr loc idx instr = Assem_builder.edit ab loc idx instr in
-
-  let var_id_pool = Var_id_pool.create () in
-  let convert_id id = Var_id_pool.to_assem_id var_id_pool id in
-  let convert_expr expr =
-    Var_id_pool.to_assem_expr var_id_pool (Ir.Expr.untype expr)
+    convert (Ir.Expr.untype expr)
   in
 
   let chan_id_pool = Chan_id_pool.create () in
@@ -1131,7 +1123,7 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
 
   (* set up user enqueuers *)
   let push_dequeuer chan =
-    let chan_idx = Chan_id_pool.find_exn chan_id_pool chan in
+    let chan_idx = Chan_id_pool.get_id chan_id_pool chan in
     let var_id = Var_id_pool.new_id var_id_pool Read_deq_reg chan.d.dtype in
     let read_instr = push_instr Code_pos.dummy_loc (Read (var_id, chan_idx)) in
     let dequeuer =
@@ -1149,7 +1141,7 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
 
   (* set up user dequeuers *)
   let push_enqueuer chan =
-    let chan_idx = Chan_id_pool.find_exn chan_id_pool chan in
+    let chan_idx = Chan_id_pool.get_id chan_id_pool chan in
     let var_id = Var_id_pool.new_id var_id_pool Send_enq_reg chan.d.dtype in
     let send_instr =
       push_instr Code_pos.dummy_loc (Send (Var var_id, chan_idx))
@@ -1167,8 +1159,7 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
   let assem, loc_of_assem_idx = Array.unzip assem in
   let var_table =
     let var_inits =
-      Var_id_pool.var_inits var_id_pool
-      |> Hashtbl.to_alist
+      Hashtbl.to_alist var_id_pool.src_of_id
       |> List.sort ~compare:(fun (id1, _) (id2, _) -> Int.compare id1 id2)
     in
     List.iteri var_inits ~f:(fun i (id, _) -> assert (Int.equal i id));
@@ -1189,14 +1180,17 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
   let rng = Random.State.make [| seed |] in
 
   let chan_table =
-    Array.init (Chan_id_pool.ct chan_id_pool) ~f:(fun id ->
-        let chan = Chan_id_pool.chan_of_id chan_id_pool id in
-        Chan_buff.create chan)
+    let tbl =
+      Hashtbl.to_alist chan_id_pool.id_of_chan
+      |> List.map ~f:(fun (chan, chan_id) -> (chan_id, chan))
+      |> List.sort ~compare:(fun (id0, _) (id1, _) -> Int.compare id0 id1)
+    in
+    List.iteri tbl ~f:(fun i (chan_id, _) -> assert (Int.equal i chan_id));
+    List.map tbl ~f:(fun (_, chan) -> Chan_buff.create chan) |> Array.of_list
   in
   let mem_table =
     let tbl =
-      Mem_id_pool.id_of_mem mem_id_pool
-      |> Hashtbl.to_alist
+      Hashtbl.to_alist mem_id_pool.id_of_mem
       |> List.map ~f:(fun (mem, (idx_reg, mem_id)) -> (mem_id, (idx_reg, mem)))
       |> List.sort ~compare:(fun (id0, _) (id1, _) -> Int.compare id0 id1)
     in
@@ -1220,54 +1214,38 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
     is_done = false;
   }
 
-let send t ?loc chan value =
-  let chan = Ir.Chan.unwrap_w chan in
-  let value = Any.of_magic value in
-  (match check_value_fits_in_dtype chan.d.dtype ~value ~error:() with
+let queue_user_io_op t call_site chan value chan_instr queuer =
+  (match check_value_fits_in_dtype chan.Ir.Chan.U.d.dtype ~value ~error:() with
   | Ok () -> ()
   | Error () ->
       failwith
         [%string
-          "Sent value doesnt fit in chan: got value %{Ir.DType.sexp_of_t_ \
+          "Value doesnt fit in chan: got value %{Ir.DType.sexp_of_t_ \
            chan.d.dtype value#Sexp} but channel has layout %{Ir.DType.layout \
            chan.d.dtype |> Ir.Layout.sexp_of_t#Sexp}."]);
+  Queue.enqueue t.queued_user_ops
+    { Queued_user_op.queuer; chan_instr; value; call_site }
+
+let send t ?loc chan value =
+  let chan = Ir.Chan.unwrap_w chan in
+  let value = Any.of_magic value in
   let call_site = Code_pos.value_or_psite loc in
   match Map.find t.all_enqueuers chan with
-  | Some (send_instr, enqueuer) ->
-      Queue.enqueue t.queued_user_ops
-        {
-          Queued_user_op.queuer = `Send enqueuer;
-          chan_instr = send_instr;
-          value;
-          call_site;
-        }
   | None ->
       failwith
         "the provided chan_id was not regestered as a user-sendable chan in \
          Sim.create"
+  | Some (send_instr, enqueuer) ->
+      queue_user_io_op t call_site chan value send_instr (`Send enqueuer)
 
 let read t ?loc chan value =
   let chan = Ir.Chan.unwrap_r chan in
   let value = Any.of_magic value in
-  (match check_value_fits_in_dtype chan.d.dtype ~value ~error:() with
-  | Ok () -> ()
-  | Error () ->
-      failwith
-        [%string
-          "Read value doesnt fit in chan: got value %{Ir.DType.sexp_of_t_ \
-           chan.d.dtype value#Sexp} but channel has layout %{Ir.DType.layout \
-           chan.d.dtype |> Ir.Layout.sexp_of_t#Sexp}."]);
   let call_site = Code_pos.value_or_psite loc in
   match Map.find t.all_dequeuers chan with
-  | Some (read_instr, dequeuer) ->
-      Queue.enqueue t.queued_user_ops
-        {
-          Queued_user_op.queuer = `Read dequeuer;
-          chan_instr = read_instr;
-          value;
-          call_site;
-        }
   | None ->
       failwith
         "the provided chan_id was not regestered as a user-readable chan in \
          Sim.create"
+  | Some (read_instr, dequeuer) ->
+      queue_user_io_op t call_site chan value read_instr (`Read dequeuer)
