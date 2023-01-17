@@ -89,6 +89,5 @@ module E : sig
   val clip : t -> bits:int -> t
   val add_wrap : t -> t -> bits:int -> t
   val sub_wrap : t -> t -> bits:int -> t
-
-  val zero: t
+  val zero : t
 end

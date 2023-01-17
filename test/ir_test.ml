@@ -195,7 +195,7 @@ let%expect_test "test5" =
   [%expect
     {|
       (Error
-       "User read has wrong value: got 4, but expected 5 based on `send' function call in lib/sim/sim.ml on line 1320, on chan created in test/ir_test.ml on line 175.") |}]
+       "User read has wrong value: got 4, but expected 5 based on `send' function call in test/ir_test.ml on line 192, on chan created in test/ir_test.ml on line 175.") |}]
 
 let split ~dtype i1 o1 o2 =
   let var1 = Var.create dtype in
@@ -277,7 +277,7 @@ let%expect_test "test_buff 1" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in lib/sim/sim.ml on line 1294, on chan created in test/ir_test.ml on line 241.") |}]
+     "User send did not complete:  called in test/ir_test.ml on line 275, on chan created in test/ir_test.ml on line 241.") |}]
 
 let%expect_test "test_buff 2" =
   let dtype = CInt.dtype_32 in
@@ -301,7 +301,7 @@ let%expect_test "test_buff 2" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in lib/sim/sim.ml on line 1294, on chan created in test/ir_test.ml on line 284.") |}]
+     "User send did not complete:  called in test/ir_test.ml on line 299, on chan created in test/ir_test.ml on line 284.") |}]
 
 let%expect_test "mem" =
   let mem =

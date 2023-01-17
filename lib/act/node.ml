@@ -164,7 +164,7 @@ module Wrap = struct
   let log1' ?loc expr ~f =
     Log1 (Code_pos.value_or_psite loc, Expr.Ir.untype' expr, Obj.magic f)
 
-  let log1 ?loc var ~f =log1' ?loc (Expr.Wrap.var var) ~f
+  let log1 ?loc var ~f = log1' ?loc (Expr.Wrap.var var) ~f
 
   let assert_ ?loc expr =
     Assert (Code_pos.value_or_psite loc, Expr.Ir.unwrap expr)

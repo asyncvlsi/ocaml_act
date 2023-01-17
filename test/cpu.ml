@@ -11,7 +11,8 @@ module Instr = struct
         (* push the next instruction, and then increase the program counter by 2 *)
       | Dup (* pop a; push a; push a *)
       | Exch (* pop a; pop b; push a; push b *)
-      | Exch2 (* pop a; pop b; pop c; push a; push c; push b;   [TOP;a;b;c] -> [TOP;b;c;a] *)
+      | Exch2
+        (* pop a; pop b; pop c; push a; push c; push b;   [TOP;a;b;c] -> [TOP;b;c;a] *)
       | Jump (* pop addr_high; pop addr_loc; goto addr *)
       | JumpIfNot
         (*  pop addr_high; pop addr_loc; pop flag; if (flag == 0) then goto addr *)
@@ -26,7 +27,21 @@ module Instr = struct
 
     let mapping =
       [
-        End; Nop; Push_imm; Dup; Exch; Exch2; Jump; JumpIfNot; Eq; Add; Sub; Output; Input; Bool_not; Bool_or;
+        End;
+        Nop;
+        Push_imm;
+        Dup;
+        Exch;
+        Exch2;
+        Jump;
+        JumpIfNot;
+        Eq;
+        Add;
+        Sub;
+        Output;
+        Input;
+        Bool_not;
+        Bool_or;
       ]
       |> List.mapi ~f:(fun i e -> (e, CInt.of_int i))
   end
@@ -58,7 +73,7 @@ let cpu instrs ~ochan ~ichan =
   let push value =
     N.seq
       [
-       (* N.log1' value ~f:(fun value -> sprintf "push %d\n" (CInt.to_int_exn value)); *)
+        (* N.log1' value ~f:(fun value -> sprintf "push %d\n" (CInt.to_int_exn value)); *)
         N.write_ug_mem stack ~idx:CInt.E.(var sp) ~value;
         CInt.N.incr sp ~overflow:Cant;
       ]
@@ -68,7 +83,7 @@ let cpu instrs ~ochan ~ichan =
       [
         CInt.N.decr sp ~underflow:Cant;
         N.read_ug_mem stack ~idx:CInt.E.(var sp) ~dst;
-       (* N.log1 dst ~f:(fun dst -> sprintf "pop %d\n" (CInt.to_int_exn dst)); *)
+        (* N.log1 dst ~f:(fun dst -> sprintf "pop %d\n" (CInt.to_int_exn dst)); *)
       ]
   in
   let set_pc_to_addr ~addr_high ~addr_low =
@@ -180,14 +195,18 @@ let cpu instrs ~ochan ~ichan =
                 [
                   pop ~dst:tmp0;
                   pop ~dst:tmp1;
-                  push CInt.E.(bit_or (var tmp0 |> ne zero |> CBool.E.to_int) (var tmp1 |> ne zero |> CBool.E.to_int));
+                  push
+                    CInt.E.(
+                      bit_or
+                        (var tmp0 |> ne zero |> CBool.E.to_int)
+                        (var tmp1 |> ne zero |> CBool.E.to_int));
                   CInt.N.incr pc ~overflow:Cant;
                 ]
           | Bool_not ->
               N.seq
                 [
                   pop ~dst:tmp0;
-                  push CInt.E.(var tmp0 |> eq zero|> CBool.E.to_int);
+                  push CInt.E.(var tmp0 |> eq zero |> CBool.E.to_int);
                   CInt.N.incr pc ~overflow:Cant;
                 ]
           | Input ->
@@ -257,10 +276,9 @@ let%expect_test "test" =
   Sim.read sim o (CInt.of_int 7);
   Sim.read sim o (CInt.of_int 12);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
-  [%expect{|
+  [%expect {|
     (Ok ())
     (Ok ()) |}]
-
 
 let%expect_test "fibonacci" =
   let instrs =
@@ -285,7 +303,8 @@ let%expect_test "fibonacci" =
       CInt.of_int 1;
       Instr.to_int Eq;
       (* [TOP; n == 1; n; n; return_addr_high; return_addr_low]; *)
-     (* 10: *) Instr.to_int Exch;
+      (* 10: *)
+      Instr.to_int Exch;
       (* [TOP; n; n == 1; n; return_addr_high; return_addr_low]; *)
       Instr.to_int Push_imm;
       CInt.of_int 0;
@@ -301,7 +320,6 @@ let%expect_test "fibonacci" =
       Instr.to_int Push_imm;
       CInt.of_int 0;
       (* 20: *) Instr.to_int JumpIfNot;
-
       (* [TOP; n; return_addr_high; return_addr_low]; *)
       Instr.to_int Dup;
       Instr.to_int Push_imm;
@@ -330,7 +348,8 @@ let%expect_test "fibonacci" =
       CInt.of_int 2;
       Instr.to_int Sub;
       (* [TOP; n-2; fib(n-1);  return_addr_high; return_addr_low]; *)
-      (* 40: *) Instr.to_int Push_imm;
+      (* 40: *)
+      Instr.to_int Push_imm;
       CInt.of_int 51;
       Instr.to_int Exch;
       Instr.to_int Push_imm;
@@ -343,18 +362,16 @@ let%expect_test "fibonacci" =
       Instr.to_int Push_imm;
       CInt.of_int 0;
       (* [TOP; func_start_high; func_start_low; n-2; rec1_return_addr_high; rec1_return_addr_low; fib(n-1); return_addr_high; return_addr_low]; *)
-      (* 50: *) Instr.to_int Jump;
+      (* 50: *)
+      Instr.to_int Jump;
       (* [TOP; fib(n-2); fib(n-1); return_addr_high; return_addr_low]; *)
-
       Instr.to_int Add;
       (* [TOP; fib(n); return_addr_high; return_addr_low]; *)
-
 
       (* so now in either case it has fib(n) on the top of the stack. So reorder the stack and return. *)
       Instr.to_int Exch2;
       (* [TOP; return_addr_high; return_addr_low]; fib(n); *)
       Instr.to_int Jump;
-
       (* final outputing code *)
       Instr.to_int Output;
       Instr.to_int Push_imm;
@@ -377,7 +394,15 @@ let%expect_test "fibonacci" =
   Sim.send sim i (CInt.of_int 7);
   Sim.read sim o (CInt.of_int 13);
   print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)];
-  [%expect{|
+  Sim.send sim i (CInt.of_int 8);
+  Sim.read sim o (CInt.of_int 21);
+  print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)];
+  Sim.send sim i (CInt.of_int 12);
+  Sim.read sim o (CInt.of_int 144);
+  print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)];
+  [%expect {|
+    (Ok ())
+    (Ok ())
     (Ok ())
     (Ok ())
     (Ok ())
