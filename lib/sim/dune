@@ -1,6 +1,6 @@
 (library
  (name sim)
- (libraries core act expect_test_helpers_core)
+ (libraries core act)
  (preprocess
   (pps ppx_jane))
  (inline_tests))
