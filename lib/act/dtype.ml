@@ -4,14 +4,15 @@ type 'a t = {
   equal : 'a -> 'a -> bool;
   sexp_of_t : 'a -> Sexp.t;
   max_layout_of : 'a -> Layout.t;
+  cint_of : 'a -> Cint0.t;
   layout : Layout.t;
 }
 
 module Wrap = struct
   type nonrec 'a t = 'a t
 
-  let create ~equal ~sexp_of_t ~max_layout_of ~layout =
-    { equal; sexp_of_t; max_layout_of; layout }
+  let create ~equal ~sexp_of_t ~max_layout_of ~cint_of ~layout =
+    { equal; sexp_of_t; max_layout_of; cint_of; layout }
 end
 
 module Ir = struct
@@ -23,6 +24,7 @@ module Ir = struct
       sexp_of_t = (fun _ -> failwith "Cant call functions on DType.dummy_val");
       max_layout_of =
         (fun _ -> failwith "Cant call functions on DType.dummy_val");
+      cint_of = (fun _ -> failwith "Cant call functions on DType.dummy_val");
       layout = Bits_fixed 0;
     }
 
@@ -32,6 +34,7 @@ module Ir = struct
   let unwrap t = t
   let equal_ (t : 'a t) (a : 'a) (b : 'a) = t.equal a b
   let sexp_of_t_ (t : 'a t) (a : 'a) = t.sexp_of_t a
+  let cint_of_value (t : 'a t) (a : 'a) = t.cint_of a
   let equal_fn (t : 'a t) = Staged.stage t.equal
   let sexp_of_t_fn (t : 'a t) = Staged.stage t.sexp_of_t
   let max_layout_of t a = t.max_layout_of a

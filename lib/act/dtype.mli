@@ -7,6 +7,7 @@ module Wrap : sig
     equal:('a -> 'a -> bool) ->
     sexp_of_t:('a -> Sexp.t) ->
     max_layout_of:('a -> Layout.t) ->
+    cint_of:('a -> Cint0.t) ->
     layout:Layout.t ->
     'a t
 end
@@ -20,6 +21,7 @@ module Ir : sig
   val untype' : 'a Wrap.t -> Any.t t
   val equal_ : 'a t -> 'a -> 'a -> bool
   val sexp_of_t_ : 'a t -> 'a -> Sexp.t
+  val cint_of_value : 'a t -> 'a -> Cint0.t
   val equal_fn : 'a t -> ('a -> 'a -> bool) Staged.t
   val sexp_of_t_fn : 'a t -> ('a -> Sexp.t) Staged.t
   val max_layout_of : 'a t -> 'a -> Layout.t

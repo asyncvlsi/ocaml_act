@@ -63,6 +63,7 @@ end) : S with type t := X.t = struct
   let dtype =
     Dtype.Wrap.create ~equal ~sexp_of_t:X.sexp_of_t
       ~max_layout_of:(fun t -> Bits_fixed (bitwidth t))
+      ~cint_of:(fun t -> to_int t)
       ~layout:(Bits_fixed max_bitwidth)
 
   module E = struct

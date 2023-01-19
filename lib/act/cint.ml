@@ -4,6 +4,7 @@ include Cint0
 let dtype ~bits =
   Dtype.Wrap.create ~equal ~sexp_of_t
     ~max_layout_of:(fun v -> Bits_fixed (bitwidth v))
+    ~cint_of:(fun v -> v)
     ~layout:(Bits_fixed bits)
 
 let dtype_8 = dtype ~bits:8

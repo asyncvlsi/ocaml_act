@@ -1,0 +1,12 @@
+defproc my_proc() {
+      chan(int<32>) C0;
+      int<32> v0;
+      int<32> v1;
+
+
+    chp {
+
+
+    (v0 := 12345); (( *[C0!((v0))] ), (C0?v1))
+    }
+    } 
