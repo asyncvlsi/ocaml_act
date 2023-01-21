@@ -230,9 +230,7 @@ let create ir ~user_sendable_ports ~user_readable_ports =
     |> List.unzip
   in
   let decl_vars = String.concat decl_vars ~sep:"\n" in
-  let init_vars =
-    List.filter_opt init_vars |> String.concat ~sep:"\n    "
-  in
+  let init_vars = List.filter_opt init_vars |> String.concat ~sep:"\n    " in
   let decl_mems, init_mems =
     Map.keys all_mems
     |> List.map ~f:(fun mem ->
