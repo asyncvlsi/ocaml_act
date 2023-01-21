@@ -20,7 +20,27 @@ module E = struct
 
   include Expr.CInt_
 
+  let bit_not _ ~bits:_ = failwith "TODO"
+  let bit_at _ ~bit:_ = failwith "TODO"
+  let bit_slice _ ~lower_inc:_ ~upper_inc:_ = failwith "TODO"
+  let mul_wrap _ _ ~bits:_ = failwith "TODO"
+  let pow _ _ = failwith "TODO"
+  let of_bool v = Cbool.E.to_int v
+  let lt _ = failwith "TODO"
+  let gt _ = failwith "TODO"
+  let le _ = failwith "TODO"
+  let ge _ = failwith "TODO"
+  let is_zero _ = failwith "TODO"
+  let is_nonzero _ = failwith "TODO"
+  let assert_fits _ ~bits:_ = failwith "TODO"
+  let concat2 _ _ = failwith "TODO"
+  let concat _ = failwith "TODO"
   let zero = cint 0
+  let one = cint 1
+  let two = cint 2
+  let three = cint 3
+  let four = cint 4
+  let five = cint 5
 end
 
 let apply_overflow dtype expr ~overflow =

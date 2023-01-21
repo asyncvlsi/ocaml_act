@@ -114,6 +114,10 @@ module Wrap = struct
           chan.d.wait_sendable_code_pos <- Some loc);
     WaitUntilReadReady (loc, chan)
 
+  let select_probe_r ?loc:_ _ = failwith "TODO"
+  let select_probe_w ?loc:_ _ = failwith "TODO"
+  let select_probe ?loc:_ _ = failwith "TODO"
+
   (* interacting with memories *)
   let read_ug_mem ?loc (mem : 'a Mem.Wrap.ug_mem) ~idx ~(dst : 'a Var.Wrap.t) =
     let mem = Mem.Ir.unwrap_ug_mem mem in

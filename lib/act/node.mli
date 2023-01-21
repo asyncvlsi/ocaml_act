@@ -11,6 +11,13 @@ module Wrap : sig
   (* probes *)
   val wait_probe_r : ?loc:Code_pos.t -> 'a Chan.Wrap.R.t -> t
   val wait_probe_w : ?loc:Code_pos.t -> 'a Chan.Wrap.W.t -> t
+  val select_probe_r : ?loc:Code_pos.t -> Chan.Wrap.R.U.t list -> t
+  val select_probe_w : ?loc:Code_pos.t -> Chan.Wrap.R.U.t list -> t
+
+  val select_probe :
+    ?loc:Code_pos.t ->
+    [ `Read of Chan.Wrap.R.U.t | `Send of Chan.Wrap.W.U.t ] list ->
+    t
 
   (* interacting with memories *)
   val read_ug_mem :
