@@ -10,6 +10,7 @@ module Wrap : sig
     cint_of:('a -> Cint0.t) ->
     of_cint:(Cint0.t -> 'a option) ->
     layout:Layout.t ->
+    expr_tag:'a Expr_tag.t ->
     'a t
 end
 
@@ -30,4 +31,5 @@ module Ir : sig
   val layout : 'a t -> Layout.t
   val fits_into_dtype : into:'a t -> Layout.t -> bool
   val fits_value : 'a t -> 'a -> bool
+  val expr_tag : 'a t -> 'a Expr_tag.t
 end

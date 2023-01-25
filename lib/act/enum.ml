@@ -60,20 +60,43 @@ end) : S with type t := X.t = struct
     |> List.max_elt ~compare:Int.compare
     |> Option.value_exn
 
+  let expr_tag = Expr_tag.create ~cint_of_value:to_int ~value_of_cint:of_int
+
   let dtype =
     Dtype.Wrap.create ~equal ~sexp_of_t:X.sexp_of_t
       ~max_layout_of:(fun t -> Bits_fixed (bitwidth t))
       ~cint_of:(fun t -> to_int t)
-      ~of_cint:of_int ~layout:(Bits_fixed max_bitwidth)
+      ~of_cint:of_int ~layout:(Bits_fixed max_bitwidth) ~expr_tag
 
   module E = struct
     type t = X.t Expr.Wrap.t
 
+    let tag = expr_tag
     let var v = Expr.Wrap.var v
-    let expr_of_int_expr i = Expr.Ir.magic_EnumOfCInt i ~f:of_int
-    let expr_to_int_expr o = Expr.Ir.magic_EnumToCInt o ~f:to_int
-    let const c = to_int c |> Expr.CInt_.const |> expr_of_int_expr
-    let eq a b = Expr.CInt_.eq (expr_to_int_expr a) (expr_to_int_expr b)
+
+    let expr_of_int_expr i =
+      let assert_e =
+        List.map X.mapping ~f:(fun (_, op_code) ->
+            Expr.CInt.(eq (const op_code) i))
+        |> List.reduce ~f:Cbool.E.or_
+        |> Option.value_exn
+      in
+      let i =
+        Expr.with_assert_log ~assert_e ~val_e:i ~log_e:i (fun i ->
+            [%string "of_int for invalid enum value %{i#Cint0}"])
+      |> Expr.Ir.unwrap
+      in
+      Expr.Ir.wrap
+        { Expr.Ir.k = i.k; tag; max_bits = Int.min max_bitwidth i.max_bits }
+
+    let expr_to_int_expr t =
+      let t = Expr.Ir.unwrap t in
+      assert (Expr_tag.equal t.tag tag);
+      Expr.Ir.wrap
+        { Expr.Ir.k = t.k; tag = Expr.CInt.tag; max_bits = t.max_bits }
+
+    let const c = to_int c |> Expr.CInt.const |> expr_of_int_expr
+    let eq a b = Expr.CInt.eq (expr_to_int_expr a) (expr_to_int_expr b)
     let of_int = expr_of_int_expr
     let to_int = expr_to_int_expr
   end

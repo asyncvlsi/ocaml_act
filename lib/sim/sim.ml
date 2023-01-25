@@ -40,22 +40,22 @@ module Expr = struct
     | Const of CInt.t
     | Map of t * (CInt.t -> CInt.t)
     | Map2 of t * t * (CInt.t -> CInt.t -> CInt.t)
-    | AssertMap of t * (CInt.t -> string option) * (CInt.t -> CInt.t)
-    | AssertMap2 of
-        t
-        * t
-        * (CInt.t -> CInt.t -> string option)
-        * (CInt.t -> CInt.t -> CInt.t)
+    | AssertThenOrLog0 of t * t * (unit -> string)
+    | AssertThenOrLog1 of t * t * t * (CInt.t -> string)
+    | AssertThenOrLog2 of t * t * t * t * (CInt.t -> CInt.t -> string)
   [@@deriving sexp_of]
 
-  let map e ~f = Map (e, Obj.magic f)
-  let map2 e1 e2 ~f = Map2 (e1, e2, Obj.magic f)
+  let map e ~f = Map (e, f)
+  let map2 e1 e2 ~f = Map2 (e1, e2, f)
 
-  let assert_map e ~assert_fn ~f =
-    AssertMap (e, Obj.magic assert_fn, Obj.magic f)
+  let _assert_then_or_log0 assert_e val_e log_fn =
+    AssertThenOrLog0 (assert_e, val_e, log_fn)
 
-  let assert_map2 e1 e2 ~assert_fn ~f =
-    AssertMap2 (e1, e2, Obj.magic assert_fn, Obj.magic f)
+  let assert_then_or_log1 assert_e val_e log_e1 log_fn =
+    AssertThenOrLog1 (assert_e, val_e, log_e1, log_fn)
+
+  let assert_then_or_log2 assert_e val_e log_e1 log_e2 log_fn =
+    AssertThenOrLog2 (assert_e, val_e, log_e1, log_e2, log_fn)
 
   let rec var_ids t =
     match t with
@@ -63,8 +63,10 @@ module Expr = struct
     | Const _ -> []
     | Map (e, _) -> var_ids e
     | Map2 (e1, e2, _) -> var_ids e1 @ var_ids e2
-    | AssertMap (e, _, _) -> var_ids e
-    | AssertMap2 (e1, e2, _, _) -> var_ids e1 @ var_ids e2
+    | AssertThenOrLog0 (ae, ve, _) -> var_ids ae @ var_ids ve
+    | AssertThenOrLog1 (ae, ve, le1, _) -> var_ids ae @ var_ids ve @ var_ids le1
+    | AssertThenOrLog2 (ae, ve, le1, le2, _) ->
+        var_ids ae @ var_ids ve @ var_ids le1 @ var_ids le2
 end
 
 module Var_id_src = struct
@@ -283,6 +285,12 @@ module Inner_data = struct
     if width >= CInt.bitwidth value then Ok () else Error error
 
   let step' t ~pc_idx =
+    let bool_of_cint i =
+      match CInt.to_int_exn i with
+      | 0 -> false
+      | 1 -> true
+      | c -> failwith [%string "Simulator bug: unexpected bool value %{c#Int}"]
+    in
     let eval_var_table expr ~(on_error : string -> 'b) : (CInt.t, 'b) result =
       let rec eval expr =
         match expr with
@@ -295,26 +303,41 @@ module Inner_data = struct
             let%bind.Result e1 = eval e1 in
             let%map.Result e2 = eval e2 in
             f e1 e2
-        | AssertMap (e, assert_fn, f) -> (
-            let%bind.Result e = eval e in
-            match assert_fn e with
-            | None -> Ok (f e)
-            | Some raw_error -> Error (on_error raw_error))
-        | AssertMap2 (e1, e2, assert_fn, f) -> (
-            let%bind.Result e1 = eval e1 in
-            let%bind.Result e2 = eval e2 in
-            match assert_fn e1 e2 with
-            | None -> Ok (f e1 e2)
-            | Some raw_error -> Error (on_error raw_error))
+        | AssertThenOrLog0 (assert_e, val_e, log_fn) -> (
+            let%bind.Result assert_e =
+              eval assert_e |> Result.map ~f:bool_of_cint
+            in
+            match assert_e with
+            | true -> eval val_e
+            | false ->
+                let raw_error = log_fn () in
+                Error (on_error raw_error))
+        | AssertThenOrLog1 (assert_e, val_e, log_e1, log_fn) -> (
+            let%bind.Result assert_e =
+              eval assert_e |> Result.map ~f:bool_of_cint
+            in
+            match assert_e with
+            | true -> eval val_e
+            | false ->
+                let%bind.Result log_e1 = eval log_e1 in
+                let raw_error = log_fn log_e1 in
+                Error (on_error raw_error))
+        | AssertThenOrLog2 (assert_e, val_e, log_e1, log_e2, log_fn) -> (
+            let%bind.Result assert_e =
+              eval assert_e |> Result.map ~f:bool_of_cint
+            in
+            match assert_e with
+            | true -> eval val_e
+            | false ->
+                let%bind.Result log_e1 = eval log_e1 in
+                let%bind.Result log_e2 = eval log_e2 in
+                let raw_error = log_fn log_e1 log_e2 in
+                Error (on_error raw_error))
       in
       eval expr
     in
     let eval_bool expr ~on_error =
-      let%map.Result v = eval_var_table expr ~on_error in
-      match CInt.to_int_exn v with
-      | 0 -> false
-      | 1 -> true
-      | _ -> failwith "Simulator bug: unexpected bool value"
+      eval_var_table expr ~on_error |> Result.map ~f:bool_of_cint
     in
     let set_var_table ~var_id ~value =
       let t = t.var_table in
@@ -1040,47 +1063,54 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
   let var_id_pool = Var_id_pool.create () in
   let convert_id id = Var_id_pool.to_assem_id var_id_pool id in
   let convert_expr expr =
-    let rec convert : 'a. 'a Ir.Expr.t -> Expr.t =
-      let imap2 a b f = Expr.map2 (convert a) (convert b) ~f in
-      fun (type a) (x : a Ir.Expr.t) ->
-        match x with
-        | Ir.Expr.Var var_id -> Expr.Var (convert_id var_id.u)
-        | Const c -> Const c
-        | Add (a, b) -> imap2 a b CInt.( + )
-        | Sub (a, b) ->
-            Expr.assert_map2 (convert a) (convert b)
-              ~assert_fn:(fun a b ->
-                if CInt.(a >= b) then None
-                else
-                  Some
-                    [%string
-                      "Expr.Sub must have first arg >= second arg but \
-                       %{a#CInt} < %{a#CInt}"])
-              ~f:CInt.( - )
-        | Mul (a, b) -> imap2 a b CInt.( * )
-        | Div (a, b) -> imap2 a b CInt.( / )
-        | Mod (a, b) -> imap2 a b CInt.( % )
-        | LShift (a, b) -> imap2 a b CInt.shift_left
-        | LogicalRShift (a, b) -> imap2 a b CInt.shift_right_logical
-        | BitAnd (a, b) -> imap2 a b CInt.bit_and
-        | BitOr (a, b) -> imap2 a b CInt.bit_or
-        | BitXor (a, b) -> imap2 a b CInt.bit_xor
-        | Eq (a, b) -> imap2 a b CInt.equal
-        | Ne (a, b) -> imap2 a b (fun a b -> not (CInt.equal a b))
-        | Not a -> Expr.map (convert a) ~f:not
-        | Magic_EnumToCInt (a, f) -> Expr.map (convert a) ~f
-        | Magic_EnumOfCInt (a, of_int) ->
-            Expr.assert_map (convert a)
-              ~assert_fn:(fun i ->
-                match of_int i with
-                | Some _ -> None
-                | None -> Some "of_int called on value that is not part of enum")
-              ~f:(fun i -> Option.value_exn (of_int i))
-        | Clip (a, bits) -> Expr.map (convert a) ~f:(CInt.clip ~bits)
-        | Add_wrap (a, b, bits) -> imap2 a b (CInt.add_wrap ~bits)
-        | Sub_wrap (a, b, bits) -> imap2 a b (CInt.sub_wrap ~bits)
+    let rec convert x =
+      let imap2 a b (f : CInt.t -> CInt.t -> CInt.t) =
+        Expr.map2 (convert a) (convert b) ~f
+      in
+      match x with
+      | Ir.Expr.K.Var var_id -> Expr.Var (convert_id var_id)
+      | Const c -> Const c
+      | Add (a, b) -> imap2 a b CInt.( + )
+      | Sub_no_wrap (a, b) ->
+          let a, b = (convert a, convert b) in
+          Expr.assert_then_or_log2
+            (Expr.map2 a b ~f:(fun a b ->
+                 CInt.( >= ) a b |> Bool.to_int |> CInt.of_int))
+            (Expr.map2 a b ~f:CInt.( - ))
+            a b
+            (fun a b ->
+              [%string
+                "Expr.Sub_no_wrap must have first arg (%{a#CInt}) >= second \
+                 arg (%{b#CInt})"])
+      | Sub_wrap (a, b, bits) -> imap2 a b (CInt.sub_wrap ~bits)
+      | Mul (a, b) -> imap2 a b CInt.( * )
+      | Div (a, b) -> imap2 a b CInt.( / )
+      | Mod (a, b) -> imap2 a b CInt.( % )
+      | LShift (a, b) -> imap2 a b CInt.shift_left
+      | LogicalRShift (a, b) -> imap2 a b CInt.shift_right_logical
+      | BitAnd (a, b) -> imap2 a b CInt.bit_and
+      | BitOr (a, b) -> imap2 a b CInt.bit_or
+      | BitXor (a, b) -> imap2 a b CInt.bit_xor
+      | Eq (a, b) ->
+          imap2 a b (fun a b -> CInt.equal a b |> Bool.to_int |> CInt.of_int)
+      | Ne (a, b) ->
+          imap2 a b (fun a b ->
+              (not (CInt.equal a b)) |> Bool.to_int |> CInt.of_int)
+      | Lt (a, b) ->
+          imap2 a b (fun a b -> CInt.( < ) a b |> Bool.to_int |> CInt.of_int)
+      | Le (a, b) ->
+          imap2 a b (fun a b -> CInt.( <= ) a b |> Bool.to_int |> CInt.of_int)
+      | Gt (a, b) ->
+          imap2 a b (fun a b -> CInt.( > ) a b |> Bool.to_int |> CInt.of_int)
+      | Ge (a, b) ->
+          imap2 a b (fun a b -> CInt.( >= ) a b |> Bool.to_int |> CInt.of_int)
+      | Clip (a, bits) -> Expr.map (convert a) ~f:(CInt.clip ~bits)
+      | With_assert_log (assert_expr, val_expr, log_input, msg_fn) ->
+          Expr.assert_then_or_log1 (convert assert_expr) (convert val_expr)
+            (convert log_input) (fun v -> msg_fn v)
+      | With_assert_log_fn (_, _, _) -> failwith "TODO"
     in
-    convert (Ir.Expr.untype expr)
+    convert (Ir.Expr.untype expr).k
   in
 
   let chan_id_pool = Chan_id_pool.create () in
@@ -1115,14 +1145,8 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
           (Log1
              ( convert_expr expr,
                fun i ->
-                 (* This is hacky, and expects every non-cint expression to end with a Magic_EnumOfCInt *)
-                 let v =
-                   match expr with
-                   | Magic_EnumOfCInt (_, of_cint) ->
-                       of_cint i |> Option.value_exn
-                   | _ -> Any.of_magic i
-                 in
-                 f v ))
+                 Ir.Expr.Tag.value_of_cint expr.tag i |> Option.value_exn |> f
+             ))
     | Assert (loc, expr) -> push_instr loc (Assert (convert_expr expr))
     | Seq (loc, stmts) -> (
         match stmts with

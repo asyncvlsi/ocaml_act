@@ -24,7 +24,6 @@ val bit_or : t -> t -> t
 val bit_xor : t -> t -> t
 val pow : t -> t -> t
 val clip : t -> bits:int -> t
-val add_wrap : t -> t -> bits:int -> t
 val sub_wrap : t -> t -> bits:int -> t
 
 (* dtypes *)
@@ -40,7 +39,7 @@ module E : sig
   val var : Cint0.t Var.Wrap.t -> t
   val const : Cint0.t -> t
   val cint : int -> t
-  val of_bool :  Cbool0.t Expr.Wrap.t -> t
+  val of_bool : Cbool0.t Expr.Wrap.t -> t
 
   (* ops *)
   val add : t -> t -> t

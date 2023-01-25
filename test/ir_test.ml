@@ -166,8 +166,8 @@ let%expect_test "test4" =
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
   [%expect
     {|
-      send 1
-      (Error "Assertion failed: in test/ir_test.ml on line 148.") |}]
+    send 1
+    (Error "Assertion failed: in test/ir_test.ml on line 148.") |}]
 
 let%expect_test "test5" =
   let var1 = Var.create CInt.dtype_32 in
@@ -480,8 +480,7 @@ let%expect_test "mini cpu" =
   Sim.send sim arg1 (CInt.of_int 7);
   Sim.read sim result (CInt.of_int 10);
   Sim.wait' sim ();
-  [%expect {|
-    (Ok ()) |}]
+  [%expect {| (Ok ()) |}]
 
 let%expect_test "error send too big value" =
   Expect_test_helpers_core.require_does_raise [%here] (fun () ->
@@ -545,4 +544,4 @@ let%expect_test "test2" =
   [%expect
     {|
     (Error
-     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in test/ir_test.ml on line 526.") |}]
+     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in test/ir_test.ml on line 525.") |}]

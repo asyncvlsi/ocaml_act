@@ -6,52 +6,47 @@ module Wrap : sig
   val var : 'a Var.Wrap.t -> 'a t
 end
 
-module CInt_ : sig
-  val var : Cint0.t Var.Wrap.t -> Cint0.t Wrap.t
-  val const : Cint0.t -> Cint0.t Wrap.t
-  val cint : int -> Cint0.t Wrap.t
-
-  (* ops *)
-  val add : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
-  val sub : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
-  val mul : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
-  val div : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
-  val mod_ : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
-  val lshift : Cint0.t Wrap.t -> amt:Cint0.t Wrap.t -> Cint0.t Wrap.t
-  val rshift : Cint0.t Wrap.t -> amt:Cint0.t Wrap.t -> Cint0.t Wrap.t
-  val bit_and : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
-  val bit_or : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
-  val bit_xor : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cint0.t Wrap.t
-  val eq : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cbool0.t Wrap.t
-  val ne : Cint0.t Wrap.t -> Cint0.t Wrap.t -> Cbool0.t Wrap.t
-  val clip : Cint0.t Wrap.t -> bits:int -> Cint0.t Wrap.t
-  val add_wrap : Cint0.t Wrap.t -> Cint0.t Wrap.t -> bits:int -> Cint0.t Wrap.t
-  val sub_wrap : Cint0.t Wrap.t -> Cint0.t Wrap.t -> bits:int -> Cint0.t Wrap.t
-end
-
 module Ir : sig
-  type 'a t =
-    | Var : 'a Var.Ir.t -> 'a t
-    | Const : Cint0.t -> Cint0.t t
-    | Add : Cint0.t t * Cint0.t t -> Cint0.t t
-    | Sub : Cint0.t t * Cint0.t t -> Cint0.t t
-    | Mul : Cint0.t t * Cint0.t t -> Cint0.t t
-    | Div : Cint0.t t * Cint0.t t -> Cint0.t t
-    | Mod : Cint0.t t * Cint0.t t -> Cint0.t t
-    | LShift : Cint0.t t * Cint0.t t -> Cint0.t t
-    | LogicalRShift : Cint0.t t * Cint0.t t -> Cint0.t t
-    | BitAnd : Cint0.t t * Cint0.t t -> Cint0.t t
-    | BitOr : Cint0.t t * Cint0.t t -> Cint0.t t
-    | BitXor : Cint0.t t * Cint0.t t -> Cint0.t t
-    | Eq : Cint0.t t * Cint0.t t -> Cbool0.t t
-    | Ne : Cint0.t t * Cint0.t t -> Cbool0.t t
-    | Not : Cbool0.t t -> Cbool0.t t
-    | Clip : Cint0.t t * int -> Cint0.t t
-    | Add_wrap : Cint0.t t * Cint0.t t * int -> Cint0.t t
-    | Sub_wrap : Cint0.t t * Cint0.t t * int -> Cint0.t t
-    | Magic_EnumToCInt : Any.t t * (Any.t -> Cint0.t) -> Cint0.t t
-    | Magic_EnumOfCInt : Cint0.t t * (Cint0.t -> 'a option) -> 'a t
-  [@@deriving sexp_of]
+  module Tag = Expr_tag
+
+  module K : sig
+    type t =
+      | Var of Var.Ir.U.t
+      | Const of Cint0.t
+      | Add of t * t
+      | Sub_no_wrap of t * t
+      | Sub_wrap of t * t * int
+      | Mul of t * t
+      | Div of t * t
+      | Mod of t * t
+      | LShift of t * t
+      | LogicalRShift of t * t
+      | BitAnd of t * t
+      | BitOr of t * t
+      | BitXor of t * t
+      | Eq of t * t
+      | Ne of t * t
+      | Lt of t * t
+      | Le of t * t
+      | Gt of t * t
+      | Ge of t * t
+      | Clip of t * int
+      (* This asserts that the first expression (which must have value 0 or 1) is 1, and then returns the second value.
+         In the simulator, if it is false, it calls the function for a nice error report. *)
+      | With_assert_log of
+          (* assert *) t
+          * (* value *) t
+          * (* log_input *) t
+          * (Cint0.t -> string)
+      (* It is undefined behavior for a act program to return Some from this function. In practice,
+         this is only checked in the simulator, and not used in simulation. If you want it used for
+         optimization, use With_assert or With_assert_log instead *)
+      | With_assert_log_fn of
+          (* assert_input *) t * (Cint0.t -> string option) * (* value *) t
+    [@@deriving sexp_of]
+  end
+
+  type 'a t = { k : K.t; tag : 'a Tag.t; max_bits : int }
 
   module U : sig
     type nonrec t = Any.t t
@@ -59,9 +54,51 @@ module Ir : sig
 
   val max_layout : 'a t -> Layout.t
   val unwrap : 'a Wrap.t -> 'a t
-  val magic_EnumToCInt : 'a Wrap.t -> f:('a -> Cint0.t) -> Cint0.t Wrap.t
-  val magic_EnumOfCInt : Cint0.t Wrap.t -> f:(Cint0.t -> 'a option) -> 'a Wrap.t
   val wrap : 'a t -> 'a Wrap.t
   val untype : 'a t -> U.t
   val untype' : 'a Wrap.t -> U.t
+end
+
+module CBool : sig
+  val tag : Cbool0.t Expr_tag.t
+  val of_int : Cint0.t Wrap.t -> Cbool0.t Wrap.t
+  val to_int : Cbool0.t Wrap.t -> Cint0.t Wrap.t
+end
+
+val with_assert_log :
+  ?new_max_bits:int ->
+  assert_e:Cbool0.t Wrap.t ->
+  val_e:'a Wrap.t ->
+  log_e:'b Wrap.t ->
+  ('b -> string) ->
+  'a Wrap.t
+
+module CInt : sig
+  type nonrec t = Cint0.t Wrap.t
+
+  val var : Cint0.t Var.Wrap.t -> t
+  val const : Cint0.t -> t
+  val cint : int -> t
+  val tag : Cint0.t Expr_tag.t
+
+  (* ops *)
+  val add : t -> t -> t
+  val sub : t -> t -> t
+  val mul : t -> t -> t
+  val div : t -> t -> t
+  val mod_ : t -> t -> t
+  val lshift : t -> amt:t -> t
+  val rshift : t -> amt:t -> t
+  val bit_and : t -> t -> t
+  val bit_or : t -> t -> t
+  val bit_xor : t -> t -> t
+  val eq : t -> t -> Cbool0.t Wrap.t
+  val ne : t -> t -> Cbool0.t Wrap.t
+  val lt : t -> t -> Cbool0.t Wrap.t
+  val le : t -> t -> Cbool0.t Wrap.t
+  val gt : t -> t -> Cbool0.t Wrap.t
+  val ge : t -> t -> Cbool0.t Wrap.t
+  val clip : t -> bits:int -> t
+  val add_wrap : t -> t -> bits:int -> t
+  val sub_wrap : t -> t -> bits:int -> t
 end

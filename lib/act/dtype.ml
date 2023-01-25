@@ -7,13 +7,15 @@ type 'a t = {
   cint_of : 'a -> Cint0.t;
   of_cint : Cint0.t -> 'a option;
   layout : Layout.t;
+  expr_tag : 'a Expr_tag.t;
 }
 
 module Wrap = struct
   type nonrec 'a t = 'a t
 
-  let create ~equal ~sexp_of_t ~max_layout_of ~cint_of ~of_cint ~layout =
-    { equal; sexp_of_t; max_layout_of; cint_of; of_cint; layout }
+  let create ~equal ~sexp_of_t ~max_layout_of ~cint_of ~of_cint ~layout
+      ~expr_tag =
+    { equal; sexp_of_t; max_layout_of; cint_of; of_cint; layout; expr_tag }
 end
 
 module Ir = struct
@@ -28,6 +30,12 @@ module Ir = struct
       cint_of = (fun _ -> failwith "Cant call functions on DType.dummy_val");
       of_cint = (fun _ -> failwith "Cant call functions on DType.dummy_val");
       layout = Bits_fixed 0;
+      expr_tag =
+        Expr_tag.create
+          ~value_of_cint:(fun _ ->
+            failwith "Cant call functions on DType.dummy_val")
+          ~cint_of_value:(fun _ ->
+            failwith "Cant call functions on DType.dummy_val");
     }
 
   let layout t = t.layout
@@ -47,4 +55,5 @@ module Ir = struct
     | Bits_fixed into, Bits_fixed layout -> layout <= into
 
   let fits_value t value = fits_into_dtype (max_layout_of t value) ~into:t
+  let expr_tag t = t.expr_tag
 end

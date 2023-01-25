@@ -49,7 +49,6 @@ let bit_or a b = Bigint.bit_or a b
 let bit_xor a b = Bigint.bit_xor a b
 let pow a b = Bigint.pow a b
 let clip t ~bits = bit_and t (pow two (of_int bits) - one)
-let add_wrap a b ~bits = clip ~bits (a + b)
 let sub_wrap a b ~bits = (b * pow two (of_int bits)) + a - b |> clip ~bits
 
 let%expect_test "width" =

@@ -65,12 +65,10 @@ let create ir ~user_sendable_ports ~user_readable_ports =
   assert (Set.inter user_readable_ports user_sendable_ports |> Set.is_empty);
 
   let all_vars =
-    let rec extract_expr (e : Ir.Expr.U.t) =
-      let u = Ir.Expr.untype in
-      match u e with
-      | Ir.Expr.Add (a, b)
-      | Sub (a, b)
-      | Add_wrap (a, b, _)
+    let rec extract_expr (e : Ir.Expr.K.t) =
+      match e with
+      | Ir.Expr.K.Add (a, b)
+      | Sub_no_wrap (a, b)
       | Sub_wrap (a, b, _)
       | Mul (a, b)
       | Div (a, b)
@@ -81,14 +79,20 @@ let create ir ~user_sendable_ports ~user_readable_ports =
       | BitOr (a, b)
       | BitXor (a, b)
       | Eq (a, b)
-      | Ne (a, b) ->
-          extract_expr (u a) @ extract_expr (u b)
-      | Not e -> extract_expr (u e)
-      | Var var_id -> [ Ir.Var.untype var_id ]
-      | Clip (e, _) -> extract_expr (u e)
-      | Const _ | Magic_EnumToCInt _ | Magic_EnumOfCInt _ -> []
+      | Ne (a, b)
+      | Lt (a, b)
+      | Le (a, b)
+      | Gt (a, b)
+      | Ge (a, b) ->
+          extract_expr a @ extract_expr b
+      | Var var_id -> [ var_id ]
+      | Clip (e, _) -> extract_expr e
+      | Const _ -> []
+      | With_assert_log (a, v, l, _) ->
+          extract_expr a @ extract_expr v @ extract_expr l
+      | With_assert_log_fn (a, _, v) -> extract_expr a @ extract_expr v
     in
-    let extract_expr e = Ir.Expr.untype e |> extract_expr in
+    let extract_expr e = extract_expr e.Ir.Expr.k in
     let rec extract_n n =
       match n with
       | N.Par ns | Seq ns -> List.concat_map ns ~f:extract_n
@@ -261,13 +265,10 @@ let create ir ~user_sendable_ports ~user_readable_ports =
     let extract_var var = Map.find_exn all_vars var in
     let extract_chan chan = Map.find_exn all_chans chan in
     let extract_mem mem = Map.find_exn all_mems mem in
-    let rec ee (e : Ir.Expr.U.t) =
-      let u = Ir.Expr.untype in
-      let ee e = ee (u e) in
-      match u e with
-      | Ir.Expr.Add (a, b) -> [%string "(%{ee a} + %{ee b})"]
-      | Sub (a, b) -> [%string "(%{ee a} - %{ee b})"]
-      | Add_wrap (a, b, bits) -> [%string "int(%{ee a} + %{ee b}, %{bits#Int})"]
+    let rec ee (e : Ir.Expr.K.t) =
+      match e with
+      | Ir.Expr.K.Add (a, b) -> [%string "(%{ee a} + %{ee b})"]
+      | Sub_no_wrap (a, b) -> [%string "(%{ee a} - %{ee b})"]
       | Sub_wrap (a, b, bits) ->
           [%string "int(int(%{ee a}, %{bits+1#Int}) - %{ee b}, %{bits#Int})"]
       | Mul (a, b) -> [%string "(%{ee a} * %{ee b})"]
@@ -280,14 +281,21 @@ let create ir ~user_sendable_ports ~user_readable_ports =
       | BitXor (a, b) -> [%string "(%{ee a} ^ %{ee b})"]
       | Eq (a, b) -> [%string "int(%{ee a} = %{ee b})"]
       | Ne (a, b) -> [%string "int(%{ee a} != %{ee b})"]
-      | Not e -> [%string "int(%{ee e} = 0)"]
-      | Var var_id -> [%string "(%{extract_var (Ir.Var.untype var_id)})"]
+      | Lt (a, b) -> [%string "int(%{ee a} < %{ee b})"]
+      | Le (a, b) -> [%string "int(%{ee a} <= %{ee b})"]
+      | Gt (a, b) -> [%string "int(%{ee a} > %{ee b})"]
+      | Ge (a, b) -> [%string "int(%{ee a} >= %{ee b})"]
+      | Var var_id -> [%string "(%{extract_var var_id})"]
       | Clip (e, bits) -> [%string "int(%{ee e}, %{bits#Int})"]
       | Const c -> [%string "%{c#CInt}"]
-      | Magic_EnumToCInt (e, _) -> ee e
-      | Magic_EnumOfCInt (e, _) -> ee e
+      | With_assert_log (_, val_expr, _, _) ->
+          (* TODO export the assert as well? *)
+          ee val_expr
+      | With_assert_log_fn (_, _, val_expr) ->
+          (* TODO export the assert as well? *)
+          ee val_expr
     in
-    let extract_expr e = Ir.Expr.untype e |> ee in
+    let extract_expr e = ee e.Ir.Expr.k in
     let rec extract n =
       match n with
       | N.Par ns ->

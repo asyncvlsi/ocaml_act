@@ -25,6 +25,7 @@ module Ir : sig
       id : Id.t;
       d : (D.t[@hash.ignore] [@compare.ignore] [@equal.ignore]);
     }
+    [@@deriving sexp_of]
 
     include Comparable with type t := t
     include Hashable with type t := t

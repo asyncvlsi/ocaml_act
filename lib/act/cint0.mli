@@ -23,5 +23,4 @@ val bit_or : t -> t -> t
 val bit_xor : t -> t -> t
 val pow : t -> t -> t
 val clip : t -> bits:int -> t
-val add_wrap : t -> t -> bits:int -> t
 val sub_wrap : t -> t -> bits:int -> t
