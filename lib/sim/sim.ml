@@ -213,20 +213,15 @@ module N = struct
         (* idx *) Expr.t * (* dst *) Var_id.t * (* reg *) Var_id.t * Mem_id.t
     | WriteMem of
         (* idx *) Expr.t * (* src *) Expr.t * (* idx_reg *) Var_id.t * Mem_id.t
-    (* | WaitUntilReadReady of Chan_id.t *)
-    (* | WaitUntilSendReady of Chan_id.t *)
-    (* These allow for probabilistic testing that a probe is stable *)
-    (* | AssertStillReadReady of Chan_id.t *)
-    (* | AssertStillSendReady of Chan_id.t *)
-    (* These are ``magic'' instructions that allow user io operations. These instruction
-       should be placed immediatly after the assoiated send/read instruction *)
-    | Send_enqueuer of Enqueuer_idx.t
-    | Read_dequeuer of Dequeuer_idx.t
     (* handle nondeterministic select *)
     | SelectProbes of (Probe.t * Instr_idx.t) list
     (* Should include all but the branch just taken *)
     | SelectProbes_AssertStable of
         (* should be true *) Probe.t * (* should be false *) Probe.t list
+    (* These are ``magic'' instructions that allow user io operations. These instruction
+       should be placed immediatly after the assoiated send/read instruction *)
+    | Send_enqueuer of Enqueuer_idx.t
+    | Read_dequeuer of Dequeuer_idx.t
   [@@deriving sexp_of]
 
   let read_ids t =
@@ -618,10 +613,11 @@ module Inner_data = struct
         (* unguard pc; *)
         (* first check that how many probes are already true. If it is more than one, this is an error *)
         match
-          List.filter probe_select ~f:(fun (probe, _) ->
-              match probe with
-              | Read_ready chan_idx -> t.chan_table.(chan_idx).read_ready
-              | Send_ready chan_idx -> t.chan_table.(chan_idx).send_ready)
+          List.mapi probe_select ~f:(fun i probe -> (i, probe))
+          |> List.filter ~f:(fun (_, (probe, _)) ->
+                 match probe with
+                 | Read_ready chan_idx -> t.chan_table.(chan_idx).read_ready
+                 | Send_ready chan_idx -> t.chan_table.(chan_idx).send_ready)
         with
         | [] ->
             Vec.remove t.pcs pc_idx;
@@ -638,9 +634,9 @@ module Inner_data = struct
                     Vec.push t.chan_table.(chan_idx).select_probe_send_ready
                       (instr, other_instrs));
             Ok ()
-        | [ (_, instr) ] -> set_pc_and_guard ~pc_idx instr
+        | [ (_, (_, instr)) ] -> set_pc_and_guard ~pc_idx instr
         | multiple_probes ->
-            Error (`Select_multiple_true_probes multiple_probes))
+            Error (`Select_multiple_true_probes (pc, multiple_probes)))
     | SelectProbes_AssertStable (tprobe, fprobes) ->
         (* unguard pc; *)
         let errors =
@@ -903,10 +899,6 @@ let resolve_step_err t e ~line_numbers =
         [%string
           "Mem access out of bounds: %{str_i pc}, idx is %{idx#CInt}, size of \
            mem is %{len#Int}."]
-  | `Unstable_wait_until_read_ready (pc, _) ->
-      Error [%string "Unstable wait_until_read_ready: %{str_i pc}."]
-  | `Unstable_wait_until_send_ready (pc, _) ->
-      Error [%string "Unstable wait_until_send_ready: %{str_i pc}."]
   | `Assigned_value_doesnt_fit_in_var (assign_instr, var_id, value) ->
       let var_dtype = t.var_table_info.(var_id).dtype in
       let var_layout = Ir.DType.layout var_dtype in
@@ -983,9 +975,31 @@ let resolve_step_err t e ~line_numbers =
         [%string
           "Error while evaluating expression from %{expr_src} at %{str_i pc}: \
            %{error_string}."]
-  | `Unstable_probe _ -> failwith "TODO - Unstable_probe"
-  | `Select_multiple_true_probes _ ->
-      failwith "TODO - Select_multiple_true_probes"
+  | `Unstable_probe (pc, probe) -> (
+      match probe with
+      | Probe.Read_ready chan_idx ->
+          let chan_creation_pos =
+            t.chan_table_info.(chan_idx).src.d.creation_code_pos
+          in
+          Error
+            [%string
+              "Unstable waiting %{str_i pc} for send-ready for chan created \
+               %{str_l chan_creation_pos}."]
+      | Send_ready chan_idx ->
+          let chan_creation_pos =
+            t.chan_table_info.(chan_idx).src.d.creation_code_pos
+          in
+          Error
+            [%string
+              "Unstable waiting %{str_i pc} for send-ready for chan created \
+               %{str_l chan_creation_pos}"])
+  | `Select_multiple_true_probes (pc, true_probes) ->
+      let branch_idxs = List.map true_probes ~f:fst in
+      let branch_idxs = List.to_string ~f:Int.to_string branch_idxs in
+      Error
+        [%string
+          "Select statement has multiple true probes: %{str_i pc}, true branch \
+           indices as %{branch_idxs}."]
 
 let wait_ t ~max_steps () =
   let queued_user_ops = Queue.to_list t.queued_user_ops in
