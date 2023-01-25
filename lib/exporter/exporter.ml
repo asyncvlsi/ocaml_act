@@ -52,7 +52,7 @@ let rec flatten n =
   | WriteUGMem (_, mem, idx, value) -> WriteUGMem (mem, idx, value)
   | WaitUntilReadReady (_, chan) -> WaitUntilReadReady chan
   | WaitUntilSendReady (_, chan) -> WaitUntilSendReady chan
-  | Log _ | Log1 _ | Assert _ -> Nop
+  | Log _ | Log1 _ | Assert _ | Nop -> Nop
 
 let create ir ~user_sendable_ports ~user_readable_ports =
   let ir = Ir.N.unwrap ir |> flatten in

@@ -78,13 +78,12 @@ end) : S with type t := X.t = struct
       let assert_e =
         List.map X.mapping ~f:(fun (_, op_code) ->
             Expr.CInt.(eq (const op_code) i))
-        |> List.reduce ~f:Cbool.E.or_
-        |> Option.value_exn
+        |> List.reduce ~f:Cbool.E.or_ |> Option.value_exn
       in
       let i =
         Expr.with_assert_log ~assert_e ~val_e:i ~log_e:i (fun i ->
             [%string "of_int for invalid enum value %{i#Cint0}"])
-      |> Expr.Ir.unwrap
+        |> Expr.Ir.unwrap
       in
       Expr.Ir.wrap
         { Expr.Ir.k = i.k; tag; max_bits = Int.min max_bitwidth i.max_bits }

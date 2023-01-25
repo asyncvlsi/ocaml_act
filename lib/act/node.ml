@@ -2,6 +2,7 @@ open! Core
 
 module T = struct
   type t =
+    | Nop
     | Assign of Code_pos.t * Var.Ir.U.t * Expr.Ir.U.t
     | Log of Code_pos.t * string
     | Log1 of Code_pos.t * Expr.Ir.U.t * (Any.t -> string)

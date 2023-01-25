@@ -42,3 +42,14 @@ let find t ~f =
 
 let iter t ~f = Array.iteri t.arr ~f:(fun i v -> if i < t.len then f v else ())
 let clear t = t.len <- 0
+
+let filter t ~f =
+  let i = ref 0 in
+  let j = ref 0 in
+  while !i < t.len do
+    if f t.arr.(!i) then (
+      t.arr.(!j) <- t.arr.(!i);
+      incr j);
+    incr i
+  done;
+  t.len <- !j

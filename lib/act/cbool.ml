@@ -41,9 +41,18 @@ module E = struct
   let not_ e = Expr.CInt.eq (to_int e) (Expr.CInt.cint 0)
   let eq a b = Expr.CInt.eq (expr_to_int_expr a) (expr_to_int_expr b)
   let ne a b = eq a b |> not_
-  let and_ a b = Expr.CInt.bit_and (expr_to_int_expr a) (expr_to_int_expr b) |> expr_of_int_expr
-  let or_ a b = Expr.CInt.bit_or (expr_to_int_expr a) (expr_to_int_expr b) |> expr_of_int_expr
-  let xor_ a b = Expr.CInt.bit_xor (expr_to_int_expr a) (expr_to_int_expr b) |> expr_of_int_expr
+
+  let and_ a b =
+    Expr.CInt.bit_and (expr_to_int_expr a) (expr_to_int_expr b)
+    |> expr_of_int_expr
+
+  let or_ a b =
+    Expr.CInt.bit_or (expr_to_int_expr a) (expr_to_int_expr b)
+    |> expr_of_int_expr
+
+  let xor_ a b =
+    Expr.CInt.bit_xor (expr_to_int_expr a) (expr_to_int_expr b)
+    |> expr_of_int_expr
 end
 
 module N = struct

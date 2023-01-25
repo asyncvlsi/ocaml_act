@@ -34,6 +34,11 @@ module Mem_id = Int
 module Enqueuer_idx = Int
 module Dequeuer_idx = Int
 
+module Probe = struct
+  type t = Read_ready of Chan_id.t | Send_ready of Chan_id.t
+  [@@deriving sexp_of, equal]
+end
+
 module Expr = struct
   type t =
     | Var of Var_id.t
@@ -71,6 +76,7 @@ end
 
 module Var_id_src = struct
   type t = Var of Ir.Var.U.t | Mem_idx_reg | Read_deq_reg | Send_enq_reg
+  [@@deriving sexp_of]
 end
 
 module Var_buff = struct
@@ -83,6 +89,7 @@ module Var_buff = struct
     mutable read_ct : int;
     mutable write_ct : int;
   }
+  [@@deriving sexp_of]
 end
 
 module Var_buff_info = struct
@@ -100,8 +107,9 @@ module Chan_buff = struct
     mutable send_ready : bool;
     mutable send_instr : Instr_idx.t;
     mutable send_expr : Expr.t;
-    waiting_on_send_ready : Instr_idx.t Vec.t;
-    waiting_on_read_ready : Instr_idx.t Vec.t;
+    select_probe_read_ready :
+      (Instr_idx.t * (Probe.t * Instr_idx.t) list) Vec.t;
+    select_probe_send_ready : (Instr_idx.t * (Probe.t * Instr_idx.t) list) Vec.t;
   }
   [@@deriving sexp_of]
 
@@ -114,8 +122,8 @@ module Chan_buff = struct
       send_instr = Instr_idx.dummy_val;
       read_dst_var_id = 0;
       send_expr = Const (Obj.magic 0);
-      waiting_on_send_ready = Vec.create ~cap:10 ~default:0;
-      waiting_on_read_ready = Vec.create ~cap:10 ~default:0;
+      select_probe_read_ready = Vec.create ~cap:10 ~default:(0, []);
+      select_probe_send_ready = Vec.create ~cap:10 ~default:(0, []);
     }
 end
 
@@ -205,15 +213,20 @@ module N = struct
         (* idx *) Expr.t * (* dst *) Var_id.t * (* reg *) Var_id.t * Mem_id.t
     | WriteMem of
         (* idx *) Expr.t * (* src *) Expr.t * (* idx_reg *) Var_id.t * Mem_id.t
-    | WaitUntilReadReady of Chan_id.t
-    | WaitUntilSendReady of Chan_id.t
+    (* | WaitUntilReadReady of Chan_id.t *)
+    (* | WaitUntilSendReady of Chan_id.t *)
     (* These allow for probabilistic testing that a probe is stable *)
-    | AssertStillReadReady of Chan_id.t
-    | AssertStillSendReady of Chan_id.t
+    (* | AssertStillReadReady of Chan_id.t *)
+    (* | AssertStillSendReady of Chan_id.t *)
     (* These are ``magic'' instructions that allow user io operations. These instruction
        should be placed immediatly after the assoiated send/read instruction *)
     | Send_enqueuer of Enqueuer_idx.t
     | Read_dequeuer of Dequeuer_idx.t
+    (* handle nondeterministic select *)
+    | SelectProbes of (Probe.t * Instr_idx.t) list
+    (* Should include all but the branch just taken *)
+    | SelectProbes_AssertStable of
+        (* should be true *) Probe.t * (* should be false *) Probe.t list
   [@@deriving sexp_of]
 
   let read_ids t =
@@ -232,8 +245,7 @@ module N = struct
     | ReadMem (idx_expr, _, _, _) -> Expr.var_ids idx_expr
     | WriteMem (idx_expr, src_expr, _, _) ->
         Expr.var_ids idx_expr @ Expr.var_ids src_expr
-    | WaitUntilSendReady _ | WaitUntilReadReady _ -> []
-    | AssertStillReadReady _ | AssertStillSendReady _ -> [])
+    | SelectProbes _ | SelectProbes_AssertStable _ -> [])
     |> Var_id.Set.of_list
 
   let write_ids t =
@@ -248,8 +260,7 @@ module N = struct
     | Read_dequeuer _ -> []
     | ReadMem (_, dst, mem_idx_reg, _) -> [ dst; mem_idx_reg ]
     | WriteMem (_, _, mem_idx_reg, _) -> [ mem_idx_reg ]
-    | WaitUntilSendReady _ | WaitUntilReadReady _ -> []
-    | AssertStillReadReady _ | AssertStillSendReady _ -> [])
+    | SelectProbes _ | SelectProbes_AssertStable _ -> [])
     |> Var_id.Set.of_list
 end
 
@@ -554,11 +565,24 @@ module Inner_data = struct
           chan.read_instr <- pc;
           chan.read_dst_var_id <- dst_id;
           Vec.remove t.pcs pc_idx;
-          Vec.iter chan.waiting_on_read_ready ~f:(fun waiting_pc ->
+          Vec.iter chan.select_probe_read_ready
+            ~f:(fun (waiting_pc, other_probes) ->
+              (* First go and turn off all the other probes! *)
+              List.iter other_probes ~f:(fun (oprobe, oinstr) ->
+                  match oprobe with
+                  | Read_ready ochan_idx ->
+                      assert (not (Int.equal ochan_idx chan_idx));
+                      Vec.filter
+                        t.chan_table.(ochan_idx).select_probe_read_ready
+                        ~f:(fun (pc, _) -> not (Int.equal pc oinstr))
+                  | Send_ready ochan_idx ->
+                      assert (not (Int.equal ochan_idx chan_idx));
+                      Vec.filter
+                        t.chan_table.(ochan_idx).select_probe_send_ready
+                        ~f:(fun (pc, _) -> not (Int.equal pc oinstr)));
               (* It doesnt need gaurding becaus the waiting_pc is required to be a WaitUntilReadable
                  or WaitUntilSendable node, which has no read/written variables *)
               Vec.push t.pcs waiting_pc);
-          Vec.clear chan.waiting_on_read_ready;
           step_chan chan chan_idx)
     | Send (expr, chan_idx) ->
         (* unguard pc; *)
@@ -570,36 +594,72 @@ module Inner_data = struct
           chan.send_instr <- pc;
           chan.send_expr <- expr;
           Vec.remove t.pcs pc_idx;
-          Vec.iter chan.waiting_on_send_ready ~f:(fun waiting_pc ->
+          Vec.iter chan.select_probe_send_ready
+            ~f:(fun (waiting_pc, other_probes) ->
+              (* First go and turn off all the other probes! *)
+              List.iter other_probes ~f:(fun (oprobe, oinstr) ->
+                  match oprobe with
+                  | Read_ready ochan_idx ->
+                      assert (not (Int.equal ochan_idx chan_idx));
+                      Vec.filter
+                        t.chan_table.(ochan_idx).select_probe_read_ready
+                        ~f:(fun (pc, _) -> not (Int.equal pc oinstr))
+                  | Send_ready ochan_idx ->
+                      assert (not (Int.equal ochan_idx chan_idx));
+                      Vec.filter
+                        t.chan_table.(ochan_idx).select_probe_send_ready
+                        ~f:(fun (pc, _) -> not (Int.equal pc oinstr)));
               (* It doesnt need gaurding becaus the waiting_pc is required to be a WaitUntilReadable
                  or WaitUntilSendable node, which has no read/written variables *)
               Vec.push t.pcs waiting_pc);
-          Vec.clear chan.waiting_on_send_ready;
           step_chan chan chan_idx)
-    | WaitUntilSendReady chan_idx ->
+    | SelectProbes probe_select -> (
+        (* TODO *)
         (* unguard pc; *)
-        let chan = t.chan_table.(chan_idx) in
-        if chan.send_ready then set_pc_and_guard ~pc_idx (pc + 1)
-        else (
-          Vec.remove t.pcs pc_idx;
-          Vec.push chan.waiting_on_send_ready (pc + 1);
-          Ok ())
-    | WaitUntilReadReady chan_idx ->
+        (* first check that how many probes are already true. If it is more than one, this is an error *)
+        match
+          List.filter probe_select ~f:(fun (probe, _) ->
+              match probe with
+              | Read_ready chan_idx -> t.chan_table.(chan_idx).read_ready
+              | Send_ready chan_idx -> t.chan_table.(chan_idx).send_ready)
+        with
+        | [] ->
+            Vec.remove t.pcs pc_idx;
+            List.iter probe_select ~f:(fun (probe, instr) ->
+                let other_instrs =
+                  List.filter probe_select ~f:(fun (_, i) ->
+                      not (Int.equal i instr))
+                in
+                match probe with
+                | Read_ready chan_idx ->
+                    Vec.push t.chan_table.(chan_idx).select_probe_read_ready
+                      (instr, other_instrs)
+                | Send_ready chan_idx ->
+                    Vec.push t.chan_table.(chan_idx).select_probe_send_ready
+                      (instr, other_instrs));
+            Ok ()
+        | [ (_, instr) ] -> set_pc_and_guard ~pc_idx instr
+        | multiple_probes ->
+            Error (`Select_multiple_true_probes multiple_probes))
+    | SelectProbes_AssertStable (tprobe, fprobes) ->
         (* unguard pc; *)
-        let chan = t.chan_table.(chan_idx) in
-        if chan.read_ready then set_pc_and_guard ~pc_idx (pc + 1)
-        else (
-          Vec.remove t.pcs pc_idx;
-          Vec.push chan.waiting_on_read_ready (pc + 1);
-          Ok ())
-    | AssertStillSendReady chan_idx ->
-        let chan = t.chan_table.(chan_idx) in
-        if chan.read_ready then set_pc_and_guard ~pc_idx (pc + 1)
-        else Error (`Unstable_wait_until_send_ready (pc, chan_idx))
-    | AssertStillReadReady chan_idx ->
-        let chan = t.chan_table.(chan_idx) in
-        if chan.read_ready then set_pc_and_guard ~pc_idx (pc + 1)
-        else Error (`Unstable_wait_until_read_ready (pc, chan_idx))
+        let errors =
+          (let is_ready =
+             match tprobe with
+             | Read_ready chan_idx -> t.chan_table.(chan_idx).read_ready
+             | Send_ready chan_idx -> t.chan_table.(chan_idx).send_ready
+           in
+           if is_ready then Ok () else Error (`Unstable_probe (pc, tprobe)))
+          :: List.map fprobes ~f:(fun probe ->
+                 let is_ready =
+                   match probe with
+                   | Read_ready chan_idx -> t.chan_table.(chan_idx).read_ready
+                   | Send_ready chan_idx -> t.chan_table.(chan_idx).send_ready
+                 in
+                 if is_ready then Error (`Unstable_probe (pc, probe)) else Ok ())
+        in
+        let%bind.Result () = Result.all_unit errors in
+        set_pc_and_guard ~pc_idx (pc + 1)
     | Send_enqueuer enq_idx ->
         (* unguard pc; *)
         let enqueuer = t.enqueuer_table.(enq_idx) in
@@ -923,6 +983,9 @@ let resolve_step_err t e ~line_numbers =
         [%string
           "Error while evaluating expression from %{expr_src} at %{str_i pc}: \
            %{error_string}."]
+  | `Unstable_probe _ -> failwith "TODO - Unstable_probe"
+  | `Select_multiple_true_probes _ ->
+      failwith "TODO - Select_multiple_true_probes"
 
 let wait_ t ~max_steps () =
   let queued_user_ops = Queue.to_list t.queued_user_ops in
@@ -1136,9 +1199,38 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
       List.iter ends ~f:(fun end_ -> edit_instr loc end_ (Jump merge));
       (split, starts, merge)
     in
+    let push_select_probes loc branches =
+      let split, starts, merge =
+        let split = push_instr loc Nop in
+        let starts, ends =
+          List.map branches ~f:(fun (probe, stmt) ->
+              let other_probes =
+                List.map branches ~f:fst
+                |> List.filter ~f:(fun o -> not (Probe.equal o probe))
+              in
+              let start =
+                push_instr loc (SelectProbes_AssertStable (probe, other_probes))
+              in
+              convert' stmt;
+              let end_ = push_instr loc (Jump Instr_idx.dummy_val) in
+              (start, end_))
+          |> List.unzip
+        in
+        let merge = push_instr loc Nop in
+        List.iter ends ~f:(fun end_ -> edit_instr loc end_ (Jump merge));
+        (split, starts, merge)
+      in
+      let guards =
+        List.zip_exn branches starts
+        |> List.map ~f:(fun ((probe, _), start) -> (probe, start))
+      in
+      edit_instr loc split (SelectProbes guards);
+      merge
+    in
     match stmt with
     | Ir.N.Assign (loc, id, expr) ->
         push_instr loc (Assign (convert_id id, convert_expr expr))
+    | Nop -> push_instr Code_pos.dummy_loc Nop
     | Log (loc, str) -> push_instr loc (Log0 str)
     | Log1 (loc, expr, f) ->
         push_instr loc
@@ -1203,12 +1295,10 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
           (WriteMem (convert_expr idx, convert_expr value, mem_idx_reg, mem_id))
     | WaitUntilReadReady (loc, chan) ->
         let chan_idx = get_chan chan in
-        let (_ : Instr_idx.t) = push_instr loc (WaitUntilReadReady chan_idx) in
-        push_instr loc (AssertStillReadReady chan_idx)
+        push_select_probes loc [ (Read_ready chan_idx, Nop) ]
     | WaitUntilSendReady (loc, chan) ->
         let chan_idx = get_chan chan in
-        let (_ : Instr_idx.t) = push_instr loc (WaitUntilSendReady chan_idx) in
-        push_instr loc (AssertStillSendReady chan_idx)
+        push_select_probes loc [ (Send_ready chan_idx, Nop) ]
   in
 
   (* Build the main program. An initial jump is required. *)

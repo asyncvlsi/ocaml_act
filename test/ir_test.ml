@@ -400,6 +400,7 @@ let%expect_test "test probes" =
   in
   let sim =
     Sim.create ir ~user_sendable_ports:[ chan.w.u ] ~user_readable_ports:[]
+      ~seed:777
   in
   Sim.wait' sim ();
   [%expect {|

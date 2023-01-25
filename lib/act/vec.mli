@@ -13,5 +13,6 @@ val extend : 'a t -> 'a list -> unit
 val is_empty : 'a t -> bool
 val length : 'a t -> int
 val find : 'a t -> f:('a -> bool) -> 'a option
+val filter : 'a t -> f:('a -> bool) -> unit
 val iter : 'a t -> f:('a -> unit) -> unit
 val clear : 'a t -> unit
