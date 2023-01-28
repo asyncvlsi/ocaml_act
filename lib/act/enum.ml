@@ -76,8 +76,37 @@ end) : S with type t := X.t = struct
 
     let expr_of_int_expr i =
       let assert_e =
-        List.map X.mapping ~f:(fun (_, op_code) ->
-            Expr.CInt.(eq (const op_code) i))
+        let l =
+          List.map X.mapping ~f:snd |> Cint0.Set.of_list |> Core.Set.to_list
+          |> Array.of_list
+        in
+        let l =
+          Array.filter_mapi l ~f:(fun i v ->
+              if Int.(i > 0) && Cint0.equal l.(i - 1) Cint0.(v - of_int 1) then
+                None
+              else
+                let n = ref 1 in
+                let j = ref (i + 1) in
+                while
+                  Int.(!j < Array.length l)
+                  && Cint0.equal l.(!j) Cint0.(v + of_int !n)
+                do
+                  incr j;
+                  incr n
+                done;
+                Some (v, !n))
+          |> Array.to_list
+        in
+        List.map l ~f:(fun (v, n) ->
+            match n with
+            | 1 -> Expr.CInt.(eq (const v) i)
+            | _ ->
+                if Cint0.equal v (Cint0.of_int 0) then
+                  Expr.CInt.(lt i (const Cint0.(v + of_int n)))
+                else
+                  Cbool.E.and_
+                    Expr.CInt.(le (const v) i)
+                    Expr.CInt.(lt i (const Cint0.(v + of_int n))))
         |> List.reduce ~f:Cbool.E.or_ |> Option.value_exn
       in
       let i =

@@ -381,6 +381,7 @@ let%expect_test "fibonacci" =
       Instr.to_int Jump;
     |]
   in
+  (* let t = Caml.Sys.time () in *)
   let sim, i, o = test instrs in
   Sim.send sim i (CInt.of_int 0);
   Sim.read sim o (CInt.of_int 0);
@@ -408,7 +409,9 @@ let%expect_test "fibonacci" =
     (Ok ())
     (Ok ())
     (Ok ()) |}];
-
+  (*
+     Printf.printf "Execution time: %fs\n" (Caml.Sys.time () -. t);
+     [%expect {| |}]; *)
   let exporter =
     let my_instrs =
       Array.init 4096 ~f:(fun i ->

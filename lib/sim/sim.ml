@@ -224,7 +224,7 @@ module N = struct
     | Read_dequeuer of Dequeuer_idx.t
   [@@deriving sexp_of]
 
-  let read_ids t =
+  let get_read_ids t =
     (match t with
     | End | Nop | Par _ | ParJoin _ -> []
     | Log0 _ | Read (_, _) | Jump _ -> []
@@ -243,7 +243,7 @@ module N = struct
     | SelectProbes _ | SelectProbes_AssertStable _ -> [])
     |> Var_id.Set.of_list
 
-  let write_ids t =
+  let get_write_ids t =
     (match t with
     | End | Nop | Par _ | ParJoin _ -> []
     | Log0 _ | Log1 _ | Assert _ | JumpIfFalse (_, _) | Jump _ -> []
@@ -264,6 +264,8 @@ end
 module Inner_data = struct
   type t = {
     assem : N.t array;
+    assem_guard_read_ids : Var_id.Set.t array;
+    assem_guard_write_ids : Var_id.Set.t array;
     (* simulation state *)
     pcs : Instr_idx.t Vec.t;
     var_table : Var_buff.t array;
@@ -358,7 +360,7 @@ module Inner_data = struct
 
     let find_rw t var_id ~ignore ~get_ids =
       let is_rw pc =
-        (not (Var_id.equal ignore pc)) && Set.mem (get_ids t.assem.(pc)) var_id
+        (not (Var_id.equal ignore pc)) && Set.mem (get_ids pc) var_id
       in
       let rw_id_of_chan (chan : Chan_buff.t) =
         let send_i, read_i = (chan.send_instr, chan.read_instr) in
@@ -371,14 +373,14 @@ module Inner_data = struct
       |> Option.value_exn
     in
     let find_reader var_id ~ignore =
-      find_rw t var_id ~ignore ~get_ids:N.read_ids
+      find_rw t var_id ~ignore ~get_ids:(fun i -> t.assem_guard_read_ids.(i))
     in
     let find_writer var_id ~ignore =
-      find_rw t var_id ~ignore ~get_ids:N.write_ids
+      find_rw t var_id ~ignore ~get_ids:(fun i -> t.assem_guard_write_ids.(i))
     in
     let guard pc =
-      let read_ids = N.read_ids t.assem.(pc) in
-      let write_ids = N.write_ids t.assem.(pc) in
+      let read_ids = t.assem_guard_read_ids.(pc) in
+      let write_ids = t.assem_guard_write_ids.(pc) in
       let%bind.Result () =
         Set.find read_ids ~f:(fun read_id -> t.var_table.(read_id).write_ct > 0)
         |> to_unit_result ~f:(fun var_id ->
@@ -416,8 +418,8 @@ module Inner_data = struct
       Vec.push t.pcs new_pc |> fun () -> guard new_pc
     in
     let unguard pc =
-      let read_ids = N.read_ids t.assem.(pc) in
-      let write_ids = N.write_ids t.assem.(pc) in
+      let read_ids = t.assem_guard_read_ids.(pc) in
+      let write_ids = t.assem_guard_write_ids.(pc) in
       Set.iter read_ids ~f:(fun read_id ->
           t.var_table.(read_id).read_ct <- t.var_table.(read_id).read_ct - 1);
       Set.iter write_ids ~f:(fun write_id ->
@@ -1372,6 +1374,8 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
 
   let assem = Assem_builder.assem_array ab in
   let assem, loc_of_assem_idx = Array.unzip assem in
+  let assem_guard_read_ids = Array.map assem ~f:(fun n -> N.get_read_ids n) in
+  let assem_guard_write_ids = Array.map assem ~f:(fun n -> N.get_write_ids n) in
   let var_table, var_table_info =
     let var_inits =
       Hashtbl.to_alist var_id_pool.src_of_id
@@ -1440,6 +1444,8 @@ let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
   let i =
     {
       Inner_data.assem;
+      assem_guard_read_ids;
+      assem_guard_write_ids;
       pcs;
       var_table;
       chan_table;
