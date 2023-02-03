@@ -442,6 +442,8 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
 
   let var_id_pool = Var_id_pool.create () in
   let convert_id id = Var_id_pool.to_assem_id var_id_pool id in
+  (* Turns an Ir.Expr into a Inner.Expr. Inner.Expr is a flat array. This code
+     dedupicates repeated nodes. *)
   let convert_expr expr =
     let ns = Vec.create ~cap:10 ~default:(Inner.Expr.N.Const CInt.zero) in
     let ni_of_n = Inner.Expr.N.Table.create () in
