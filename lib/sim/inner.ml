@@ -37,6 +37,7 @@ module Expr_assert_err_idx = Int
 
 module Expr = struct
   module NI = Int
+  module Assert_id = Int
 
   module N = struct
     module T = struct
@@ -60,8 +61,7 @@ module Expr = struct
         | Gt of NI.t * NI.t
         | Ge of NI.t * NI.t
         | Clip of NI.t * int
-        | Assert of NI.t * Expr_assert_err_idx.t
-        | AssertLogData of NI.t * NI.t
+        | Assert of NI.t * Assert_id.t
         | Return of NI.t
       [@@deriving sexp, hash, equal, compare]
     end
@@ -70,14 +70,18 @@ module Expr = struct
     include T
   end
 
-  type t = { ns : N.t array } [@@deriving sexp_of]
+  type t = {
+    ns : N.t array;
+    asserts : (NI.t * NI.t * Expr_assert_err_idx.t) array;
+  }
+  [@@deriving sexp_of]
 
   let var_ids t =
     Array.to_list t.ns
     |> List.filter_map ~f:(fun v ->
            match v with Var var_id -> Some var_id | _ -> None)
 
-  let dummy_expr = { ns = [| N.Const CInt.zero; N.Return 0 |] }
+  let dummy_expr = { ns = [| N.Const CInt.zero; N.Return 0 |]; asserts = [||] }
 end
 
 module Var_buff = struct
@@ -355,19 +359,14 @@ let step' t ~pc_idx =
       | Gt (a, b) -> reg.(!i) <- CInt.( > ) reg.(a) reg.(b) |> of_bool
       | Ge (a, b) -> reg.(!i) <- CInt.( >= ) reg.(a) reg.(b) |> of_bool
       | Clip (a, bits) -> reg.(!i) <- CInt.clip reg.(a) ~bits
-      | Assert (a, err_no) ->
-          if CInt.equal reg.(a) CInt.one then incr i
+      | Assert (a, err_id) ->
+          if CInt.equal reg.(a) CInt.one then ()
           else if CInt.equal reg.(a) CInt.zero then
-            let d1, d2 =
-              match expr.ns.(!i + 1) with
-              | AssertLogData (d1, d2) -> (d1, d2)
-              | _ -> failwith "expected AssertLogData after an assert"
-            in
+            let err_no, d1, d2 = expr.asserts.(err_id) in
             res := Some (Error (err_no, reg.(d1), reg.(d2)))
           else
             failwith
               "unexpect boolean value while evaluating Assert in Inner.Expr"
-      | AssertLogData _ -> failwith "AssertLogData: Should be unreachable"
       | Return a -> res := Some (Ok reg.(a)));
       incr i
     done;

@@ -25,6 +25,7 @@ end
 
 module Expr : sig
   module NI = Int
+  module Assert_id = Int
 
   module N : sig
     type t =
@@ -47,15 +48,18 @@ module Expr : sig
       | Gt of NI.t * NI.t
       | Ge of NI.t * NI.t
       | Clip of NI.t * int
-      | Assert of NI.t * Expr_assert_err_idx.t
-      | AssertLogData of NI.t * NI.t
+      | Assert of NI.t * Assert_id.t
       | Return of NI.t
     [@@deriving sexp, hash, equal, compare]
 
     include Hashable with type t := t
   end
 
-  type t = { ns : N.t array } [@@deriving sexp_of]
+  type t = {
+    ns : N.t array;
+    asserts : (Expr_assert_err_idx.t * NI.t * NI.t) array;
+  }
+  [@@deriving sexp_of]
 
   val var_ids : t -> Var_id.t list
 end

@@ -447,14 +447,26 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     let ni_of_n = Inner.Expr.N.Table.create () in
     let push n =
       Hashtbl.find_or_add ni_of_n n ~default:(fun () ->
+          let n =
+            match n with Assert _ -> failwith "use push_assert" | _ -> n
+          in
           Vec.push ns n;
           Vec.length ns - 1)
     in
-    let push_assert a err_no d1 d2 =
-      Vec.push ns (Assert (a, err_no));
-      Vec.push ns (AssertLogData (d1, d2))
-    in
     let push' n = ignore (push n : Inner.Expr.NI.t) in
+    let next_assert_id = ref 0 in
+    let asserts = Vec.create ~cap:10 ~default:(0, 0, 0) in
+    let push_assert a err_no d1 d2 =
+      Hashtbl.find_or_add ni_of_n
+        (Assert (a, 0))
+        ~default:(fun () ->
+          let id = !next_assert_id in
+          incr next_assert_id;
+          Vec.push ns (Assert (a, id));
+          Vec.push asserts (err_no, d1, d2);
+          Vec.length ns - 1)
+      |> fun ni -> ignore (ni : Inner.Expr.NI.t)
+    in
     let rec convert x =
       match x with
       | Ir.Expr.K.Var var_id -> push (Var (convert_id var_id))
@@ -507,7 +519,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     in
     let e = convert (Ir.Expr.untype expr).k in
     push' (Return e);
-    { Inner.Expr.ns = Vec.to_array ns }
+    { Inner.Expr.ns = Vec.to_array ns; asserts = Vec.to_array asserts }
   in
   let chan_id_pool = Chan_id_pool.create () in
   let get_chan chan_id = Chan_id_pool.get_id chan_id_pool chan_id in
@@ -677,7 +689,9 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
            let var_id =
              Var_id_pool.new_id var_id_pool Send_enq_reg (Some chan.d.dtype)
            in
-           let send_expr = { Inner.Expr.ns = [| Var var_id; Return 0 |] } in
+           let send_expr =
+             { Inner.Expr.ns = [| Var var_id; Return 0 |]; asserts = [||] }
+           in
            let send_instr =
              push_instr Code_pos.dummy_loc (Send (send_expr, chan_idx))
            in
