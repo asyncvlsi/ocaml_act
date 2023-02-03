@@ -410,8 +410,8 @@ let%expect_test "fibonacci" =
     (Ok ())
     (Ok ()) |}];
   (*
-     Printf.printf "Execution time: %fs\n" (Caml.Sys.time () -. t);
-     [%expect {| |}]; *)
+      Printf.printf "Execution time: %fs\n" (Caml.Sys.time () -. t);
+      [%expect {| |}]; *)
   let exporter =
     let my_instrs =
       Array.init 4096 ~f:(fun i ->

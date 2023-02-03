@@ -1,11 +1,8 @@
 open! Core
 open! Act
 
-module With_origin : sig
-  type 'a t = { value : 'a; origin : Code_pos.t } [@@deriving sexp_of]
-
-  val map : 'a t -> f:('a -> 'b) -> 'b t
-end
+(* This module doesnt know about dtypes. Everything is just a CInt. Moreover, it includes no recursive
+   data types. So, this should be fairly easy to port into c/c++/rust if we need the extra performance *)
 
 module Instr_idx : sig
   type t = int [@@deriving sexp, equal]
@@ -19,27 +16,47 @@ module Chan_id = Int
 module Mem_id = Int
 module Enqueuer_idx = Int
 module Dequeuer_idx = Int
+module Expr_assert_err_idx = Int
 
 module Probe : sig
   type t = Read_ready of Chan_id.t | Send_ready of Chan_id.t
   [@@deriving sexp_of, equal]
 end
 
-module Expr_assert_err_idx = Int
-
 module Expr : sig
-  type t =
-    | Var of Var_id.t
-    | Const of CInt.t
-    | Map of t * (CInt.t -> CInt.t)
-    | Map2 of t * t * (CInt.t -> CInt.t -> CInt.t)
-    | AssertThenOrLog0 of t * t * Expr_assert_err_idx.t
-    | AssertThenOrLog1 of t * t * t * Expr_assert_err_idx.t
-    | AssertThenOrLog2 of t * t * t * t * Expr_assert_err_idx.t
-  [@@deriving sexp_of]
+  module NI = Int
 
-  val map : t -> f:(CInt.t -> CInt.t) -> t
-  val map2 : t -> t -> f:(CInt.t -> CInt.t -> CInt.t) -> t
+  module N : sig
+    type t =
+      | Var of Var_id.t
+      | Const of CInt.t
+      | Add of NI.t * NI.t
+      | Sub_no_underflow of NI.t * NI.t
+      | Mul of NI.t * NI.t
+      | Div of NI.t * NI.t
+      | Mod of NI.t * NI.t
+      | LShift of NI.t * NI.t
+      | RShift of NI.t * NI.t
+      | BitAnd of NI.t * NI.t
+      | BitOr of NI.t * NI.t
+      | BitXor of NI.t * NI.t
+      | Eq of NI.t * NI.t
+      | Ne of NI.t * NI.t
+      | Lt of NI.t * NI.t
+      | Le of NI.t * NI.t
+      | Gt of NI.t * NI.t
+      | Ge of NI.t * NI.t
+      | Clip of NI.t * int
+      | Assert of NI.t * Expr_assert_err_idx.t
+      | AssertLogData of NI.t * NI.t
+      | Return of NI.t
+    [@@deriving sexp, hash, equal, compare]
+
+    include Hashable with type t := t
+  end
+
+  type t = { ns : N.t array } [@@deriving sexp_of]
+
   val var_ids : t -> Var_id.t list
 end
 
@@ -69,7 +86,7 @@ module N : sig
         (* idx *) Expr.t * (* dst *) Var_id.t * (* reg *) Var_id.t * Mem_id.t
     | WriteMem of
         (* idx *) Expr.t * (* src *) Expr.t * (* idx_reg *) Var_id.t * Mem_id.t
-    (* handle nondeterministic select *)
+    (* TODO handle nondeterministic select *)
     | SelectProbes of (Probe.t * Instr_idx.t) list
     (* Should include all but the branch just taken *)
     | SelectProbes_AssertStable of
@@ -84,8 +101,6 @@ module N : sig
   val get_write_ids : t -> Var_id.Set.t
 end
 
-(* This module doesnt know about dtypes. Everything is just a CInt. This should be fairly easy to port
-   into c/c++/rust if we need the extra performance *)
 module E : sig
   module Expr_kind : sig
     type t =
@@ -115,13 +130,12 @@ module E : sig
     | Simul_chan_senders of Instr_idx.t * Instr_idx.t
     | Select_multiple_true_probes of Instr_idx.t * (int * (Probe.t * int)) list
     | Unstable_probe of Instr_idx.t * Probe.t
-    | Read_dequeuer_wrong_value of
-        Dequeuer_idx.t * CInt.t * CInt.t With_origin.t * int
+    | Read_dequeuer_wrong_value of Dequeuer_idx.t * CInt.t * int
     | Mem_out_of_bounds of Instr_idx.t * CInt.t * int
     | Read_mem_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * CInt.t
     | Written_mem_value_doesnt_fit_in_cell of Instr_idx.t * Mem_id.t * CInt.t
-    | User_read_did_not_complete of Dequeuer_idx.t * CInt.t With_origin.t
-    | User_send_did_not_complete of Enqueuer_idx.t * CInt.t With_origin.t
+    | User_read_did_not_complete of Dequeuer_idx.t * int
+    | User_send_did_not_complete of Enqueuer_idx.t * int
     | Stuck
     | Time_out
 end
@@ -169,7 +183,7 @@ val set_enqueuer :
   enqueuer_idx:Enqueuer_idx.t ->
   is_done:bool ->
   idx:int ->
-  to_send:CInt.t With_origin.t array ->
+  to_send:CInt.t array ->
   push_pc:Instr_idx.t ->
   unit
 
@@ -177,7 +191,7 @@ val set_dequeuer :
   t ->
   dequeuer_idx:Dequeuer_idx.t ->
   idx:int ->
-  expected_reads:CInt.t With_origin.t array ->
+  expected_reads:CInt.t array ->
   push_pc:Instr_idx.t ->
   unit
 

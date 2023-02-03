@@ -15,12 +15,6 @@ let for_loop_else max_ct ~(f : int -> [ `Continue | `Return of 'a ])
 let some_or_thunk o ~f = match o with Some v -> Some v | None -> f ()
 let to_unit_result o ~f = match o with Some v -> Error (f v) | None -> Ok ()
 
-module With_origin = struct
-  type 'a t = { value : 'a; origin : Code_pos.t } [@@deriving sexp_of]
-
-  let map { value; origin } ~f = { value = f value; origin }
-end
-
 module Instr_idx = struct
   include Int
 
@@ -42,30 +36,48 @@ end
 module Expr_assert_err_idx = Int
 
 module Expr = struct
-  type t =
-    | Var of Var_id.t
-    | Const of CInt.t
-    | Map of t * (CInt.t -> CInt.t)
-    | Map2 of t * t * (CInt.t -> CInt.t -> CInt.t)
-    | AssertThenOrLog0 of t * t * Expr_assert_err_idx.t
-    | AssertThenOrLog1 of t * t * t * Expr_assert_err_idx.t
-    | AssertThenOrLog2 of t * t * t * t * Expr_assert_err_idx.t
-  [@@deriving sexp_of]
+  module NI = Int
 
-  let map e ~f = Map (e, f)
-  let map2 e1 e2 ~f = Map2 (e1, e2, f)
-  let _ = AssertThenOrLog0 (Const CInt.zero, Const CInt.zero, 0)
+  module N = struct
+    module T = struct
+      type t =
+        | Var of Var_id.t
+        | Const of CInt.t
+        | Add of NI.t * NI.t
+        | Sub_no_underflow of NI.t * NI.t
+        | Mul of NI.t * NI.t
+        | Div of NI.t * NI.t
+        | Mod of NI.t * NI.t
+        | LShift of NI.t * NI.t
+        | RShift of NI.t * NI.t
+        | BitAnd of NI.t * NI.t
+        | BitOr of NI.t * NI.t
+        | BitXor of NI.t * NI.t
+        | Eq of NI.t * NI.t
+        | Ne of NI.t * NI.t
+        | Lt of NI.t * NI.t
+        | Le of NI.t * NI.t
+        | Gt of NI.t * NI.t
+        | Ge of NI.t * NI.t
+        | Clip of NI.t * int
+        | Assert of NI.t * Expr_assert_err_idx.t
+        | AssertLogData of NI.t * NI.t
+        | Return of NI.t
+      [@@deriving sexp, hash, equal, compare]
+    end
 
-  let rec var_ids t =
-    match t with
-    | Var id -> [ id ]
-    | Const _ -> []
-    | Map (e, _) -> var_ids e
-    | Map2 (e1, e2, _) -> var_ids e1 @ var_ids e2
-    | AssertThenOrLog0 (ae, ve, _) -> var_ids ae @ var_ids ve
-    | AssertThenOrLog1 (ae, ve, le1, _) -> var_ids ae @ var_ids ve @ var_ids le1
-    | AssertThenOrLog2 (ae, ve, le1, le2, _) ->
-        var_ids ae @ var_ids ve @ var_ids le1 @ var_ids le2
+    include Hashable.Make (T)
+    include T
+  end
+
+  type t = { ns : N.t array } [@@deriving sexp_of]
+
+  let var_ids t =
+    Array.to_list t.ns
+    |> List.filter_map ~f:(fun v ->
+           match v with Var var_id -> Some var_id | _ -> None)
+
+  let dummy_expr = { ns = [| N.Const CInt.zero; N.Return 0 |] }
 end
 
 module Var_buff = struct
@@ -112,7 +124,7 @@ end
 
 module Enqueuer_buff = struct
   type t = {
-    mutable to_send : CInt.t With_origin.t array;
+    mutable to_send : CInt.t array;
     var_id : Var_id.t;
     mutable is_done : bool;
     mutable idx : int;
@@ -122,7 +134,7 @@ end
 
 module Dequeuer_buff = struct
   type t = {
-    mutable expected_reads : CInt.t With_origin.t array;
+    mutable expected_reads : CInt.t array;
     var_id : Var_id.t;
     mutable idx : int;
   }
@@ -232,13 +244,12 @@ module E = struct
     | Simul_chan_senders of Instr_idx.t * Instr_idx.t
     | Select_multiple_true_probes of Instr_idx.t * (int * (Probe.t * int)) list
     | Unstable_probe of Instr_idx.t * Probe.t
-    | Read_dequeuer_wrong_value of
-        Dequeuer_idx.t * CInt.t * CInt.t With_origin.t * int
+    | Read_dequeuer_wrong_value of Dequeuer_idx.t * CInt.t * int
     | Mem_out_of_bounds of Instr_idx.t * CInt.t * int
     | Read_mem_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * CInt.t
     | Written_mem_value_doesnt_fit_in_cell of Instr_idx.t * Mem_id.t * CInt.t
-    | User_read_did_not_complete of Dequeuer_idx.t * CInt.t With_origin.t
-    | User_send_did_not_complete of Enqueuer_idx.t * CInt.t With_origin.t
+    | User_read_did_not_complete of Dequeuer_idx.t * int
+    | User_send_did_not_complete of Enqueuer_idx.t * int
     | Stuck
     | Time_out
 end
@@ -318,53 +329,53 @@ let step' t ~pc_idx =
     | 1 -> true
     | c -> failwith [%string "Simulator bug: unexpected bool value %{c#Int}"]
   in
-  let eval_var_table expr ~err_kind ~err_instr =
-    let rec eval expr =
-      match expr with
-      | Expr.Var id -> Ok t.s.var_table.(id).value
-      | Const c -> Ok c
-      | Map (e, f) ->
-          let%map.Result e = eval e in
-          f e
-      | Map2 (e1, e2, f) ->
-          let%bind.Result e1 = eval e1 in
-          let%map.Result e2 = eval e2 in
-          f e1 e2
-      | AssertThenOrLog0 (assert_e, val_e, expr_err_id) -> (
-          let%bind.Result assert_e =
-            eval assert_e |> Result.map ~f:bool_of_cint
-          in
-          match assert_e with
-          | true -> eval val_e
-          | false ->
-              Error
-                (E.Eval_expr_failed
-                   (err_kind, expr_err_id, CInt.zero, CInt.zero, err_instr)))
-      | AssertThenOrLog1 (assert_e, val_e, log_e1, expr_err_id) -> (
-          let%bind.Result assert_e =
-            eval assert_e |> Result.map ~f:bool_of_cint
-          in
-          match assert_e with
-          | true -> eval val_e
-          | false ->
-              let%bind.Result log_e1 = eval log_e1 in
-              Error
-                (E.Eval_expr_failed
-                   (err_kind, expr_err_id, log_e1, CInt.zero, err_instr)))
-      | AssertThenOrLog2 (assert_e, val_e, log_e1, log_e2, expr_err_id) -> (
-          let%bind.Result assert_e =
-            eval assert_e |> Result.map ~f:bool_of_cint
-          in
-          match assert_e with
-          | true -> eval val_e
-          | false ->
-              let%bind.Result log_e1 = eval log_e1 in
-              let%bind.Result log_e2 = eval log_e2 in
-              Error
-                (E.Eval_expr_failed
-                   (err_kind, expr_err_id, log_e1, log_e2, err_instr)))
-    in
-    eval expr
+  let eval_var_table (expr : Expr.t) ~err_kind ~err_instr =
+    let reg = Array.create CInt.zero ~len:(Array.length expr.ns) in
+    let res = ref None in
+    let i = ref 0 in
+    let of_bool b = Bool.to_int b |> CInt.of_int in
+    while !i < Array.length expr.ns && Option.is_none !res do
+      (match expr.ns.(!i) with
+      | Var id -> reg.(!i) <- t.s.var_table.(id).value
+      | Const c -> reg.(!i) <- c
+      | Add (a, b) -> reg.(!i) <- CInt.( + ) reg.(a) reg.(b)
+      | Sub_no_underflow (a, b) -> reg.(!i) <- CInt.( - ) reg.(a) reg.(b)
+      | Mul (a, b) -> reg.(!i) <- CInt.( * ) reg.(a) reg.(b)
+      | Div (a, b) -> reg.(!i) <- CInt.( / ) reg.(a) reg.(b)
+      | Mod (a, b) -> reg.(!i) <- CInt.( % ) reg.(a) reg.(b)
+      | LShift (a, b) -> reg.(!i) <- CInt.shift_left reg.(a) reg.(b)
+      | RShift (a, b) -> reg.(!i) <- CInt.shift_right_logical reg.(a) reg.(b)
+      | BitAnd (a, b) -> reg.(!i) <- CInt.bit_and reg.(a) reg.(b)
+      | BitOr (a, b) -> reg.(!i) <- CInt.bit_or reg.(a) reg.(b)
+      | BitXor (a, b) -> reg.(!i) <- CInt.bit_xor reg.(a) reg.(b)
+      | Eq (a, b) -> reg.(!i) <- CInt.equal reg.(a) reg.(b) |> of_bool
+      | Ne (a, b) -> reg.(!i) <- CInt.equal reg.(a) reg.(b) |> not |> of_bool
+      | Lt (a, b) -> reg.(!i) <- CInt.( < ) reg.(a) reg.(b) |> of_bool
+      | Le (a, b) -> reg.(!i) <- CInt.( <= ) reg.(a) reg.(b) |> of_bool
+      | Gt (a, b) -> reg.(!i) <- CInt.( > ) reg.(a) reg.(b) |> of_bool
+      | Ge (a, b) -> reg.(!i) <- CInt.( >= ) reg.(a) reg.(b) |> of_bool
+      | Clip (a, bits) -> reg.(!i) <- CInt.clip reg.(a) ~bits
+      | Assert (a, err_no) ->
+          if CInt.equal reg.(a) CInt.one then incr i
+          else if CInt.equal reg.(a) CInt.zero then
+            let d1, d2 =
+              match expr.ns.(!i + 1) with
+              | AssertLogData (d1, d2) -> (d1, d2)
+              | _ -> failwith "expected AssertLogData after an assert"
+            in
+            res := Some (Error (err_no, reg.(d1), reg.(d2)))
+          else
+            failwith
+              "unexpect boolean value while evaluating Assert in Inner.Expr"
+      | AssertLogData _ -> failwith "AssertLogData: Should be unreachable"
+      | Return a -> res := Some (Ok reg.(a)));
+      incr i
+    done;
+    let res = Option.value_exn !res in
+    match res with
+    | Ok v -> Ok v
+    | Error (expr_err_id, v1, v2) ->
+        Error (E.Eval_expr_failed (err_kind, expr_err_id, v1, v2, err_instr))
   in
   let eval_bool expr ~err_kind ~err_instr =
     eval_var_table expr ~err_kind ~err_instr |> Result.map ~f:bool_of_cint
@@ -678,9 +689,7 @@ let step' t ~pc_idx =
         enqueuer.is_done <- true;
         Ok ())
       else
-        let { With_origin.value; origin = _ } =
-          enqueuer.to_send.(enqueuer.idx)
-        in
+        let value = enqueuer.to_send.(enqueuer.idx) in
         enqueuer.idx <- enqueuer.idx + 1;
         set_var_table ~var_id:enqueuer.var_id ~value;
         set_pc_and_guard ~pc_idx (pc - 1)
@@ -689,9 +698,8 @@ let step' t ~pc_idx =
       unguard pc;
       let value = at_var_table ~var_id:dequeuer.var_id in
       let expected = dequeuer.expected_reads.(dequeuer.idx) in
-      if not (CInt.equal value expected.value) then
-        Error
-          (E.Read_dequeuer_wrong_value (deq_idx, value, expected, dequeuer.idx))
+      if not (CInt.equal value expected) then
+        Error (E.Read_dequeuer_wrong_value (deq_idx, value, dequeuer.idx))
       else (
         dequeuer.idx <- dequeuer.idx + 1;
         if dequeuer.idx >= Array.length dequeuer.expected_reads then (
@@ -746,16 +754,14 @@ let wait t ~max_steps () =
       with
       | Some (deq_idx, deq) ->
           let read_idx = deq.idx in
-          let read = deq.expected_reads.(read_idx) in
-          `Return (E.User_read_did_not_complete (deq_idx, read))
+          `Return (E.User_read_did_not_complete (deq_idx, read_idx))
       | None -> (
           match
             Array.findi t.s.enqueuer_table ~f:(fun _ enq -> not enq.is_done)
           with
           | Some (enq_idx, enq) ->
               let send_idx = enq.idx in
-              let send = enq.to_send.(send_idx - 1) in
-              `Return (E.User_send_did_not_complete (enq_idx, send))
+              `Return (E.User_send_did_not_complete (enq_idx, send_idx))
           | None -> `Return E.Stuck)
     else
       let status =
@@ -787,7 +793,7 @@ let create_state (setup : Setup.t) =
           read_instr = Instr_idx.dummy_val;
           send_instr = Instr_idx.dummy_val;
           read_dst_var_id = 0;
-          send_expr = Const (Obj.magic 0);
+          send_expr = Expr.dummy_expr;
           select_probe_read_ready = Vec.create ~cap:10 ~default:(0, []);
           select_probe_send_ready = Vec.create ~cap:10 ~default:(0, []);
         })

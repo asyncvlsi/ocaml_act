@@ -2,6 +2,12 @@ open! Core
 open! Act
 module Ir = Internal_rep
 
+module With_origin = struct
+  type 'a t = { value : 'a; origin : Code_pos.t } [@@deriving sexp_of, fields]
+
+  let map { value; origin } ~f = { value = f value; origin }
+end
+
 module Var_id_src = struct
   type t = Var of Ir.Var.U.t | Mem_idx_reg | Read_deq_reg | Send_enq_reg
   [@@deriving sexp_of]
@@ -54,9 +60,10 @@ type t = {
   queued_user_ops : Queued_user_op.t Queue.t;
 }
 
-module With_origin = Inner.With_origin
-
-let resolve_step_err t e ~line_numbers =
+let resolve_step_err t e ~line_numbers ~to_send ~to_read =
+  (* Now this is a map of form Enquere_idx.t -> CInt.t With_origin.t *)
+  let to_send = Map.data to_send |> Int.Map.of_alist_exn in
+  let to_read = Map.data to_read |> Int.Map.of_alist_exn in
   let loc_of_instr var_id = t.loc_of_assem_idx.(var_id) in
   let str_l (cp : Code_pos.t) =
     if line_numbers then
@@ -67,21 +74,23 @@ let resolve_step_err t e ~line_numbers =
   match e with
   | Inner.E.Stuck -> Ok `Stuck
   | Time_out -> Error "Simulation timed out. Maybe increase max_steps?"
-  | User_read_did_not_complete (deq_idx, read) ->
+  | User_read_did_not_complete (deq_idx, read_idx) ->
       let chan_idx = t.dequeuer_table_info.(deq_idx).chan in
       let chan_creation_pos =
         t.chan_table_info.(chan_idx).src.d.creation_code_pos
       in
+      let read = (Map.find_exn to_read deq_idx).(read_idx) in
       Error
         [%string
           "User read did not complete:  called %{str_l \
            read.With_origin.origin}, on chan created %{str_l \
            chan_creation_pos}."]
-  | User_send_did_not_complete (enq_idx, send) ->
+  | User_send_did_not_complete (enq_idx, send_idx) ->
       let chan_idx = t.enqueuer_table_info.(enq_idx).chan in
       let chan_creation_pos =
         t.chan_table_info.(chan_idx).src.d.creation_code_pos
       in
+      let send = (Map.find_exn to_send enq_idx).(send_idx - 1) in
       Error
         [%string
           "User send did not complete:  called %{str_l \
@@ -144,13 +153,14 @@ let resolve_step_err t e ~line_numbers =
         [%string
           "Select statement has multiple true guards: %{str_i pc}, true branch \
            indices as %{branch_idxs}."]
-  | Read_dequeuer_wrong_value (deq_idx, actual, expected, _) ->
+  | Read_dequeuer_wrong_value (deq_idx, actual, expected_idx) ->
       let chan_idx = t.dequeuer_table_info.(deq_idx).chan in
       let chan_dtype = t.chan_table_info.(chan_idx).src.d.dtype in
       let actual =
         Ir.DType.value_of_cint_exn chan_dtype actual
         |> Ir.DType.sexp_of_t_ chan_dtype
       in
+      let expected = (Map.find_exn to_read deq_idx).(expected_idx) in
       let expected =
         With_origin.map expected ~f:(fun expected ->
             Ir.DType.value_of_cint_exn chan_dtype expected
@@ -273,7 +283,7 @@ let resolve_step_err t e ~line_numbers =
           "Select statement has multiple true probes: %{str_i pc}, true branch \
            indices as %{branch_idxs}."]
 
-let wait_ t ~max_steps () =
+let wait t ?(max_steps = 1000) ?(line_numbers = true) () =
   let queued_user_ops = Queue.to_list t.queued_user_ops in
   Queue.clear t.queued_user_ops;
   let to_send, to_read =
@@ -283,37 +293,50 @@ let wait_ t ~max_steps () =
         | `Send enqueuer -> First (chan_instr, (enqueuer, value, call_site))
         | `Read dequeuer -> Second (chan_instr, (dequeuer, value, call_site)))
   in
-  Int.Map.of_alist_multi to_send
-  |> Map.iteri ~f:(fun ~key:send_instr ~data:l ->
-         let enqueuer_idx, _, _ = List.hd_exn l in
-         let values =
-           List.map l ~f:(fun (_, value, origin) ->
-               { With_origin.value; origin })
-         in
-         let values = Array.of_list values in
-         Inner.set_enqueuer t.i ~enqueuer_idx ~is_done:false ~idx:0
-           ~to_send:values ~push_pc:(send_instr + 1));
-  Int.Map.of_alist_multi to_read
-  |> Map.iteri ~f:(fun ~key:read_instr ~data:l ->
-         let dequeuer_idx, _, _ = List.hd_exn l in
-         let values =
-           List.map l ~f:(fun (_, value, origin) ->
-               { Inner.With_origin.value; origin })
-         in
-         let values = Array.of_list values in
-         Inner.set_dequeuer t.i ~dequeuer_idx ~idx:0 ~expected_reads:values
-           ~push_pc:read_instr);
-  Inner.wait t.i ~max_steps ()
-
-let wait t ?(max_steps = 1000) ?(line_numbers = true) () =
-  let status =
-    (match t.is_done with
-    | true -> Error "Already done."
-    | false -> wait_ t ~max_steps () |> resolve_step_err t ~line_numbers)
-    |> Result.map_error ~f:Error.of_string
+  let to_send =
+    Int.Map.of_alist_multi to_send
+    |> Map.map ~f:(fun l ->
+           let enqueuer_idx, _, _ = List.hd_exn l in
+           let values =
+             List.map l ~f:(fun (_, value, origin) ->
+                 { With_origin.value; origin })
+           in
+           let values = Array.of_list values in
+           (enqueuer_idx, values))
   in
-  Result.iter_error status ~f:(fun _ -> t.is_done <- true);
-  Result.map status ~f:(fun `Stuck -> ())
+  let to_read =
+    Int.Map.of_alist_multi to_read
+    |> Map.map ~f:(fun l ->
+           let dequeuer_idx, _, _ = List.hd_exn l in
+           let values =
+             List.map l ~f:(fun (_, value, origin) ->
+                 { With_origin.value; origin })
+           in
+           let values = Array.of_list values in
+           (dequeuer_idx, values))
+  in
+  match t.is_done with
+  | true -> Error (Error.of_string "Already done.")
+  | false ->
+      let status =
+        Map.iteri to_send
+          ~f:(fun ~key:send_instr ~data:(enqueuer_idx, to_send) ->
+            let to_send = Array.map to_send ~f:With_origin.value in
+            Inner.set_enqueuer t.i ~enqueuer_idx ~is_done:false ~idx:0 ~to_send
+              ~push_pc:(send_instr + 1));
+        Map.iteri to_read
+          ~f:(fun ~key:read_instr ~data:(dequeuer_idx, expected_reads) ->
+            let expected_reads =
+              Array.map expected_reads ~f:With_origin.value
+            in
+            Inner.set_dequeuer t.i ~dequeuer_idx ~idx:0 ~expected_reads
+              ~push_pc:read_instr);
+        Inner.wait t.i ~max_steps ()
+        |> resolve_step_err t ~line_numbers ~to_send ~to_read
+        |> Result.map_error ~f:Error.of_string
+      in
+      Result.iter_error status ~f:(fun _ -> t.is_done <- true);
+      Result.map status ~f:(fun `Stuck -> ())
 
 let wait' t ?max_steps () =
   print_s [%sexp (wait t ?max_steps () : unit Or_error.t)]
@@ -420,14 +443,23 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
   let var_id_pool = Var_id_pool.create () in
   let convert_id id = Var_id_pool.to_assem_id var_id_pool id in
   let convert_expr expr =
+    let ns = Vec.create ~cap:10 ~default:(Inner.Expr.N.Const CInt.zero) in
+    let ni_of_n = Inner.Expr.N.Table.create () in
+    let push n =
+      Hashtbl.find_or_add ni_of_n n ~default:(fun () ->
+          Vec.push ns n;
+          Vec.length ns - 1)
+    in
+    let push_assert a err_no d1 d2 =
+      Vec.push ns (Assert (a, err_no));
+      Vec.push ns (AssertLogData (d1, d2))
+    in
+    let push' n = ignore (push n : Inner.Expr.NI.t) in
     let rec convert x =
-      let imap2 a b (f : CInt.t -> CInt.t -> CInt.t) =
-        Inner.Expr.map2 (convert a) (convert b) ~f
-      in
       match x with
-      | Ir.Expr.K.Var var_id -> Inner.Expr.Var (convert_id var_id)
-      | Const c -> Const c
-      | Add (a, b) -> imap2 a b CInt.( + )
+      | Ir.Expr.K.Var var_id -> push (Var (convert_id var_id))
+      | Const c -> push (Const c)
+      | Add (a, b) -> push (Add (convert a, convert b))
       | Sub_no_wrap (a, b) ->
           let a, b = (convert a, convert b) in
           let err_id =
@@ -436,45 +468,47 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
                   "Expr.Sub_no_wrap must have first arg (%{a#CInt}) >= second \
                    arg (%{b#CInt})"])
           in
-          AssertThenOrLog2
-            ( Inner.Expr.map2 a b ~f:(fun a b ->
-                  CInt.( >= ) a b |> Bool.to_int |> CInt.of_int),
-              Inner.Expr.map2 a b ~f:CInt.( - ),
-              a,
-              b,
-              err_id )
-      | Sub_wrap (a, b, bits) -> imap2 a b (CInt.sub_wrap ~bits)
-      | Mul (a, b) -> imap2 a b CInt.( * )
-      | Div (a, b) -> imap2 a b CInt.( / )
-      | Mod (a, b) -> imap2 a b CInt.( % )
-      | LShift (a, b) -> imap2 a b CInt.shift_left
-      | LogicalRShift (a, b) -> imap2 a b CInt.shift_right_logical
-      | BitAnd (a, b) -> imap2 a b CInt.bit_and
-      | BitOr (a, b) -> imap2 a b CInt.bit_or
-      | BitXor (a, b) -> imap2 a b CInt.bit_xor
-      | Eq (a, b) ->
-          imap2 a b (fun a b -> CInt.equal a b |> Bool.to_int |> CInt.of_int)
-      | Ne (a, b) ->
-          imap2 a b (fun a b ->
-              (not (CInt.equal a b)) |> Bool.to_int |> CInt.of_int)
-      | Lt (a, b) ->
-          imap2 a b (fun a b -> CInt.( < ) a b |> Bool.to_int |> CInt.of_int)
-      | Le (a, b) ->
-          imap2 a b (fun a b -> CInt.( <= ) a b |> Bool.to_int |> CInt.of_int)
-      | Gt (a, b) ->
-          imap2 a b (fun a b -> CInt.( > ) a b |> Bool.to_int |> CInt.of_int)
-      | Ge (a, b) ->
-          imap2 a b (fun a b -> CInt.( >= ) a b |> Bool.to_int |> CInt.of_int)
-      | Clip (a, bits) -> Inner.Expr.map (convert a) ~f:(CInt.clip ~bits)
+          let assert_expr = push (Ge (a, b)) in
+          push_assert assert_expr err_id a b;
+          push (Sub_no_underflow (a, b))
+      | Sub_wrap (a, b, bits) ->
+          let a, b = (convert a, convert b) in
+          let p2bits =
+            push (Const (CInt.shift_left CInt.one (CInt.of_int bits)))
+          in
+          let a = push (Clip (a, bits)) in
+          let a = push (BitOr (a, p2bits)) in
+          let b = push (Clip (b, bits)) in
+          let diff = push (Sub_no_underflow (a, b)) in
+          push (Clip (diff, bits))
+      | Mul (a, b) -> push (Mul (convert a, convert b))
+      | Div (a, b) -> push (Div (convert a, convert b))
+      | Mod (a, b) -> push (Mod (convert a, convert b))
+      | LShift (a, b) -> push (LShift (convert a, convert b))
+      | LogicalRShift (a, b) -> push (RShift (convert a, convert b))
+      | BitAnd (a, b) -> push (BitAnd (convert a, convert b))
+      | BitOr (a, b) -> push (BitOr (convert a, convert b))
+      | BitXor (a, b) -> push (BitXor (convert a, convert b))
+      | Eq (a, b) -> push (Eq (convert a, convert b))
+      | Ne (a, b) -> push (Ne (convert a, convert b))
+      | Lt (a, b) -> push (Lt (convert a, convert b))
+      | Le (a, b) -> push (Le (convert a, convert b))
+      | Gt (a, b) -> push (Gt (convert a, convert b))
+      | Ge (a, b) -> push (Ge (convert a, convert b))
+      | Clip (a, bits) -> push (Clip (convert a, bits))
       | With_assert_log (assert_expr, val_expr, log_input, msg_fn) ->
           let err_id = add_expr_assert ~f:(fun v _ -> msg_fn v) in
-          AssertThenOrLog1
-            (convert assert_expr, convert val_expr, convert log_input, err_id)
+          let assert_expr = convert assert_expr in
+          let log_input = convert log_input in
+          let c0 = push (Const CInt.zero) in
+          push_assert assert_expr err_id log_input c0;
+          convert val_expr
       | With_assert_log_fn (_, _, _) -> failwith "TODO"
     in
-    convert (Ir.Expr.untype expr).k
+    let e = convert (Ir.Expr.untype expr).k in
+    push' (Return e);
+    { Inner.Expr.ns = Vec.to_array ns }
   in
-
   let chan_id_pool = Chan_id_pool.create () in
   let get_chan chan_id = Chan_id_pool.get_id chan_id_pool chan_id in
 
@@ -643,8 +677,9 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
            let var_id =
              Var_id_pool.new_id var_id_pool Send_enq_reg (Some chan.d.dtype)
            in
+           let send_expr = { Inner.Expr.ns = [| Var var_id; Return 0 |] } in
            let send_instr =
-             push_instr Code_pos.dummy_loc (Send (Var var_id, chan_idx))
+             push_instr Code_pos.dummy_loc (Send (send_expr, chan_idx))
            in
            let _ = push_instr Code_pos.dummy_loc (Send_enqueuer enqueuer_idx) in
            (* let enqueuer =  in *)
@@ -717,19 +752,19 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
       |> List.sort ~compare:(fun (id0, _) (id1, _) -> Int.compare id0 id1)
     in
     List.iteri tbl ~f:(fun i (mem_id, _) -> assert (Int.equal i mem_id));
-      List.map tbl ~f:(fun (_, (idx_helper_reg, mem)) ->
-          let init =
-            Array.map mem.d.init ~f:(fun v ->
-                Ir.DType.cint_of_value mem.d.dtype v)
-          in
-          let cell_bitwidth =
-            match Ir.DType.layout mem.d.dtype with
-            | Bits_fixed bitwidth -> bitwidth
-          in
-          let spec = { Inner.Mem_spec.cell_bitwidth; idx_helper_reg; init } in
-          let info = { Mem_buff_info.src = mem } in
-          (spec, info))
-      |> Array.of_list |> Array.unzip
+    List.map tbl ~f:(fun (_, (idx_helper_reg, mem)) ->
+        let init =
+          Array.map mem.d.init ~f:(fun v ->
+              Ir.DType.cint_of_value mem.d.dtype v)
+        in
+        let cell_bitwidth =
+          match Ir.DType.layout mem.d.dtype with
+          | Bits_fixed bitwidth -> bitwidth
+        in
+        let spec = { Inner.Mem_spec.cell_bitwidth; idx_helper_reg; init } in
+        let info = { Mem_buff_info.src = mem } in
+        (spec, info))
+    |> Array.of_list |> Array.unzip
   in
   let i =
     Inner.create ~assem ~assem_guard_read_ids ~assem_guard_write_ids ~vars
