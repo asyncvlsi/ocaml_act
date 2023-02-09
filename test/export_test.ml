@@ -37,7 +37,29 @@ let%expect_test "test1" =
 
     (v0 := 12345); (( *[C0!((v0))] ), (C0?v1))
     }
-    } |}]
+    } |}];
+  let exporter =
+    Exporter.create_dflow ir ~user_sendable_ports:[] ~user_readable_ports:[]
+  in
+  ignore (exporter : Exporter.dflow);
+  [%expect
+    {|
+    (Seq
+     ((Assign ((id 0) (bitwidth 32)) (Const 12345))
+      (Par
+       (((in_v ((id 0) (bitwidth 32))) (out_vs ((((id 2) (bitwidth 32))) ()))))
+       ((Seq
+         ((Send ((id 5) (bitwidth 1)) (Const 1))
+          (WhileLoop
+           (((init_v (((id 2) (bitwidth 32))))
+             (body_in_v (((id 1) (bitwidth 32))))
+             (body_out_v (((id 1) (bitwidth 32)))) (out_v ())))
+           (Const 1)
+           (Seq
+            ((Send ((id 3) (bitwidth 32)) (Var ((id 1) (bitwidth 32))))
+             (Send ((id 6) (bitwidth 1)) (Const 1)))))))
+        (Read ((id 1) (bitwidth 32)) ((id 3) (bitwidth 32))))
+       (((in_vs (() (((id 3) (bitwidth 32))))) (out_v ((id 4) (bitwidth 32)))))))) |}]
 
 let%expect_test "test2" =
   let ir =

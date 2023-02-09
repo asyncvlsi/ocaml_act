@@ -1,6 +1,5 @@
 open! Core
 open! Act
-module Ir = Internal_rep
 
 let for_loop_else max_ct ~(f : int -> [ `Continue | `Return of 'a ])
     ~(else_ : 'a) =
