@@ -46,10 +46,10 @@ module Ir : sig
     [@@deriving sexp_of]
   end
 
-  type 'a t = { k : K.t; tag : 'a Tag.t; max_bits : int }
+  type 'a t = { k : K.t; tag : 'a Tag.t; max_bits : int } [@@deriving sexp_of]
 
   module U : sig
-    type nonrec t = Any.t t
+    type nonrec t = Any.t t [@@deriving sexp_of]
   end
 
   val max_layout : 'a t -> Layout.t
@@ -74,7 +74,7 @@ val with_assert_log :
   'a Wrap.t
 
 module CInt : sig
-  type nonrec t = Cint0.t Wrap.t
+  type nonrec t = Cint0.t Wrap.t [@@deriving sexp_of]
 
   val var : Cint0.t Var.Wrap.t -> t
   val const : Cint0.t -> t

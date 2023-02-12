@@ -13,11 +13,13 @@ module T = struct
     | Send of Code_pos.t * Chan.Ir.U.t * Expr.Ir.U.t
     | Loop of Code_pos.t * t
     | WhileLoop of Code_pos.t * Cbool0.t Expr.Ir.t * t
+    | DoWhile of Code_pos.t * t * Cbool0.t Expr.Ir.t
     | SelectImm of Code_pos.t * (Cbool0.t Expr.Ir.t * t) list * t option
     | ReadUGMem of Code_pos.t * Mem.Ir.t * Cint0.t Expr.Ir.t * Var.Ir.U.t
     | WriteUGMem of Code_pos.t * Mem.Ir.t * Cint0.t Expr.Ir.t * Expr.Ir.U.t
     | WaitUntilReadReady of Code_pos.t * Chan.Ir.U.t
     | WaitUntilSendReady of Code_pos.t * Chan.Ir.U.t
+  [@@deriving sexp_of]
 end
 
 module No_width_checks = struct
@@ -37,6 +39,7 @@ module Ir = struct
   module No_width_checks = No_width_checks
 
   let unwrap t = t
+  let wrap t = t
 end
 
 let fail_if_layout_does_not_fit_dtype err_msg layout dtype =

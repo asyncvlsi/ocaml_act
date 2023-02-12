@@ -43,7 +43,7 @@ module Ir = struct
   type 'a t = { k : K.t; tag : 'a Tag.t; max_bits : int } [@@deriving sexp_of]
 
   module U = struct
-    type nonrec t = Any.t t
+    type nonrec t = Any.t t [@@deriving sexp_of]
   end
 
   let var (v : 'a Var.Wrap.t) =
@@ -86,7 +86,7 @@ module CBool = struct
 end
 
 module CInt = struct
-  type t = Cint0.t Ir.t
+  type t = Cint0.t Ir.t [@@deriving sexp_of]
 
   let tag = cint_tag
   let var v = Ir.var v

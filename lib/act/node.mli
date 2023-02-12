@@ -78,13 +78,16 @@ module Ir : sig
     | Send of Code_pos.t * Chan.Ir.U.t * Expr.Ir.U.t
     | Loop of Code_pos.t * t
     | WhileLoop of Code_pos.t * Cbool0.t Expr.Ir.t * t
+    | DoWhile of Code_pos.t * t * Cbool0.t Expr.Ir.t
     | SelectImm of Code_pos.t * (Cbool0.t Expr.Ir.t * t) list * t option
     | ReadUGMem of Code_pos.t * Mem.Ir.t * Cint0.t Expr.Ir.t * Var.Ir.U.t
     | WriteUGMem of Code_pos.t * Mem.Ir.t * Cint0.t Expr.Ir.t * Expr.Ir.U.t
     | WaitUntilReadReady of Code_pos.t * Chan.Ir.U.t
     | WaitUntilSendReady of Code_pos.t * Chan.Ir.U.t
+  [@@deriving sexp_of]
 
   val unwrap : Wrap.t -> t
+  val wrap : t -> Wrap.t
 
   module No_width_checks : sig
     val assign : ?loc:Code_pos.t -> 'a Var.Ir.t -> 'a Expr.Ir.t -> Wrap.t

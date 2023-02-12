@@ -99,7 +99,9 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
   | Uninit_id (var_id, pc) ->
       let var_code_pos =
         match t.var_table_info.(var_id).src with
-        | Var var -> str_l var.d.creation_code_pos
+        | Var var -> 
+        (* str_l var.d.creation_code_pos *)
+        Ir.Var.U.Id.to_string var.id
         | Mem_idx_reg | Read_deq_reg | Send_enq_reg -> failwith "unreachable"
       in
       Error
@@ -633,6 +635,11 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
         edit_instr loc split
           (JumpIfFalse (convert_expr expr, Inner.Instr_idx.next jmp));
         jmp
+    | DoWhile (loc, seq, expr) ->
+        let top = push_instr loc Nop in
+        convert' seq;
+        let not_expr = Ir.Expr.wrap expr |> CBool.E.not_ |> Ir.Expr.unwrap in
+        push_instr loc (JumpIfFalse (convert_expr not_expr, top))
     | ReadUGMem (loc, mem, idx, dst) ->
         let mem_idx_reg, mem_id = get_mem mem in
         push_instr loc

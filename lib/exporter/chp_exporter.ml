@@ -12,6 +12,7 @@ module N = struct
     | Send of Ir.Chan.U.t * Ir.Expr.U.t
     | Loop of t
     | WhileLoop of bool Ir.Expr.t * t
+    | DoWhile of t * bool Ir.Expr.t
     | SelectImm of (bool Ir.Expr.t * t) list * t option
     | ReadUGMem of Ir.Mem.t * CInt.t Ir.Expr.t * Ir.Var.U.t
     | WriteUGMem of Ir.Mem.t * CInt.t Ir.Expr.t * Ir.Expr.U.t
@@ -45,6 +46,7 @@ let rec flatten n =
         ( List.map branches ~f:(fun (guard, n) -> (guard, flatten n)),
           Option.map else_ ~f:flatten )
   | WhileLoop (_, expr, seq) -> WhileLoop (expr, flatten seq)
+  | DoWhile (_, seq, expr) -> DoWhile (flatten seq, expr)
   | Assign (_, id, expr) -> Assign (id, expr)
   | Send (_, chan, expr) -> Send (chan, expr)
   | Read (_, chan, var) -> Read (chan, var)
@@ -102,6 +104,7 @@ let create ir ~user_sendable_ports ~user_readable_ports =
       | Read (_, var_id) -> [ var_id ]
       | Send (_, expr) -> extract_expr expr
       | WhileLoop (expr, n) -> extract_expr expr @ extract_n n
+      | DoWhile (n, expr) -> extract_expr expr @ extract_n n
       | SelectImm (branches, else_) ->
           List.concat_map branches ~f:(fun (expr, n) ->
               extract_expr expr @ extract_n n)
@@ -124,6 +127,7 @@ let create ir ~user_sendable_ports ~user_readable_ports =
       | Read (chan, _) -> [ chan ]
       | Send (chan, _) -> [ chan ]
       | WhileLoop (_, n) -> extract_n n
+      | DoWhile (n, _) -> extract_n n
       | SelectImm (branches, else_) ->
           List.concat_map branches ~f:(fun (_, n) -> extract_n n)
           @ (Option.map else_ ~f:extract_n |> Option.value ~default:[])
@@ -147,6 +151,7 @@ let create ir ~user_sendable_ports ~user_readable_ports =
       | Read (_, _) -> []
       | Send (_, _) -> []
       | WhileLoop (_, n) -> extract_n n
+      | DoWhile (n, _) -> extract_n n
       | SelectImm (branches, else_) ->
           List.concat_map branches ~f:(fun (_, n) -> extract_n n)
           @ (Option.map else_ ~f:extract_n |> Option.value ~default:[])
@@ -312,6 +317,8 @@ let create ir ~user_sendable_ports ~user_readable_ports =
           [%string "%{extract_chan chan}!(%{extract_expr expr})"]
       | WhileLoop (guard, n) ->
           [%string " *[ bool(%{extract_expr guard}) -> %{extract n} ] "]
+      | DoWhile (n, guard) ->
+          [%string " *[ %{extract n} <- bool(%{extract_expr guard}) ] "]
       | SelectImm (branches, else_) ->
           let branches =
             List.map branches ~f:(fun (expr, n) ->

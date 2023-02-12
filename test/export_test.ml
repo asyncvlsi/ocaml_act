@@ -48,18 +48,40 @@ let%expect_test "test1" =
      ((Assign ((id 0) (bitwidth 32)) (Const 12345))
       (Par
        (((in_v ((id 0) (bitwidth 32))) (out_vs ((((id 2) (bitwidth 32))) ()))))
-       ((Seq
-         ((Send ((id 5) (bitwidth 1)) (Const 1))
-          (WhileLoop
-           (((init_v (((id 2) (bitwidth 32))))
-             (body_in_v (((id 1) (bitwidth 32))))
-             (body_out_v (((id 1) (bitwidth 32)))) (out_v ())))
-           (Const 1)
-           (Seq
-            ((Send ((id 3) (bitwidth 32)) (Var ((id 1) (bitwidth 32))))
-             (Send ((id 6) (bitwidth 1)) (Const 1)))))))
-        (Read ((id 1) (bitwidth 32)) ((id 3) (bitwidth 32))))
-       (((in_vs (() (((id 3) (bitwidth 32))))) (out_v ((id 4) (bitwidth 32)))))))) |}]
+       ((DoWhile
+         (((init_v (((id 2) (bitwidth 32)))) (body_in_v (((id 1) (bitwidth 32))))
+           (body_out_v (((id 1) (bitwidth 32)))) (out_v ())))
+         (Send ((id 0) (bitwidth 32)) (Var ((id 1) (bitwidth 32)))) (Const 1))
+        (Read ((id 0) (bitwidth 32)) ((id 3) (bitwidth 32))))
+       (((in_vs (() (((id 3) (bitwidth 32))))) (out_v ((id 4) (bitwidth 32))))))))
+    ((Assign ((id 0) (bitwidth 32)) (Const 12345))
+     (Assign ((id 1) (bitwidth 32)) (Var ((id 0) (bitwidth 32))))
+     (Assign ((id 3) (bitwidth 32)) (Var ((id 2) (bitwidth 32))))
+     (Assign ((id 4) (bitwidth 1)) (Const 1))
+     (Merge ((id 5) (bitwidth 1)) (((id 1) (bitwidth 32)) ((id 6) (bitwidth 32)))
+      ((id 7) (bitwidth 32)))
+     (Split ((id 4) (bitwidth 1)) ((id 7) (bitwidth 32))
+      (() (((id 6) (bitwidth 32)))))
+     (Copy_init ((id 5) (bitwidth 1)) ((id 4) (bitwidth 1)) 0)
+     (Assign ((id 8) (bitwidth 32)) (Var ((id 7) (bitwidth 32))))
+     (Copy_init ((id 9) (bitwidth 1)) ((id 10) (bitwidth 1)) 0)
+     (Assign ((id 10) (bitwidth 1))
+      (BitXor (Const 1) (Var ((id 9) (bitwidth 1)))))
+     (Assign ((id 12) (bitwidth 1)) (Var ((id 9) (bitwidth 1))))
+     (SplitBoolGuard ((id 12) (bitwidth 1)) ((id 13) (bitwidth 1))
+      (() (((id 15) (bitwidth 1)))))
+     (MergeBoolGuard ((id 12) (bitwidth 1))
+      (((id 4) (bitwidth 1)) ((id 15) (bitwidth 1))) ((id 14) (bitwidth 1)))
+     (Assign ((id 16) (bitwidth 1))
+      (BitOr (Var ((id 12) (bitwidth 1)))
+       (BitXor (Var ((id 13) (bitwidth 1))) (Const 1))))
+     (SplitBoolGuard ((id 16) (bitwidth 1)) ((id 12) (bitwidth 1))
+      (() (((id 11) (bitwidth 1)))))
+     (Copy_init ((id 13) (bitwidth 1)) ((id 14) (bitwidth 1)) 0)
+     (Assign ((id 2) (bitwidth 32)) (Var ((id 8) (bitwidth 32))))
+     (Copy_init ((id 17) (bitwidth 1)) ((id 18) (bitwidth 1)) 0)
+     (Assign ((id 18) (bitwidth 1))
+      (BitXor (Const 1) (Var ((id 17) (bitwidth 1)))))) |}]
 
 let%expect_test "test2" =
   let ir =

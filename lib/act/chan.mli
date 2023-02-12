@@ -41,6 +41,7 @@ module Ir : sig
       id : Id.t;
       d : (D.t[@hash.ignore] [@compare.ignore] [@equal.ignore]);
     }
+    [@@deriving sexp_of]
 
     include Comparable with type t := t
     include Hashable with type t := t
@@ -50,6 +51,8 @@ module Ir : sig
 
   val unwrap_r : 'a Wrap.R.t -> U.t
   val unwrap_w : 'a Wrap.W.t -> U.t
+  val wrap_ru : U.t -> Wrap.R.U.t
+  val wrap_wu : U.t -> Wrap.W.U.t
   val unwrap_ru : Wrap.R.U.t -> U.t
   val unwrap_wu : Wrap.W.U.t -> U.t
   val r_of_w : 'a Wrap.W.t -> 'a Wrap.R.t
