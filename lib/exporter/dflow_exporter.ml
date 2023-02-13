@@ -203,6 +203,31 @@ module Expr = struct
     in
     h e
 
+  let var_ids e =
+    let rec f e =
+      match e with
+      | Var v -> [ v ]
+      | Const _ -> []
+      | Add (a, b) -> f a @ f b
+      | Sub_no_wrap (a, b) -> f a @ f b
+      | Mul (a, b) -> f a @ f b
+      | Div (a, b) -> f a @ f b
+      | Mod (a, b) -> f a @ f b
+      | Eq (a, b) -> f a @ f b
+      | Ne (a, b) -> f a @ f b
+      | Gt (a, b) -> f a @ f b
+      | Ge (a, b) -> f a @ f b
+      | Lt (a, b) -> f a @ f b
+      | Le (a, b) -> f a @ f b
+      | BitXor (a, b) -> f a @ f b
+      | BitOr (a, b) -> f a @ f b
+      | BitAnd (a, b) -> f a @ f b
+      | LShift (a, b) -> f a @ f b
+      | RShift (a, b) -> f a @ f b
+      | Clip (a, _) -> f a
+    in
+    f e
+
   let bitwidth e ~bits_of_var =
     let rec h e =
       match e with
@@ -241,7 +266,7 @@ module Simple_IR = struct
       (* This expr is a one-hot vector with List.length branches bits
           indexing into the list of branches *)
     | SelectImm of Var.t Expr.t * t list
-    [@@deriving sexp_of]
+  [@@deriving sexp_of]
 end
 
 let to_simple_ir n =
@@ -369,11 +394,13 @@ end
 
 module STF = struct
   module Par_split = struct
-    type t = { in_v : STF_Var.t; out_vs : STF_Var.t option list } [@@deriving sexp]
+    type t = { in_v : STF_Var.t; out_vs : STF_Var.t option list }
+    [@@deriving sexp]
   end
 
   module Par_merge = struct
-    type t = { in_vs : STF_Var.t option list; out_v : STF_Var.t } [@@deriving sexp]
+    type t = { in_vs : STF_Var.t option list; out_v : STF_Var.t }
+    [@@deriving sexp]
   end
 
   module DoWhile_phi = struct
@@ -387,7 +414,8 @@ module STF = struct
   end
 
   module Select_split = struct
-    type t = { in_v : STF_Var.t; out_vs : STF_Var.t option list } [@@deriving sexp]
+    type t = { in_v : STF_Var.t; out_vs : STF_Var.t option list }
+    [@@deriving sexp]
   end
 
   module Select_merge = struct
@@ -479,7 +507,8 @@ let to_stf n =
         in
         let stmts = List.map l ~f:(fun (stmt, _, _) -> stmt) in
         let write_ids =
-          List.concat_map l ~f:(fun (_, stf_id_of_id, _) -> Hashtbl.keys stf_id_of_id)
+          List.concat_map l ~f:(fun (_, stf_id_of_id, _) ->
+              Hashtbl.keys stf_id_of_id)
           |> Var.Set.of_list
         in
         let raw_read_ids =
@@ -523,7 +552,8 @@ let to_stf n =
         in
         let branches = List.map l ~f:(fun (branch, _, _) -> branch) in
         let write_ids =
-          List.concat_map l ~f:(fun (_, stf_id_of_id, _) -> Hashtbl.keys stf_id_of_id)
+          List.concat_map l ~f:(fun (_, stf_id_of_id, _) ->
+              Hashtbl.keys stf_id_of_id)
           |> Var.Set.of_list
         in
         (* every branch must either write the write_id or have it as a raw read. If not, add it as a raw read *)
@@ -531,11 +561,11 @@ let to_stf n =
           Set.to_list write_ids
           |> List.map ~f:(fun write_id ->
                  let in_vs =
-                   List.map l ~f:(fun (_, stf_id_of_id, stf_id_of_raw_read_id) ->
+                   List.map l
+                     ~f:(fun (_, stf_id_of_id, stf_id_of_raw_read_id) ->
                        of_v' write_id ~stf_id_of_id ~stf_id_of_raw_read_id)
                  in
-                 (write_id, in_vs)
-               )
+                 (write_id, in_vs))
         in
         let raw_read_ids =
           List.concat_map l ~f:(fun (_, _, stf_id_of_raw_read_id) ->
@@ -553,20 +583,21 @@ let to_stf n =
                  { STF.Select_split.in_v; out_vs })
         in
         let merges =
-          
           List.map merges' ~f:(fun (write_id, in_vs) ->
-                 let out_v = write_v write_id in
-                 { STF.Select_merge.in_vs; out_v })
+              let out_v = write_v write_id in
+              { STF.Select_merge.in_vs; out_v })
         in
         SelectImm (gaurd_expr, splits, branches, merges)
     | DoWhile (stmt, guard) ->
         let stf_id_of_id' = Var.Table.create () in
         let stf_id_of_raw_read_id' = Var.Table.create () in
         let stmt =
-          of_stmt stmt ~stf_id_of_id:stf_id_of_id' ~stf_id_of_raw_read_id:stf_id_of_raw_read_id'
+          of_stmt stmt ~stf_id_of_id:stf_id_of_id'
+            ~stf_id_of_raw_read_id:stf_id_of_raw_read_id'
         in
         let guard =
-          of_e' guard ~stf_id_of_id:stf_id_of_id' ~stf_id_of_raw_read_id:stf_id_of_raw_read_id'
+          of_e' guard ~stf_id_of_id:stf_id_of_id'
+            ~stf_id_of_raw_read_id:stf_id_of_raw_read_id'
         in
         let phis =
           Hashtbl.keys stf_id_of_id' @ Hashtbl.keys stf_id_of_raw_read_id'
@@ -660,10 +691,217 @@ let optimize_stf n =
         DoWhile (phis, stmt, guard)
   in
 
-  (* TODO *)
-  let eliminate_dead_code n = n in
+  let eliminate_dead_code n =
+    let any l = List.exists l ~f:Fn.id in
+    let iter_any l ~f = List.map l ~f |> any in
+    let map_or_false v ~f = match v with Some v -> f v | None -> false in
+    let table = STF_Var.Table.create () in
+    let is_alive v = Hashtbl.find_or_add table v ~default:(fun () -> false) in
+    let set_alive v = Hashtbl.set table ~key:v ~data:true in
+    let set_alive v ~vl =
+      if vl then (
+        let b = not (is_alive v) in
+        set_alive v;
+        b)
+      else false
+    in
+    let set_e_alive e ~vl =
+      Expr.var_ids e |> iter_any ~f:(fun id -> set_alive id ~vl)
+    in
 
-  eliminate_dead_code n |> flatten
+    let is_alive_o v = map_or_false v ~f:is_alive in
+    let set_alive_o v ~vl = map_or_false v ~f:(set_alive ~vl) in
+
+    let rec stabilize_stmt n =
+      match n with
+      | STF.Nop -> false
+      | Assign (dst, e) -> set_e_alive e ~vl:(is_alive dst)
+      | Send (_, e) -> set_e_alive e ~vl:true
+      | Read (_, _) -> false
+      | Seq ns -> List.rev ns |> iter_any ~f:stabilize_stmt
+      | Par (splits, ns, merges) ->
+          let b1 =
+            iter_any merges ~f:(fun merge ->
+                iter_any merge.in_vs ~f:(set_alive_o ~vl:(is_alive merge.out_v)))
+          in
+          let b2 = iter_any ns ~f:stabilize_stmt in
+          let b3 =
+            iter_any splits ~f:(fun split ->
+                let any_alive = List.exists split.out_vs ~f:is_alive_o in
+                set_alive split.in_v ~vl:any_alive)
+          in
+          any [ b1; b2; b3 ]
+      | SelectImm (guard, splits, ns, merges) ->
+          let b1 =
+            iter_any merges ~f:(fun merge ->
+                iter_any merge.in_vs ~f:(set_alive ~vl:(is_alive merge.out_v)))
+          in
+          let b2 = iter_any ns ~f:stabilize_stmt in
+          let b3 =
+            iter_any splits ~f:(fun split ->
+                let any_alive = List.exists split.out_vs ~f:is_alive_o in
+                set_alive split.in_v ~vl:any_alive)
+          in
+          let b4 = set_e_alive guard ~vl:true in
+          any [ b1; b2; b3; b4 ]
+      | DoWhile (phis, ns, guard) ->
+          let changed =
+            let b1 =
+              iter_any phis ~f:(fun phi ->
+                  map_or_false phi.out_v ~f:(fun out_v ->
+                      set_alive
+                        (Option.value_exn phi.body_out_v)
+                        ~vl:(is_alive out_v)))
+            in
+            let b2 = set_e_alive guard ~vl:true in
+            ref (any [ b1; b2 ])
+          in
+
+          while
+            let b1 = stabilize_stmt ns in
+            let b2 =
+              iter_any phis ~f:(fun phi ->
+                  map_or_false phi.body_in_v ~f:(fun body_in_v ->
+                      iter_any
+                        [ phi.body_out_v; phi.init_v ]
+                        ~f:(set_alive_o ~vl:(is_alive body_in_v))))
+            in
+
+            any [ b1; b2 ]
+          do
+            changed := true
+          done;
+          !changed
+    in
+
+    let (_ : bool) = stabilize_stmt n in
+    let changed = stabilize_stmt n in
+    assert (not changed);
+    let rec of_n n =
+      match n with
+      | STF.Nop -> STF.Nop
+      | Assign (dst, e) -> if not (is_alive dst) then Nop else Assign (dst, e)
+      | Send (chan, e) -> Send (chan, e)
+      | Read (chan, v) -> Read (chan, v)
+      | Seq ns -> Seq (List.map ns ~f:of_n)
+      | Par (splits, ns, merges) ->
+          let splits =
+            List.filter_map splits ~f:(fun split ->
+                let out_vs =
+                  List.map split.out_vs
+                    ~f:
+                      (Option.bind ~f:(fun out ->
+                           if is_alive out then Some out else None))
+                in
+                if List.exists out_vs ~f:Option.is_some then
+                  Some { STF.Par_split.in_v = split.in_v; out_vs }
+                else None)
+          in
+          let ns = List.map ns ~f:of_n in
+          let merges =
+            List.filter_map merges ~f:(fun merge ->
+                if is_alive merge.out_v then Some merge else None)
+          in
+          Par (splits, ns, merges)
+      | SelectImm (guard, splits, ns, merges) ->
+          let splits =
+            List.filter_map splits ~f:(fun split ->
+                let out_vs =
+                  List.map split.out_vs
+                    ~f:
+                      (Option.bind ~f:(fun out ->
+                           if is_alive out then Some out else None))
+                in
+                if List.exists out_vs ~f:Option.is_some then
+                  Some { STF.Select_split.in_v = split.in_v; out_vs }
+                else None)
+          in
+          let ns = List.map ns ~f:of_n in
+          let merges =
+            List.filter_map merges ~f:(fun merge ->
+                if is_alive merge.out_v then Some merge else None)
+          in
+          SelectImm (guard, splits, ns, merges)
+      | DoWhile (phis, ns, guard) ->
+          let phis =
+            List.filter_map phis ~f:(fun phi ->
+                let fo v =
+                  Option.bind v ~f:(fun v ->
+                      if is_alive v then Some v else None)
+                in
+                let init_v = fo phi.init_v in
+                let body_in_v = fo phi.body_in_v in
+                let body_out_v = fo phi.body_out_v in
+                let out_v = fo phi.out_v in
+                match (init_v, body_in_v, body_out_v, out_v) with
+                | None, None, None, None -> None
+                | _, _, _, _ ->
+                    Some
+                      { STF.DoWhile_phi.init_v; body_in_v; body_out_v; out_v })
+          in
+          let ns = of_n ns in
+          DoWhile (phis, ns, guard)
+    in
+    of_n n
+  in
+
+  (* TODO *)
+  let eliminate_doubled_vars n =
+    let renames = STF_Var.Table.create () in
+    let rec of_n n =
+      let of_v v = Hashtbl.find renames v |> Option.value ~default:v in
+      match n with
+      | STF.Nop -> STF.Nop
+      | Assign (dst, e) -> (
+          match e with
+          | Var v ->
+              Hashtbl.set renames ~key:dst ~data:v;
+              Nop
+          | _ -> Assign (dst, Expr.map_vars e ~f:of_v))
+      | Send (chan, e) -> Send (chan, Expr.map_vars e ~f:of_v)
+      | Read (chan, v) -> Read (chan, v)
+      | Seq ns -> Seq (List.map ns ~f:of_n)
+      | Par (splits, ns, merges) ->
+          (* TODO handle repeated splits/merges for same varaible *)
+          let splits =
+            List.map splits ~f:(fun split ->
+                let in_v = of_v split.in_v in
+                { STF.Par_split.in_v; out_vs = split.out_vs })
+          in
+          let ns = List.map ns ~f:of_n in
+          let merges = merges in
+          Par (splits, ns, merges)
+      | SelectImm (guard, splits, ns, merges) ->
+          (* TODO handle repeated splits/merges for same varaible *)
+          let guard = Expr.map_vars guard ~f:of_v in
+          let splits =
+            List.map splits ~f:(fun split ->
+                let in_v = of_v split.in_v in
+                { STF.Select_split.in_v; out_vs = split.out_vs })
+          in
+          let ns = List.map ns ~f:of_n in
+          let merges = merges in
+          SelectImm (guard, splits, ns, merges)
+      | DoWhile (phis, ns, guard) ->
+          let phis =
+            List.map phis ~f:(fun phi ->
+                let init_v = Option.map ~f:of_v phi.init_v in
+                {
+                  STF.DoWhile_phi.init_v;
+                  body_in_v = phi.body_in_v;
+                  body_out_v = phi.body_out_v;
+                  out_v = phi.out_v;
+                })
+          in
+          let ns = of_n ns in
+          let guard = Expr.map_vars guard ~f:of_v in
+          DoWhile (phis, ns, guard)
+    in
+    of_n n
+  in
+
+  flatten n |> eliminate_dead_code |> eliminate_doubled_vars |> flatten
+  |> eliminate_dead_code |> flatten
 
 module Dflow_id = struct
   module T = struct
@@ -679,6 +917,7 @@ end
 module Dflow = struct
   type t =
     | Assign of Dflow_id.t * Dflow_id.t Expr.t
+    | Rename_assign of Dflow_id.t * Dflow_id.t
     | Split of Dflow_id.t * Dflow_id.t * Dflow_id.t option list
     | Merge of Dflow_id.t * Dflow_id.t list * Dflow_id.t
     | MergeBoolGuard of Dflow_id.t * (Dflow_id.t * Dflow_id.t) * Dflow_id.t
@@ -933,13 +1172,13 @@ let to_dflow n ~user_sendable_ports ~user_readable_ports =
           List.concat_map splits ~f:(fun split ->
               List.filter_map split.out_vs ~f:Fn.id
               |> List.map ~f:(fun out_v ->
-                     Dflow.Assign (of_v out_v, Var (of_v split.in_v))))
+                     Dflow.Rename_assign (of_v out_v, of_v split.in_v)))
         in
         let merges =
           List.concat_map merges ~f:(fun merge ->
               List.filter_map merge.in_vs ~f:Fn.id
               |> List.map ~f:(fun in_v ->
-                     Dflow.Assign (of_v merge.out_v, Var (of_v in_v))))
+                     Dflow.Rename_assign (of_v merge.out_v, of_v in_v)))
         in
         let stmts = List.map stmts ~f:of_stmt in
         let alias_map =
@@ -1243,10 +1482,10 @@ let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
   in
   (* print_s [%sexp (n : Simple_IR.t)]; *)
   let n = to_stf n in
-  let n = if optimize then optimize_stf n else n in 
-  (* print_s [%sexp (n : STF.t)]; *)
-  (* print_s [%sexp (n : STF.t)]; *)
+  let n = if optimize then optimize_stf n else n in
 
+  (* print_s [%sexp (n : STF.t)]; *)
+  (* print_s [%sexp (n : STF.t)]; *)
   let var_of_var = STF_Var.Table.create () in
   let of_v v =
     Hashtbl.find_or_add var_of_var v ~default:(fun () ->

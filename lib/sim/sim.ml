@@ -99,9 +99,9 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
   | Uninit_id (var_id, pc) ->
       let var_code_pos =
         match t.var_table_info.(var_id).src with
-        | Var var -> 
-        (* str_l var.d.creation_code_pos *)
-        Ir.Var.U.Id.to_string var.id
+        | Var var ->
+            (* str_l var.d.creation_code_pos *)
+            Ir.Var.U.Id.to_string var.id
         | Mem_idx_reg | Read_deq_reg | Send_enq_reg -> failwith "unreachable"
       in
       Error

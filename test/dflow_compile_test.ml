@@ -7,7 +7,7 @@ let%expect_test "test3" =
   let chan2 = Chan.create CInt.dtype_32 in
   let ir = N.seq [ N.read chan1.r var1; N.send chan2.w Expr.(var var1) ] in
   let sim =
-    Exporter.stf_sim ~optimize:true  ir ~user_sendable_ports:[ chan1.w.u ]
+    Exporter.stf_sim ~optimize:true ir ~user_sendable_ports:[ chan1.w.u ]
       ~user_readable_ports:[ chan2.r.u ]
   in
   Sim.send sim chan1.w (CInt.of_int 200);
@@ -36,7 +36,7 @@ let%expect_test "test4" =
       ]
   in
   let sim =
-    Exporter.stf_sim ~optimize:true  ir ~user_sendable_ports:[ chan1.w.u ]
+    Exporter.stf_sim ~optimize:true ir ~user_sendable_ports:[ chan1.w.u ]
       ~user_readable_ports:[ chan2.r.u ]
   in
   Sim.wait' sim ();
@@ -57,7 +57,7 @@ let%expect_test "test5" =
   let chan2 = Chan.create CInt.dtype_32 in
   let ir = N.loop [ N.read chan1.r var1; N.send chan2.w Expr.(var var1) ] in
   let sim =
-    Exporter.stf_sim ~optimize:true  ir ~user_sendable_ports:[ chan1.w.u ]
+    Exporter.stf_sim ~optimize:true ir ~user_sendable_ports:[ chan1.w.u ]
       ~user_readable_ports:[ chan2.r.u ]
   in
   Sim.wait' sim ();
@@ -79,8 +79,7 @@ let%expect_test "test5" =
     {|
       (Error
        "User read has wrong value: got 4, but expected 5 based on `send' function call in test/dflow_compile_test.ml on line 75, on chan created in test/dflow_compile_test.ml on line 57.") |}]
- 
- 
+
 let split ~dtype i1 o1 o2 =
   let var1 = Var.create dtype in
   let b1 = Var.create CBool.dtype ~init:false in
@@ -126,7 +125,7 @@ let%expect_test "test_buff 1" =
   let o = Chan.R.create dtype in
   let ir = block11 i o ~f:(fun i o -> buff ~depth:1 ~dtype i o) in
   let sim =
-    Exporter.stf_sim ~optimize:true  ir ~user_sendable_ports:[ i.u ]
+    Exporter.stf_sim ~optimize:true ir ~user_sendable_ports:[ i.u ]
       ~user_readable_ports:[ o.u ]
   in
   Sim.send sim i (CInt.of_int 7);
@@ -161,7 +160,7 @@ let%expect_test "test_buff 2" =
   let o = Chan.R.create dtype in
   let ir = block11 i o ~f:(fun i o -> buff ~depth:2 ~dtype i o) in
   let sim =
-    Exporter.stf_sim ~optimize:true  ir ~user_sendable_ports:[ i.u ]
+    Exporter.stf_sim ~optimize:true ir ~user_sendable_ports:[ i.u ]
       ~user_readable_ports:[ o.u ]
   in
 
@@ -236,7 +235,8 @@ end
 let%expect_test "mini cpu" =
   let ir, op, arg0, arg1, result = Mini_alu.alu in
   let sim =
-    Exporter.stf_sim ~optimize:true  ir ~user_sendable_ports:[ op.u; arg0.u; arg1.u ]
+    Exporter.stf_sim ~optimize:true ir
+      ~user_sendable_ports:[ op.u; arg0.u; arg1.u ]
       ~user_readable_ports:[ result.u ]
   in
   Sim.wait' sim ();
