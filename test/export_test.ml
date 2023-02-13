@@ -44,16 +44,20 @@ let%expect_test "test1" =
   ignore (exporter : Exporter.dflow);
   [%expect
     {|
-    (Seq
-     ((Assign ((id 0) (bitwidth 32)) (Const 12345))
-      (Par
-       (((in_v ((id 0) (bitwidth 32))) (out_vs ((((id 2) (bitwidth 32))) ()))))
-       ((DoWhile
-         (((init_v (((id 2) (bitwidth 32)))) (body_in_v (((id 1) (bitwidth 32))))
-           (body_out_v (((id 1) (bitwidth 32)))) (out_v ())))
-         (Send ((id 0) (bitwidth 32)) (Var ((id 1) (bitwidth 32)))) (Const 1))
-        (Read ((id 0) (bitwidth 32)) ((id 3) (bitwidth 32))))
-       ())))
+    (Par ()
+     ((Seq
+       ((Assign ((id 2) (bitwidth 32)) (Const 12345))
+        (Par
+         (((in_v ((id 2) (bitwidth 32))) (out_vs ((((id 4) (bitwidth 32))) ()))))
+         ((DoWhile
+           (((init_v (((id 4) (bitwidth 32))))
+             (body_in_v (((id 3) (bitwidth 32))))
+             (body_out_v (((id 3) (bitwidth 32)))) (out_v ())))
+           (Send ((id 0) (bitwidth 32)) (Var ((id 3) (bitwidth 32)))) (Const 1))
+          (Read ((id 0) (bitwidth 32)) ((id 5) (bitwidth 32))))
+         ())))
+      Nop)
+     ())
     ((Assign ((id 0) (bitwidth 32)) (Const 12345))
      (Rename_assign ((id 1) (bitwidth 32)) ((id 0) (bitwidth 32)))
      (Assign ((id 2) (bitwidth 1)) (Const 1))

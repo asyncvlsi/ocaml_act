@@ -25,8 +25,8 @@ let is_dflowable n ~user_sendable_ports ~user_readable_ports =
     | Read (_, _, _) -> ()
     | Nop -> ()
     (* Factor these into a seperate process? *)
-    | ReadUGMem (_, _, _, _) -> failwith "TODO - ReadUGMem not supported"
-    | WriteUGMem (_, _, _, _) -> failwith "TODO - WriteUGMem not supported"
+    | ReadUGMem (_, _, _, _) -> ()
+    | WriteUGMem (_, _, _, _) -> ()
     (* These cant be supported in dflow *)
     | WaitUntilReadReady (_, _) ->
         failwith "dflow does not support probes but has WaitUntilReadReady"
@@ -36,6 +36,12 @@ let is_dflowable n ~user_sendable_ports ~user_readable_ports =
     | Log _ | Log1 _ | Assert _ -> ()
   in
   check_sup_nodes n;
+
+  let dummy_chan_of_mem_table = Ir.Mem.Table.create () in
+  let dummy_chan_of_mem mem =
+    Hashtbl.find_or_add dummy_chan_of_mem_table mem ~default:(fun () ->
+        Act.Chan.W.create (CInt.dtype ~bits:1) |> Ir.Chan.unwrap_w)
+  in
 
   (* check that par branches dont both use the same side of the same channel *)
   let rec chans n ~r ~w =
@@ -52,10 +58,8 @@ let is_dflowable n ~user_sendable_ports ~user_readable_ports =
     | Send (_, chan, _) -> if w then [ chan ] else []
     | Read (_, chan, _) -> if r then [ chan ] else []
     | Nop -> []
-    | ReadUGMem (_, _, _, _) ->
-        failwith "TODO - dflow does not support mem - ReadUGMem"
-    | WriteUGMem (_, _, _, _) ->
-        failwith "TODO - dflow does not support mem - WriteUGMem"
+    | ReadUGMem (_, mem, _, _) -> [ dummy_chan_of_mem mem ]
+    | WriteUGMem (_, mem, _, _) -> [ dummy_chan_of_mem mem ]
     | WaitUntilReadReady (_, _) ->
         failwith "dflow does not support probes but has WaitUntilReadReady"
     | WaitUntilSendReady (_, _) ->
@@ -106,8 +110,8 @@ let is_dflowable n ~user_sendable_ports ~user_readable_ports =
     | Read (_, _, _) -> ()
     | Nop -> ()
     (* Factor these into a seperate process? *)
-    | ReadUGMem (_, _, _, _) -> failwith "TODO - ReadUGMem not supported"
-    | WriteUGMem (_, _, _, _) -> failwith "TODO - WriteUGMem not supported"
+    | ReadUGMem (_, _, _, _) -> ()
+    | WriteUGMem (_, _, _, _) -> ()
     (* These cant be supported in dflow *)
     | WaitUntilReadReady (_, _) ->
         failwith "dflow does not support probes but has WaitUntilReadReady"
@@ -272,26 +276,33 @@ end
 let to_simple_ir n =
   let next_v_id = ref 0 in
   let var_of_var = Ir.Var.U.Table.create () in
+  let new_var bitwidth =
+    let id = !next_v_id in
+    incr next_v_id;
+    { Var.id; bitwidth }
+  in
   let of_v v =
     Hashtbl.find_or_add var_of_var v ~default:(fun () ->
-        let id = !next_v_id in
-        incr next_v_id;
         let bitwidth =
           match Ir.DType.layout v.d.dtype with Bits_fixed bitwidth -> bitwidth
         in
-        { Var.id; bitwidth })
+        new_var bitwidth)
   in
 
   let next_c_id = ref 0 in
   let chan_of_chan = Ir.Chan.U.Table.create () in
+  let new_chan bitwidth =
+    let id = !next_c_id in
+    incr next_c_id;
+    { Chan.id; bitwidth }
+  in
   let of_c c =
     Hashtbl.find_or_add chan_of_chan c ~default:(fun () ->
-        let id = !next_c_id in
-        incr next_c_id;
         let bitwidth =
           match Ir.DType.layout c.d.dtype with Bits_fixed bitwidth -> bitwidth
         in
-        { Chan.id; bitwidth })
+
+        new_chan bitwidth)
   in
 
   let of_e e =
@@ -328,6 +339,22 @@ let to_simple_ir n =
     in
     f e.Ir.Expr.k
   in
+
+  let mems_table = Ir.Mem.Table.create () in
+  let chans_of_mem mem =
+    Hashtbl.find_or_add mems_table mem ~default:(fun () ->
+        let idx_bits = mem.d.init |> Array.length |> Int.ceil_log2 in
+        let cell_bits =
+          match Ir.DType.layout mem.d.dtype with
+          | Bits_fixed bitwidth -> bitwidth
+        in
+        ( new_chan (1 + idx_bits),
+          new_chan cell_bits,
+          new_chan cell_bits,
+          idx_bits,
+          cell_bits ))
+  in
+
   let rec of_n n =
     match n with
     | Ir.N.Par (_, ns) -> Simple_IR.Par (List.map ns ~f:of_n)
@@ -364,8 +391,23 @@ let to_simple_ir n =
     | Read (_, chan, var) -> Read (of_c chan, of_v var)
     | Log _ | Log1 _ | Assert _ -> (* For now, ignore these nodes *) Nop
     | Nop -> Nop
-    | ReadUGMem _ | WriteUGMem _ | WaitUntilReadReady _ | WaitUntilSendReady _
-      ->
+    | ReadUGMem (_, mem, idx, dst) ->
+        let cmd_chan, _, read_chan, _, _ = chans_of_mem mem in
+        Par
+          [
+            Send (cmd_chan, LShift (of_e idx, Const CInt.one));
+            Read (read_chan, of_v dst);
+          ]
+    | WriteUGMem (_, mem, idx, value) ->
+        let cmd_chan, write_chan, _, _, _ = chans_of_mem mem in
+        Par
+          [
+            Send
+              ( cmd_chan,
+                BitOr (LShift (of_e idx, Const CInt.one), Const CInt.one) );
+            Send (write_chan, of_e value);
+          ]
+    | WaitUntilReadReady _ | WaitUntilSendReady _ ->
         failwith "TODO - exporter bug. Should have checked this in is_dflowable"
   in
   let n = of_n n in
@@ -374,12 +416,85 @@ let to_simple_ir n =
   let inits =
     Hashtbl.to_alist var_of_var
     |> Ir.Var.U.Map.of_alist_exn |> Map.to_alist
-    |> List.filter_map ~f:(fun (var, var_id) ->
-           Option.map var.d.init ~f:(fun init ->
-               let init = Ir.DType.cint_of_value var.d.dtype init in
-               Simple_IR.Assign (var_id, Const init)))
+    |> List.map ~f:(fun (var, var_id) ->
+           let init =
+             Option.map var.d.init ~f:(fun init ->
+                 Ir.DType.cint_of_value var.d.dtype init)
+             |> Option.value ~default:CInt.zero
+           in
+           Simple_IR.Assign (var_id, Const init))
   in
-  (Simple_IR.Seq [ Seq inits; n ], chan_of_chan)
+  let n = Simple_IR.Seq [ Seq inits; n ] in
+
+  (* Now expand out all the memories. This is not efficent, but is correct *)
+  let mem_procs =
+    Hashtbl.to_alist mems_table
+    |> Ir.Mem.Map.of_alist_exn |> Map.to_alist
+    |> List.map
+         ~f:(fun (mem, (cmd_chan, write_chan, read_chan, idx_bits, cell_bits))
+            ->
+           let vs =
+             Array.to_list mem.d.init
+             |> List.map ~f:(fun init_val ->
+                    ( new_var cell_bits,
+                      Ir.DType.cint_of_value mem.d.dtype init_val ))
+           in
+           let cmd_var = new_var (idx_bits + 1) in
+           let tmp1_var = new_var cell_bits in
+           let tmp2_var = new_var cell_bits in
+           let inits =
+             let local_vars =
+               List.map [ cmd_var; tmp1_var; tmp2_var ] ~f:(fun v ->
+                   (v, CInt.zero))
+             in
+             List.concat [ vs; local_vars ]
+             |> List.map ~f:(fun (v, init_val) ->
+                    Simple_IR.Assign (v, Const init_val))
+           in
+           let loop_body =
+             let rw_guard = Expr.BitAnd (Var cmd_var, Const CInt.one) in
+             let switch_guard =
+               let idx_expr = Expr.RShift (Var cmd_var, Const CInt.one) in
+               List.mapi vs ~f:(fun i _ ->
+                   Expr.LShift
+                     ( Eq (idx_expr, Const (CInt.of_int i)),
+                       Const (CInt.of_int i) ))
+               |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
+               |> Option.value_exn
+             in
+             let read_branch =
+               Simple_IR.Seq
+                 [
+                   SelectImm
+                     ( switch_guard,
+                       List.map vs ~f:(fun (v, _) ->
+                           Simple_IR.Assign (tmp1_var, Var v)) );
+                   Send (read_chan, Var tmp1_var);
+                 ]
+             in
+             let write_branch =
+               Simple_IR.Seq
+                 [
+                   Read (write_chan, tmp2_var);
+                   SelectImm
+                     ( switch_guard,
+                       List.map vs ~f:(fun (v, _) ->
+                           Simple_IR.Assign (v, Var tmp2_var)) );
+                 ]
+             in
+             Simple_IR.Seq
+               [
+                 Read (cmd_chan, cmd_var);
+                 SelectImm
+                   ( Add (Const CInt.one, rw_guard),
+                     [ (* false *) read_branch; (* true *) write_branch ] );
+               ]
+           in
+           Simple_IR.Seq [ Seq inits; DoWhile (loop_body, Const CInt.one) ])
+  in
+  let n = Simple_IR.Par [ n; Par mem_procs ] in
+
+  (n, chan_of_chan)
 
 module STF_Var = struct
   module T = struct
@@ -845,7 +960,6 @@ let optimize_stf n =
     of_n n
   in
 
-  (* TODO *)
   let eliminate_doubled_vars n =
     let renames = STF_Var.Table.create () in
     let rec of_n n =
@@ -855,7 +969,7 @@ let optimize_stf n =
       | Assign (dst, e) -> (
           match e with
           | Var v ->
-              Hashtbl.set renames ~key:dst ~data:v;
+              Hashtbl.set renames ~key:dst ~data:(of_v v);
               Nop
           | _ -> Assign (dst, Expr.map_vars e ~f:of_v))
       | Send (chan, e) -> Send (chan, Expr.map_vars e ~f:of_v)
@@ -869,7 +983,11 @@ let optimize_stf n =
                 { STF.Par_split.in_v; out_vs = split.out_vs })
           in
           let ns = List.map ns ~f:of_n in
-          let merges = merges in
+          let merges =
+            List.map merges ~f:(fun merge ->
+                let in_vs = List.map merge.in_vs ~f:(Option.map ~f:of_v) in
+                { STF.Par_merge.in_vs; out_v = merge.out_v })
+          in
           Par (splits, ns, merges)
       | SelectImm (guard, splits, ns, merges) ->
           (* TODO handle repeated splits/merges for same varaible *)
@@ -880,16 +998,19 @@ let optimize_stf n =
                 { STF.Select_split.in_v; out_vs = split.out_vs })
           in
           let ns = List.map ns ~f:of_n in
-          let merges = merges in
+          let merges =
+            List.map merges ~f:(fun merge ->
+                let in_vs = List.map merge.in_vs ~f:of_v in
+                { STF.Select_merge.in_vs; out_v = merge.out_v })
+          in
           SelectImm (guard, splits, ns, merges)
       | DoWhile (phis, ns, guard) ->
           let phis =
             List.map phis ~f:(fun phi ->
-                let init_v = Option.map ~f:of_v phi.init_v in
                 {
-                  STF.DoWhile_phi.init_v;
+                  STF.DoWhile_phi.init_v = Option.map ~f:of_v phi.init_v;
                   body_in_v = phi.body_in_v;
-                  body_out_v = phi.body_out_v;
+                  body_out_v = Option.map phi.body_out_v ~f:of_v;
                   out_v = phi.out_v;
                 })
           in
@@ -900,8 +1021,8 @@ let optimize_stf n =
     of_n n
   in
 
-  flatten n |> eliminate_dead_code |> eliminate_doubled_vars |> flatten
-  |> eliminate_dead_code |> flatten
+  flatten n |> eliminate_dead_code |> flatten |> eliminate_doubled_vars
+  |> flatten |> eliminate_dead_code |> flatten
 
 module Dflow_id = struct
   module T = struct
@@ -1483,6 +1604,8 @@ let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
   (* print_s [%sexp (n : Simple_IR.t)]; *)
   let n = to_stf n in
   let n = if optimize then optimize_stf n else n in
+
+  (* print_s [%sexp (n: STF.t)]; *)
 
   (* print_s [%sexp (n : STF.t)]; *)
   (* print_s [%sexp (n : STF.t)]; *)

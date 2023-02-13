@@ -249,3 +249,24 @@ let%expect_test "mini cpu" =
   Sim.read sim result (CInt.of_int 10);
   Sim.wait' sim ();
   [%expect {| (Ok ()) |}]
+
+let%expect_test "mem" =
+  let mem =
+    let arr = [| 1; 2; 3; 4 |] |> Array.map ~f:CInt.of_int in
+    Mem.create_ug_mem CInt.dtype_32 arr
+  in
+  let var1 = Var.create CInt.dtype_32 in
+  let ir =
+    N.seq
+      [
+        N.read_ug_mem mem ~idx:CInt.E.(cint 3) ~dst:var1;
+        N.log1 var1 ~f:CInt.to_string;
+      ]
+  in
+  let sim =
+    Exporter.stf_sim ~optimize:true ir ~user_sendable_ports:[]
+      ~user_readable_ports:[]
+  in
+  Sim.wait' sim ();
+  [%expect {|
+    (Ok ()) |}]

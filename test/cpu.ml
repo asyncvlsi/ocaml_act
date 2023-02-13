@@ -225,7 +225,7 @@ let cpu instrs ~ochan ~ichan =
                 ]);
     ]
 
-let test instrs =
+let test instrs ~create =
   let my_instrs =
     Array.init 4096 ~f:(fun i ->
         if i < Array.length instrs then instrs.(i) else Instr.to_int Instr.Nop)
@@ -235,8 +235,7 @@ let test instrs =
   let ir = cpu my_instrs ~ichan:ichan.r ~ochan:ochan.w in
   let ichan, ochan = (ichan.w, ochan.r) in
   let sim =
-    Sim.create ir ~user_sendable_ports:[ ichan.u ]
-      ~user_readable_ports:[ ochan.u ]
+    create ir ~user_sendable_ports:[ ichan.u ] ~user_readable_ports:[ ochan.u ]
   in
   (sim, ichan, ochan)
 
@@ -249,7 +248,10 @@ let%expect_test "test" =
       Instr.to_int End;
     |]
   in
-  let sim, _, o = test instrs in
+  let sim, _, o =
+    test instrs ~create:(fun ir ~user_sendable_ports ~user_readable_ports ->
+        Sim.create ir ~user_sendable_ports ~user_readable_ports)
+  in
   Sim.read sim o (CInt.of_int 3);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
   [%expect {|
@@ -267,7 +269,10 @@ let%expect_test "test" =
       Instr.to_int Jump;
     |]
   in
-  let sim, i, o = test instrs in
+  let sim, i, o =
+    test instrs ~create:(fun ir ~user_sendable_ports ~user_readable_ports ->
+        Sim.create ir ~user_sendable_ports ~user_readable_ports)
+  in
   Sim.send sim i (CInt.of_int 3);
   Sim.read sim o (CInt.of_int 3);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
@@ -382,7 +387,10 @@ let%expect_test "fibonacci" =
     |]
   in
   (* let t = Caml.Sys.time () in *)
-  let sim, i, o = test instrs in
+  let sim, i, o =
+    test instrs ~create:(fun ir ~user_sendable_ports ~user_readable_ports ->
+        Sim.create ir ~user_sendable_ports ~user_readable_ports)
+  in
   Sim.send sim i (CInt.of_int 0);
   Sim.read sim o (CInt.of_int 0);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
@@ -409,6 +417,39 @@ let%expect_test "fibonacci" =
     (Ok ())
     (Ok ())
     (Ok ()) |}];
+
+  (*
+      Printf.printf "Execution time: %fs\n" (Caml.Sys.time () -. t);
+      [%expect {| |}]; *)
+
+  (* let t = Caml.Sys.time () in *)
+  (* let sim, i, o = test instrs  ~create:(fun ir ~user_sendable_ports ~user_readable_ports ->  Exporter.stf_sim ir ~user_sendable_ports ~user_readable_ports) in
+     Sim.send sim i (CInt.of_int 0);
+     Sim.read sim o (CInt.of_int 0);
+     print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
+     Sim.send sim i (CInt.of_int 1);
+     Sim.read sim o (CInt.of_int 1);
+     print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
+     Sim.send sim i (CInt.of_int 2);
+     Sim.read sim o (CInt.of_int 1);
+     print_s [%sexp (Sim.wait sim ~max_steps:10000 () : unit Or_error.t)];
+     Sim.send sim i (CInt.of_int 7);
+     Sim.read sim o (CInt.of_int 13);
+     print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)];
+     Sim.send sim i (CInt.of_int 8);
+     Sim.read sim o (CInt.of_int 21);
+     print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)];
+     Sim.send sim i (CInt.of_int 12);
+     Sim.read sim o (CInt.of_int 144);
+     print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)];
+     [%expect
+       {|
+       (Ok ())
+       (Ok ())
+       (Ok ())
+       (Ok ())
+       (Ok ())
+       (Ok ()) |}]; *)
   (*
       Printf.printf "Execution time: %fs\n" (Caml.Sys.time () -. t);
       [%expect {| |}]; *)
