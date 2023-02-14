@@ -71,19 +71,19 @@ let cpu instrs ~ochan ~ichan =
   (* ir *)
   let done_ = Var.create CBool.dtype ~init:false in
   let push value =
-    N.seq
+    Chp.seq
       [
-        (* N.log1' value ~f:(fun value -> sprintf "push %d\n" (CInt.to_int_exn value)); *)
-        N.write_ug_mem stack ~idx:CInt.E.(var sp) ~value;
-        CInt.N.incr sp ~overflow:Cant;
+        (* Chp.log1' value ~f:(fun value -> sprintf "push %d\n" (CInt.to_int_exn value)); *)
+        Chp.write_ug_mem stack ~idx:CInt.E.(var sp) ~value;
+        CInt.Chp.incr sp ~overflow:Cant;
       ]
   in
   let pop ~dst =
-    N.seq
+    Chp.seq
       [
-        CInt.N.decr sp ~underflow:Cant;
-        N.read_ug_mem stack ~idx:CInt.E.(var sp) ~dst;
-        (* N.log1 dst ~f:(fun dst -> sprintf "pop %d\n" (CInt.to_int_exn dst)); *)
+        CInt.Chp.decr sp ~underflow:Cant;
+        Chp.read_ug_mem stack ~idx:CInt.E.(var sp) ~dst;
+        (* Chp.log1 dst ~f:(fun dst -> sprintf "pop %d\n" (CInt.to_int_exn dst)); *)
       ]
   in
   let set_pc_to_addr ~addr_high ~addr_low =
@@ -93,50 +93,50 @@ let cpu instrs ~ochan ~ichan =
         |> bit_or (var addr_low)
         |> clip ~bits:12)
     in
-    N.assign pc expr
+    Chp.assign pc expr
   in
 
-  N.while_loop
+  Chp.while_loop
     CBool.E.(not_ (var done_))
     [
-      N.read_ug_rom instrs ~idx:Expr.(var pc) ~dst:tmp0;
-      (* N.log "\n"; *)
-      (* N.log1 pc ~f:(fun pc -> sprintf "pc = %d\n" (CInt.to_int_exn pc)); *)
-      (* N.log1 tmp0 ~f:(fun instr -> sprintf "instr = %d\n" (CInt.to_int_exn instr)); *)
-      (* N.log1 sp ~f:(fun sp -> sprintf "sp = %d\n" (CInt.to_int_exn sp)); *)
-      Instr.N.match_
+      Chp.read_ug_rom instrs ~idx:Expr.(var pc) ~dst:tmp0;
+      (* Chp.log "\n"; *)
+      (* Chp.log1 pc ~f:(fun pc -> sprintf "pc = %d\n" (CInt.to_int_exn pc)); *)
+      (* Chp.log1 tmp0 ~f:(fun instr -> sprintf "instr = %d\n" (CInt.to_int_exn instr)); *)
+      (* Chp.log1 sp ~f:(fun sp -> sprintf "sp = %d\n" (CInt.to_int_exn sp)); *)
+      Instr.Chp.match_
         (Expr.var tmp0 |> Instr.E.of_int)
         ~f:(function
-          | End -> N.assign done_ CBool.E.true_
-          | Nop -> CInt.N.incr pc ~overflow:Cant
+          | End -> Chp.assign done_ CBool.E.true_
+          | Nop -> CInt.Chp.incr pc ~overflow:Cant
           | Push_imm ->
               (* push the next instruction, and then increase the program counter by 2 *)
-              N.seq
+              Chp.seq
                 [
-                  CInt.N.incr pc ~overflow:Cant;
-                  N.read_ug_rom instrs ~idx:(Expr.var pc) ~dst:tmp0;
+                  CInt.Chp.incr pc ~overflow:Cant;
+                  Chp.read_ug_rom instrs ~idx:(Expr.var pc) ~dst:tmp0;
                   push Expr.(var tmp0);
-                  CInt.N.incr pc ~overflow:Cant;
+                  CInt.Chp.incr pc ~overflow:Cant;
                 ]
           | Dup ->
-              N.seq
+              Chp.seq
                 [
                   pop ~dst:tmp0;
                   push (Expr.var tmp0);
                   push (Expr.var tmp0);
-                  CInt.N.incr pc ~overflow:Cant;
+                  CInt.Chp.incr pc ~overflow:Cant;
                 ]
           | Exch ->
-              N.seq
+              Chp.seq
                 [
                   pop ~dst:tmp0;
                   pop ~dst:tmp1;
                   push (Expr.var tmp0);
                   push (Expr.var tmp1);
-                  CInt.N.incr pc ~overflow:Cant;
+                  CInt.Chp.incr pc ~overflow:Cant;
                 ]
           | Exch2 ->
-              N.seq
+              Chp.seq
                 [
                   pop ~dst:tmp0;
                   pop ~dst:tmp1;
@@ -144,10 +144,10 @@ let cpu instrs ~ochan ~ichan =
                   push (Expr.var tmp0);
                   push (Expr.var tmp2);
                   push (Expr.var tmp1);
-                  CInt.N.incr pc ~overflow:Cant;
+                  CInt.Chp.incr pc ~overflow:Cant;
                 ]
           | Jump ->
-              N.seq
+              Chp.seq
                 [
                   pop ~dst:addr_high;
                   pop ~dst:addr_low;
@@ -155,43 +155,43 @@ let cpu instrs ~ochan ~ichan =
                 ]
           | JumpIfNot ->
               (* pop flag; pop addr_high; pop addr_loc; if (flag == 0) then goto addr *)
-              N.seq
+              Chp.seq
                 [
                   pop ~dst:addr_high;
                   pop ~dst:addr_low;
                   pop ~dst:flag;
-                  CBool.N.match_
+                  CBool.Chp.match_
                     CInt.E.(eq (var flag) (cint 0))
                     ~f:(function
                       | true -> set_pc_to_addr ~addr_high ~addr_low
-                      | false -> CInt.N.incr pc ~overflow:Cant);
+                      | false -> CInt.Chp.incr pc ~overflow:Cant);
                 ]
           | Eq ->
-              N.seq
+              Chp.seq
                 [
                   pop ~dst:tmp0;
                   pop ~dst:tmp1;
                   push (CInt.E.(eq (var tmp0) (var tmp1)) |> CBool.E.to_int);
-                  CInt.N.incr pc ~overflow:Cant;
+                  CInt.Chp.incr pc ~overflow:Cant;
                 ]
           | Add ->
-              N.seq
+              Chp.seq
                 [
                   pop ~dst:tmp0;
                   pop ~dst:tmp1;
                   push CInt.E.(add_wrap (var tmp0) (var tmp1) ~bits:8);
-                  CInt.N.incr pc ~overflow:Cant;
+                  CInt.Chp.incr pc ~overflow:Cant;
                 ]
           | Sub ->
-              N.seq
+              Chp.seq
                 [
                   pop ~dst:tmp0;
                   pop ~dst:tmp1;
                   push CInt.E.(sub_wrap (var tmp1) (var tmp0) ~bits:8);
-                  CInt.N.incr pc ~overflow:Cant;
+                  CInt.Chp.incr pc ~overflow:Cant;
                 ]
           | Bool_or ->
-              N.seq
+              Chp.seq
                 [
                   pop ~dst:tmp0;
                   pop ~dst:tmp1;
@@ -200,28 +200,28 @@ let cpu instrs ~ochan ~ichan =
                       bit_or
                         (var tmp0 |> ne zero |> CBool.E.to_int)
                         (var tmp1 |> ne zero |> CBool.E.to_int));
-                  CInt.N.incr pc ~overflow:Cant;
+                  CInt.Chp.incr pc ~overflow:Cant;
                 ]
           | Bool_not ->
-              N.seq
+              Chp.seq
                 [
                   pop ~dst:tmp0;
                   push CInt.E.(var tmp0 |> eq zero |> CBool.E.to_int);
-                  CInt.N.incr pc ~overflow:Cant;
+                  CInt.Chp.incr pc ~overflow:Cant;
                 ]
           | Input ->
-              N.seq
+              Chp.seq
                 [
-                  N.read ichan tmp0;
+                  Chp.read ichan tmp0;
                   push Expr.(var tmp0);
-                  CInt.N.incr pc ~overflow:Cant;
+                  CInt.Chp.incr pc ~overflow:Cant;
                 ]
           | Output ->
-              N.seq
+              Chp.seq
                 [
                   pop ~dst:tmp0;
-                  N.send ochan (Expr.var tmp0);
-                  CInt.N.incr pc ~overflow:Cant;
+                  Chp.send ochan (Expr.var tmp0);
+                  CInt.Chp.incr pc ~overflow:Cant;
                 ]);
     ]
 

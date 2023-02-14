@@ -421,7 +421,7 @@ module Mem_id_pool = struct
 end
 
 let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
-  let ir = Ir.N.unwrap ir in
+  let ir = Ir.Chp.unwrap ir in
   let user_sendable_ports =
     List.map user_sendable_ports ~f:Ir.Chan.unwrap_wu |> Ir.Chan.U.Set.of_list
   in
@@ -577,7 +577,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
       merge
     in
     match stmt with
-    | Ir.N.Assign (loc, id, expr) ->
+    | Ir.Chp.Assign (loc, id, expr) ->
         push_instr loc (Assign (convert_id id, convert_expr expr))
     | Nop -> push_instr Code_pos.dummy_loc Nop
     | Log (loc, str) -> push_instr loc (Log0 str)

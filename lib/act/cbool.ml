@@ -55,16 +55,16 @@ module E = struct
     |> expr_of_int_expr
 end
 
-module N = struct
-  type t = Node.Wrap.t
+module Chp = struct
+  type t = Chp_node.Wrap.t
 
   let match_ expr ~f =
-    Node.Wrap.select_imm ~else_:None
+    Chp_node.Wrap.select_imm ~else_:None
       (List.map [ false; true ] ~f:(fun op -> (E.(eq (const op) expr), f op)))
 
   let toggle ?loc (var_id : Cbool0.t Var.Wrap.t) =
-    Node.Wrap.assign ?loc var_id E.(var var_id |> not_)
+    Chp_node.Wrap.assign ?loc var_id E.(var var_id |> not_)
 
-  let set_true ?loc var_id = Node.Wrap.assign ?loc var_id E.true_
-  let set_false ?loc var_id = Node.Wrap.assign ?loc var_id E.false_
+  let set_true ?loc var_id = Chp_node.Wrap.assign ?loc var_id E.true_
+  let set_false ?loc var_id = Chp_node.Wrap.assign ?loc var_id E.false_
 end

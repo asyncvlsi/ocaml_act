@@ -10,13 +10,13 @@ let%expect_test "test1" =
     let var0 = Var.create CInt.dtype_32 in
     let var1 = Var.create CInt.dtype_32 in
     let chan2 = Chan.create CInt.dtype_32 in
-    N.seq
+    Chp.seq
       [
-        N.assign var0 CInt.E.(cint 12345);
-        N.par
+        Chp.assign var0 CInt.E.(cint 12345);
+        Chp.par
           [
-            N.loop [ N.send chan2.w CInt.E.(var var0) ];
-            N.seq [ N.read chan2.r var1; N.log1 var1 ~f:CInt.to_string ];
+            Chp.loop [ Chp.send chan2.w CInt.E.(var var0) ];
+            Chp.seq [ Chp.read chan2.r var1; Chp.log1 var1 ~f:CInt.to_string ];
           ];
       ]
   in
@@ -90,22 +90,24 @@ let%expect_test "test2" =
   let ir =
     let var0 = Var.create CInt.dtype_32 ~init:(CInt.of_int 123456) in
     let var1 = Var.create CInt.dtype_32 ~init:(CInt.of_int 1) in
-    N.seq
+    Chp.seq
       [
-        N.while_loop
+        Chp.while_loop
           CInt.E.(ne (var var0) (cint 1))
           [
-            CInt.N.assign var1 CInt.E.(var var1 |> add (cint 1)) ~overflow:Cant;
-            N.if_else
+            CInt.Chp.assign var1
+              CInt.E.(var var1 |> add (cint 1))
+              ~overflow:Cant;
+            Chp.if_else
               CInt.E.(mod_ (var var0) (cint 2) |> eq (cint 0))
-              [ N.assign var0 CInt.E.(div (var var0) (cint 2)) ]
+              [ Chp.assign var0 CInt.E.(div (var var0) (cint 2)) ]
               [
-                CInt.N.assign var0
+                CInt.Chp.assign var0
                   CInt.E.(var var0 |> mul (cint 3) |> add (cint 1))
                   ~overflow:Cant;
               ];
           ];
-        N.log1 var1 ~f:(fun v -> [%string "%{v#CInt}\n"]);
+        Chp.log1 var1 ~f:(fun v -> [%string "%{v#CInt}\n"]);
       ]
   in
   let exporter =
@@ -133,15 +135,15 @@ let%expect_test "test3" =
   let var = Var.create dtype in
   let chan = Chan.create dtype in
   let ir =
-    N.seq
+    Chp.seq
       [
-        N.log "start\n";
-        N.read chan.r var;
-        N.log "recv 1\n";
-        N.read chan.r var;
-        N.log "recv 2\n";
-        N.read chan.r var;
-        N.log "done\n";
+        Chp.log "start\n";
+        Chp.read chan.r var;
+        Chp.log "recv 1\n";
+        Chp.read chan.r var;
+        Chp.log "recv 2\n";
+        Chp.read chan.r var;
+        Chp.log "done\n";
       ]
   in
   let exporter =
@@ -167,15 +169,15 @@ let%expect_test "test3" =
   let chan1 = Chan.create CInt.dtype_32 in
   let chan2 = Chan.create CInt.dtype_32 in
   let ir =
-    N.seq
+    Chp.seq
       [
-        N.log "start\n";
-        N.read chan1.r var1;
-        N.log "recv 1\n";
-        N.send chan2.w Expr.(var var1);
-        N.log "send 1\n";
-        N.assert_ CInt.E.(var var1 |> eq (cint 200));
-        N.log "done\n";
+        Chp.log "start\n";
+        Chp.read chan1.r var1;
+        Chp.log "recv 1\n";
+        Chp.send chan2.w Expr.(var var1);
+        Chp.log "send 1\n";
+        Chp.assert_ CInt.E.(var var1 |> eq (cint 200));
+        Chp.log "done\n";
       ]
   in
   let exporter =
@@ -202,18 +204,18 @@ let%expect_test "test4" =
   let chan1 = Chan.create CInt.dtype_32 in
   let chan2 = Chan.create CInt.dtype_32 in
   let ir =
-    N.seq
+    Chp.seq
       [
-        N.seq [];
-        N.seq [];
-        N.log "start\n";
-        N.read chan1.r var1;
-        N.seq [];
-        N.log "recv 1\n";
-        N.send chan2.w Expr.(var var1);
-        N.log "send 1\n";
-        N.assert_ CInt.E.(var var1 |> eq (cint 210));
-        N.log "done\n";
+        Chp.seq [];
+        Chp.seq [];
+        Chp.log "start\n";
+        Chp.read chan1.r var1;
+        Chp.seq [];
+        Chp.log "recv 1\n";
+        Chp.send chan2.w Expr.(var var1);
+        Chp.log "send 1\n";
+        Chp.assert_ CInt.E.(var var1 |> eq (cint 210));
+        Chp.log "done\n";
       ]
   in
   let exporter =
@@ -239,7 +241,9 @@ let%expect_test "test5" =
   let var1 = Var.create CInt.dtype_32 in
   let chan1 = Chan.create CInt.dtype_32 in
   let chan2 = Chan.create CInt.dtype_32 in
-  let ir = N.loop [ N.read chan1.r var1; N.send chan2.w Expr.(var var1) ] in
+  let ir =
+    Chp.loop [ Chp.read chan1.r var1; Chp.send chan2.w Expr.(var var1) ]
+  in
   let exporter =
     Exporter.create ir ~user_sendable_ports:[ chan1.w.u ]
       ~user_readable_ports:[ chan2.r.u ]
@@ -262,21 +266,21 @@ let%expect_test "test5" =
 let split ~dtype i1 o1 o2 =
   let var1 = Var.create dtype in
   let b1 = Var.create CBool.dtype ~init:false in
-  N.loop
+  Chp.loop
     [
-      N.read i1 var1;
-      N.if_else Expr.(var b1) [ N.send' o1 var1 ] [ N.send' o2 var1 ];
-      CBool.N.toggle b1;
+      Chp.read i1 var1;
+      Chp.if_else Expr.(var b1) [ Chp.send' o1 var1 ] [ Chp.send' o2 var1 ];
+      CBool.Chp.toggle b1;
     ]
 
 let merge ~dtype i1 i2 o1 =
   let var1 = Var.create dtype in
   let b1 = Var.create CBool.dtype ~init:false in
-  N.loop
+  Chp.loop
     [
-      N.if_else Expr.(var b1) [ N.read i1 var1 ] [ N.read i2 var1 ];
-      N.send o1 Expr.(var var1);
-      CBool.N.toggle b1;
+      Chp.if_else Expr.(var b1) [ Chp.read i1 var1 ] [ Chp.read i2 var1 ];
+      Chp.send o1 Expr.(var var1);
+      CBool.Chp.toggle b1;
     ]
 
 let rec buff ~depth ~dtype i1 o1 =
@@ -284,13 +288,13 @@ let rec buff ~depth ~dtype i1 o1 =
   else if Int.equal depth 1 then
     let chan1 = Chan.create dtype in
     let chan2 = Chan.create dtype in
-    N.par [ split ~dtype i1 chan1.w chan2.w; merge ~dtype chan1.r chan2.r o1 ]
+    Chp.par [ split ~dtype i1 chan1.w chan2.w; merge ~dtype chan1.r chan2.r o1 ]
   else
     let chan1a = Chan.create dtype in
     let chan1b = Chan.create dtype in
     let chan2a = Chan.create dtype in
     let chan2b = Chan.create dtype in
-    N.par
+    Chp.par
       [
         split ~dtype i1 chan1a.w chan2a.w;
         buff ~dtype ~depth:(depth - 1) chan1a.r chan1b.w;
@@ -379,10 +383,10 @@ let%expect_test "mem" =
   in
   let var1 = Var.create CInt.dtype_32 in
   let ir =
-    N.seq
+    Chp.seq
       [
-        N.read_ug_mem mem ~idx:CInt.E.(cint 3) ~dst:var1;
-        N.log1 var1 ~f:CInt.to_string;
+        Chp.read_ug_mem mem ~idx:CInt.E.(cint 3) ~dst:var1;
+        Chp.log1 var1 ~f:CInt.to_string;
       ]
   in
   let exporter =
@@ -417,10 +421,10 @@ let%expect_test "mem" =
   in
   let var1 = Var.create CInt.dtype_32 in
   let ir =
-    N.seq
+    Chp.seq
       [
-        N.read_ug_mem mem ~idx:CInt.E.(cint 4) ~dst:var1;
-        N.log1 var1 ~f:CInt.to_string;
+        Chp.read_ug_mem mem ~idx:CInt.E.(cint 4) ~dst:var1;
+        Chp.log1 var1 ~f:CInt.to_string;
       ]
   in
   let exporter =
@@ -456,17 +460,17 @@ let%expect_test "mem" =
   let var1 = Var.create CInt.dtype_32 in
   let var2 = Var.create CInt.dtype_32 in
   let ir =
-    N.par
+    Chp.par
       [
-        N.seq
+        Chp.seq
           [
-            N.read_ug_mem mem ~idx:CInt.E.(cint 3) ~dst:var1;
-            N.log1 var1 ~f:CInt.to_string;
+            Chp.read_ug_mem mem ~idx:CInt.E.(cint 3) ~dst:var1;
+            Chp.log1 var1 ~f:CInt.to_string;
           ];
-        N.seq
+        Chp.seq
           [
-            N.read_ug_mem mem ~idx:CInt.E.(cint 3) ~dst:var2;
-            N.log1 var2 ~f:CInt.to_string;
+            Chp.read_ug_mem mem ~idx:CInt.E.(cint 3) ~dst:var2;
+            Chp.log1 var2 ~f:CInt.to_string;
           ];
       ]
   in
@@ -500,27 +504,27 @@ let%expect_test "test probes" =
   let var = Var.create CInt.dtype_32 in
   let chan = Chan.create CInt.dtype_32 in
   let ir =
-    N.par
+    Chp.par
       [
-        N.seq
+        Chp.seq
           [
-            N.log "A ";
-            N.wait_probe_w chan.w;
-            N.log "B ";
-            N.log "C ";
-            N.send chan.w CInt.E.(cint 3);
-            N.log "D ";
-            N.log "E ";
-            N.log "F ";
+            Chp.log "A ";
+            Chp.wait_probe_w chan.w;
+            Chp.log "B ";
+            Chp.log "C ";
+            Chp.send chan.w CInt.E.(cint 3);
+            Chp.log "D ";
+            Chp.log "E ";
+            Chp.log "F ";
           ];
-        N.seq
+        Chp.seq
           [
-            N.log "1 ";
-            N.log "2 ";
-            N.log "3 ";
-            N.log "4 ";
-            N.read chan.r var;
-            N.log "5 ";
+            Chp.log "1 ";
+            Chp.log "2 ";
+            Chp.log "3 ";
+            Chp.log "4 ";
+            Chp.read chan.r var;
+            Chp.log "5 ";
           ];
       ]
   in
@@ -574,12 +578,14 @@ module Mini_alu = struct
     let op_v = Var.create Op.dtype in
     let arg0_v = Var.create val_dtype in
     let arg1_v = Var.create val_dtype in
-    let read_2_args = N.par [ N.read arg0.r arg0_v; N.read arg1.r arg1_v ] in
+    let read_2_args =
+      Chp.par [ Chp.read arg0.r arg0_v; Chp.read arg1.r arg1_v ]
+    in
     let ir =
-      N.loop
+      Chp.loop
         [
-          N.read op.r op_v;
-          Op.N.match_
+          Chp.read op.r op_v;
+          Op.Chp.match_
             Expr.(var op_v)
             ~f:(fun op_code ->
               let read_args = read_2_args in
@@ -587,16 +593,16 @@ module Mini_alu = struct
                 match op_code with
                 | Op.Add ->
                     let expr = CInt.E.(add (var arg0_v) (var arg1_v)) in
-                    CInt.N.send result.w expr ~overflow:Mask
+                    CInt.Chp.send result.w expr ~overflow:Mask
                 | Op.Mul ->
                     let expr = CInt.E.(mul (var arg0_v) (var arg1_v)) in
-                    CInt.N.send result.w expr ~overflow:Mask
+                    CInt.Chp.send result.w expr ~overflow:Mask
                 | Op.And ->
-                    N.send result.w CInt.E.(bit_and (var arg0_v) (var arg1_v))
+                    Chp.send result.w CInt.E.(bit_and (var arg0_v) (var arg1_v))
                 | Op.Or ->
-                    N.send result.w CInt.E.(bit_or (var arg0_v) (var arg1_v))
+                    Chp.send result.w CInt.E.(bit_or (var arg0_v) (var arg1_v))
               in
-              N.seq [ read_args; send_result ]);
+              Chp.seq [ read_args; send_result ]);
         ]
     in
     (ir, op.w, arg0.w, arg1.w, result.r)

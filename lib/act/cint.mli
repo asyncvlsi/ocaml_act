@@ -91,8 +91,8 @@ module E : sig
   val five : t
 end
 
-module N : sig
-  type t = Node.Wrap.t
+module Chp : sig
+  type t = Chp_node.Wrap.t
 
   val assign :
     ?loc:Code_pos.t ->

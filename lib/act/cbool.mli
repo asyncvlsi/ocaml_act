@@ -17,10 +17,10 @@ module E : sig
   val not_ : t -> t
 end
 
-module N : sig
-  include Enum.N_S with type elt := t
+module Chp : sig
+  include Enum.Chp_S with type elt := t
 
-  type t = Node.Wrap.t
+  type t = Chp_node.Wrap.t
 
   val toggle : ?loc:Code_pos.t -> Cbool0.t Var.Wrap.t -> t
   val set_false : ?loc:Code_pos.t -> Cbool0.t Var.Wrap.t -> t

@@ -92,13 +92,13 @@ let apply_overflow dtype expr ~overflow =
       let mask = Cint0.(pow (of_int 2) (of_int bits) - of_int 1) in
       E.(bit_and expr (const mask))
 
-module N = struct
-  type t = Node.Wrap.t
+module Chp = struct
+  type t = Chp_node.Wrap.t
 
   let assign ?loc var expr ~overflow =
     let var = Var.Ir.unwrap var in
     let expr = apply_overflow var.u.d.dtype expr ~overflow |> Expr.Ir.unwrap in
-    Node.Ir.No_width_checks.assign ?loc var expr
+    Chp_node.Ir.No_width_checks.assign ?loc var expr
 
   let incr ?loc var_id ~overflow =
     let expr = E.(var var_id |> add (cint 1)) in
@@ -113,7 +113,7 @@ module N = struct
     let expr =
       apply_overflow chan_id.d.dtype expr ~overflow |> Expr.Ir.unwrap
     in
-    Node.Ir.No_width_checks.send ?loc chan_id expr
+    Chp_node.Ir.No_width_checks.send ?loc chan_id expr
 
   let send' ?loc chan_id var_id ~overflow =
     send ?loc chan_id Expr.Wrap.(var var_id) ~overflow

@@ -5,7 +5,7 @@ type t
 
 val create :
   ?seed:int ->
-  N.t ->
+  Act.Chp.t ->
   user_sendable_ports:Chan.W.U.t list ->
   user_readable_ports:Chan.R.U.t list ->
   t

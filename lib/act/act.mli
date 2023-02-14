@@ -6,7 +6,7 @@ module Internal_rep : sig
   module DType = Dtype.Ir
   module Expr = Expr.Ir
   module Mem = Mem.Ir
-  module N = Node.Ir
+  module Chp = Chp_node.Ir
   module Var = Var.Ir
   module Layout = Layout
 end
@@ -20,9 +20,12 @@ module DType = Dtype.Wrap
 module Enum = Enum
 module Expr = Expr.Wrap
 module Mem = Mem.Wrap
-module N = Node.Wrap
+module Chp = Chp_node.Wrap
 module Var = Var.Wrap
 module Vec = Vec
 
 val block11 :
-  'i1 Chan.W.t -> 'o1 Chan.R.t -> f:('i1 Chan.R.t -> 'o1 Chan.W.t -> N.t) -> N.t
+  'i1 Chan.W.t ->
+  'o1 Chan.R.t ->
+  f:('i1 Chan.R.t -> 'o1 Chan.W.t -> Chp.t) ->
+  Chp.t

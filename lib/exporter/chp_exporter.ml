@@ -24,7 +24,7 @@ type t = string
 
 let rec flatten n =
   match n with
-  | Ir.N.Par (_, ns) -> (
+  | Ir.Chp.Par (_, ns) -> (
       let ns =
         List.map ns ~f:flatten
         |> List.filter ~f:(fun n -> match n with N.Nop -> false | _ -> true)
@@ -57,7 +57,7 @@ let rec flatten n =
   | Log _ | Log1 _ | Assert _ | Nop -> Nop
 
 let create ir ~user_sendable_ports ~user_readable_ports =
-  let ir = Ir.N.unwrap ir |> flatten in
+  let ir = Ir.Chp.unwrap ir |> flatten in
   let user_sendable_ports =
     List.map user_sendable_ports ~f:Ir.Chan.unwrap_wu |> Ir.Chan.U.Set.of_list
   in

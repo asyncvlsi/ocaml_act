@@ -13,7 +13,7 @@ let is_dflowable n ~user_sendable_ports ~user_readable_ports =
   (* First check there are no unsupported nodes *)
   let rec check_sup_nodes n =
     match n with
-    | Ir.N.Par (_, ns) -> List.iter ns ~f:check_sup_nodes
+    | Ir.Chp.Par (_, ns) -> List.iter ns ~f:check_sup_nodes
     | Seq (_, ns) -> List.iter ns ~f:check_sup_nodes
     | Loop (_, n) -> check_sup_nodes n
     | SelectImm (_, branches, else_) ->
@@ -47,7 +47,7 @@ let is_dflowable n ~user_sendable_ports ~user_readable_ports =
   let rec chans n ~r ~w =
     let f n = chans n ~r ~w in
     match n with
-    | Ir.N.Par (_, ns) -> List.concat_map ns ~f
+    | Ir.Chp.Par (_, ns) -> List.concat_map ns ~f
     | Seq (_, ns) -> List.concat_map ns ~f
     | Loop (_, n) -> f n
     | SelectImm (_, branches, else_) -> (
@@ -85,7 +85,7 @@ let is_dflowable n ~user_sendable_ports ~user_readable_ports =
   in
   let rec check_par_nodes n =
     match n with
-    | Ir.N.Par (_, ns) -> (
+    | Ir.Chp.Par (_, ns) -> (
         List.iter ns ~f:check_par_nodes;
         (match find_conflicting_pair ns ~f:r_chans with
         | None -> ()
@@ -357,7 +357,7 @@ let to_simple_ir n =
 
   let rec of_n n =
     match n with
-    | Ir.N.Par (_, ns) -> Simple_IR.Par (List.map ns ~f:of_n)
+    | Ir.Chp.Par (_, ns) -> Simple_IR.Par (List.map ns ~f:of_n)
     | Seq (_, ns) -> Seq (List.map ns ~f:of_n)
     | Loop (_, n) -> DoWhile (of_n n, Expr.Const CInt.one)
     | SelectImm (_, branches, else_) ->
@@ -1427,7 +1427,7 @@ let to_dflow n ~user_sendable_ports ~user_readable_ports =
 let optimize_dflow dflow = dflow
 
 let create ir ~user_sendable_ports ~user_readable_ports =
-  let ir = Ir.N.unwrap ir in
+  let ir = Ir.Chp.unwrap ir in
   let user_sendable_ports =
     List.map user_sendable_ports ~f:Ir.Chan.unwrap_wu |> Ir.Chan.U.Set.of_list
   in
@@ -1466,7 +1466,7 @@ let create ir ~user_sendable_ports ~user_readable_ports =
   ""
 
 let simple_ir_sim ir ~user_sendable_ports ~user_readable_ports =
-  let ir = Ir.N.unwrap ir in
+  let ir = Ir.Chp.unwrap ir in
   let user_sendable_ports =
     List.map user_sendable_ports ~f:Ir.Chan.unwrap_wu |> Ir.Chan.U.Set.of_list
   in
@@ -1546,7 +1546,7 @@ let simple_ir_sim ir ~user_sendable_ports ~user_readable_ports =
   let of_e_bool e = of_e e |> Act.CBool.E.of_int |> Ir.Expr.unwrap in
   let rec of_n n =
     match n with
-    | Simple_IR.Par ns -> Ir.N.Par (Code_pos.dummy_loc, List.map ns ~f:of_n)
+    | Simple_IR.Par ns -> Ir.Chp.Par (Code_pos.dummy_loc, List.map ns ~f:of_n)
     | Seq ns -> Seq (Code_pos.dummy_loc, List.map ns ~f:of_n)
     | DoWhile (n, guard) -> DoWhile (Code_pos.dummy_loc, of_n n, of_e_bool guard)
     | SelectImm (guard_expr, stmts) ->
@@ -1577,10 +1577,10 @@ let simple_ir_sim ir ~user_sendable_ports ~user_readable_ports =
   let user_sendable_ports =
     Map.keys user_sendable_ports |> List.map ~f:Ir.Chan.wrap_wu
   in
-  Sim.create (Ir.N.wrap n) ~user_readable_ports ~user_sendable_ports
+  Sim.create (Ir.Chp.wrap n) ~user_readable_ports ~user_sendable_ports
 
 let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
-  let ir = Ir.N.unwrap ir in
+  let ir = Ir.Chp.unwrap ir in
   let user_sendable_ports =
     List.map user_sendable_ports ~f:Ir.Chan.unwrap_wu |> Ir.Chan.U.Set.of_list
   in
@@ -1666,7 +1666,7 @@ let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
   in
   let rec of_n n =
     match n with
-    | STF.Nop -> Ir.N.Nop
+    | STF.Nop -> Ir.Chp.Nop
     | Assign (id, expr) ->
         Assign
           ( Code_pos.dummy_loc,
@@ -1683,7 +1683,7 @@ let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
               List.filter_map split.out_vs
                 ~f:
                   (Option.map ~f:(fun out_v ->
-                       Ir.N.Assign
+                       Ir.Chp.Assign
                          ( Code_pos.dummy_loc,
                            of_v out_v |> Ir.Var.untype',
                            of_e (Var split.in_v) |> Ir.Expr.untype' ))))
@@ -1693,12 +1693,12 @@ let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
               List.filter_map merge.in_vs
                 ~f:
                   (Option.map ~f:(fun in_v ->
-                       Ir.N.Assign
+                       Ir.Chp.Assign
                          ( Code_pos.dummy_loc,
                            of_v merge.out_v |> Ir.Var.untype',
                            of_e (Var in_v) |> Ir.Expr.untype' ))))
         in
-        let par = Ir.N.Par (Code_pos.dummy_loc, List.map ns ~f:of_n) in
+        let par = Ir.Chp.Par (Code_pos.dummy_loc, List.map ns ~f:of_n) in
         Seq (Code_pos.dummy_loc, List.concat [ prolog; [ par ]; postlog ])
     | SelectImm (gaurd, splits, branches, merges) ->
         let prolog =
@@ -1706,7 +1706,7 @@ let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
               List.filter_map split.out_vs
                 ~f:
                   (Option.map ~f:(fun out_v ->
-                       Ir.N.Assign
+                       Ir.Chp.Assign
                          ( Code_pos.dummy_loc,
                            of_v out_v |> Ir.Var.untype',
                            of_e (Var split.in_v) |> Ir.Expr.untype' ))))
@@ -1716,7 +1716,7 @@ let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
               let postlog =
                 List.map merges ~f:(fun merge ->
                     let in_v = List.nth_exn merge.in_vs i in
-                    Ir.N.Assign
+                    Ir.Chp.Assign
                       ( Code_pos.dummy_loc,
                         of_v merge.out_v |> Ir.Var.untype',
                         of_e (Var in_v) |> Ir.Expr.untype' ))
@@ -1727,12 +1727,12 @@ let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
                 Act.CInt.E.(eq (of_e gaurd) (const i)) |> Ir.Expr.unwrap
               in
               let stmt =
-                Ir.N.Seq
+                Ir.Chp.Seq
                   (Code_pos.dummy_loc, List.concat [ [ of_n stmt ]; postlog ])
               in
               (g, stmt))
         in
-        let select = Ir.N.SelectImm (Code_pos.dummy_loc, branches, None) in
+        let select = Ir.Chp.SelectImm (Code_pos.dummy_loc, branches, None) in
         Seq (Code_pos.dummy_loc, List.concat [ prolog; [ select ] ])
     | DoWhile (phis, stmt, guard) ->
         let guard_var = Act.Var.create (CInt.dtype ~bits:1) in
@@ -1740,13 +1740,13 @@ let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
         let prolog =
           List.filter_map phis ~f:(fun phi ->
               Option.map phi.init_v ~f:(fun init_v ->
-                  Ir.N.Assign
+                  Ir.Chp.Assign
                     ( Code_pos.dummy_loc,
                       Option.value_exn phi.body_in_v |> of_v |> Ir.Var.untype',
                       of_e (Var init_v) |> Ir.Expr.untype' )))
         in
         let eval_guard =
-          Ir.N.Assign
+          Ir.Chp.Assign
             ( Code_pos.dummy_loc,
               Ir.Var.untype' guard_var,
               of_e guard |> Ir.Expr.untype' )
@@ -1757,12 +1757,12 @@ let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
               [
                 Option.map2 phi.body_in_v phi.body_out_v
                   ~f:(fun body_in_v body_out_v ->
-                    Ir.N.Assign
+                    Ir.Chp.Assign
                       ( Code_pos.dummy_loc,
                         of_v body_in_v |> Ir.Var.untype',
                         of_e (Var body_out_v) |> Ir.Expr.untype' ));
                 Option.map phi.out_v ~f:(fun out_v ->
-                    Ir.N.Assign
+                    Ir.Chp.Assign
                       ( Code_pos.dummy_loc,
                         of_v out_v |> Ir.Var.untype',
                         of_e (Var (Option.value_exn phi.body_out_v))
@@ -1771,12 +1771,12 @@ let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
           |> List.filter_opt
         in
         let body =
-          Ir.N.Seq
+          Ir.Chp.Seq
             ( Code_pos.dummy_loc,
               List.concat [ [ of_n stmt; eval_guard ]; body_postlog ] )
         in
         let loop =
-          Ir.N.DoWhile
+          Ir.Chp.DoWhile
             ( Code_pos.dummy_loc,
               body,
               CInt.E.var guard_var |> CBool.E.of_int |> Ir.Expr.unwrap )
@@ -1784,11 +1784,11 @@ let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
         Seq (Code_pos.dummy_loc, List.concat [ prolog; [ loop ] ])
   in
   let n = of_n n in
-  (* print_s [%sexp (n : Ir.N.t)]; *)
+  (* print_s [%sexp (n : Ir.Chp.t)]; *)
   let user_readable_ports =
     Map.keys user_readable_ports |> List.map ~f:Ir.Chan.wrap_ru
   in
   let user_sendable_ports =
     Map.keys user_sendable_ports |> List.map ~f:Ir.Chan.wrap_wu
   in
-  Sim.create (Ir.N.wrap n) ~user_readable_ports ~user_sendable_ports
+  Sim.create (Ir.Chp.wrap n) ~user_readable_ports ~user_sendable_ports

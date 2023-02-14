@@ -28,6 +28,7 @@ let library_filenames =
       "lib/act/chan.ml";
       "lib/act/var.ml";
       "lib/act/node.ml";
+      "lib/act/chp_node.ml";
       "lib/sim/sim.ml";
       "list.ml";
       "src/list0.ml";
