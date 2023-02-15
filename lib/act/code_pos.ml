@@ -6,7 +6,7 @@ type t = Caml.Printexc.location = {
   start_char : int;
   end_char : int;
 }
-[@@deriving sexp]
+[@@deriving sexp, hash, equal, compare]
 
 let dummy_loc =
   { filename = ""; line_number = -1; start_char = -1; end_char = -1 }

@@ -92,7 +92,6 @@ let create ir ~user_sendable_ports ~user_readable_ports =
       | Const _ -> []
       | With_assert_log (a, v, l, _) ->
           extract_expr a @ extract_expr v @ extract_expr l
-      | With_assert_log_fn (a, _, v) -> extract_expr a @ extract_expr v
     in
     let extract_expr e = extract_expr e.Ir.Expr.k in
     let rec extract_n n =
@@ -294,9 +293,6 @@ let create ir ~user_sendable_ports ~user_readable_ports =
       | Clip (e, bits) -> [%string "int(%{ee e}, %{bits#Int})"]
       | Const c -> [%string "%{c#CInt}"]
       | With_assert_log (_, val_expr, _, _) ->
-          (* TODO export the assert as well? *)
-          ee val_expr
-      | With_assert_log_fn (_, _, val_expr) ->
           (* TODO export the assert as well? *)
           ee val_expr
     in

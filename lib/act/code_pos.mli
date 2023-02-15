@@ -6,7 +6,7 @@ type t = {
   start_char : int;
   end_char : int;
 }
-[@@deriving sexp]
+[@@deriving sexp, hash, equal, compare]
 
 val dummy_loc : t
 

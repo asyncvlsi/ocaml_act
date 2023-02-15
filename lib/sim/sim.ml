@@ -519,7 +519,6 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
           let c0 = push (Const CInt.zero) in
           push_assert assert_expr err_id log_input c0;
           convert val_expr
-      | With_assert_log_fn (_, _, _) -> failwith "TODO"
     in
     let e = convert (Ir.Expr.untype expr).k in
     push' (Return e);

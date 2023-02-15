@@ -32,11 +32,9 @@ module Ir = struct
           * (* value *) t
           * (* log_input *) t
           * (Cint0.t -> string)
-      (* It is undefined behavior for a act program to return Some from this function. In practice,
-         this is only checked in the simulator, and not used in simulation. If you want it used for
-         optimization, use With_assert or With_assert_log instead *)
-      | With_assert_log_fn of
-          (* assert_input *) t * (Cint0.t -> string option) * (* value *) t
+        (* It is undefined behavior for a act program to return Some from this function. In practice,
+           this is only checked in the simulator, and not used in simulation. If you want it used for
+           optimization, use With_assert or With_assert_log instead *)
     [@@deriving sexp_of]
   end
 

@@ -371,7 +371,6 @@ let of_ir ir ~user_sendable_ports ~user_readable_ports =
       | Clip (e, bits) -> Clip (f e, bits)
       | Const c -> Const c
       | With_assert_log (_, v, _, _) -> f v
-      | With_assert_log_fn (_, _, v) -> f v
     in
     f e.Ir.Expr.k
   in
