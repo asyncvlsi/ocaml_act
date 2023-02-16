@@ -43,8 +43,20 @@ let kmac_cjp ~bw ~kernel ~a ~leftinput ~command ~rightout ~out =
         ~else_:None;
     ]
 
-let%expect_test "kmac_cjp_test_1" =
-  let bw = 8 in
+module Inputs = struct
+  type t = {
+    kernel : CInt.t Chan.W.t;
+    a : CInt.t Chan.W.t;
+    leftinput : CInt.t Chan.W.t;
+    command : CInt.t Chan.W.t;
+  }
+end
+
+module Outputs = struct
+  type t = { rightout : CInt.t Chan.R.t; out : CInt.t Chan.R.t }
+end
+
+let sim ~bw =
   let kernel = Chan.create (CInt.dtype ~bits:bw) in
   let a = Chan.create (CInt.dtype ~bits:bw) in
   let leftinput = Chan.create (CInt.dtype ~bits:bw) in
@@ -60,9 +72,22 @@ let%expect_test "kmac_cjp_test_1" =
       ~user_sendable_ports:[ kernel.w.u; a.w.u; leftinput.w.u; command.w.u ]
       ~user_readable_ports:[ rightout.r.u; out.r.u ]
   in
+  let inputs =
+    {
+      Inputs.kernel = kernel.w;
+      a = a.w;
+      leftinput = leftinput.w;
+      command = command.w;
+    }
+  in
+  let outputs = { Outputs.rightout = rightout.r; out = out.r } in
+  (sim, inputs, outputs)
+
+let%expect_test "kmac_cjp_test_1" =
+  let sim, i, o = sim ~bw:8 in
   Sim.wait' sim ();
-  Sim.send sim command.w (CInt.of_int 6);
-  Sim.read sim out.r (CInt.of_int 0);
+  Sim.send sim i.command (CInt.of_int 6);
+  Sim.read sim o.out (CInt.of_int 0);
   Sim.wait' sim ();
   [%expect {|
     (Ok ())

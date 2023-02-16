@@ -169,7 +169,7 @@ let%expect_test "test4" =
   [%expect
     {|
     send 1
-    (Error "Assertion failed: in test/ir_test.ml on line 150.") |}]
+    (Error "Assertion failed: in lib/act/chp.ml on line 165.") |}]
 
 let%expect_test "test5" =
   let var1 = Var.create CInt.dtype_32 in
@@ -199,7 +199,7 @@ let%expect_test "test5" =
   [%expect
     {|
       (Error
-       "User read has wrong value: got 4, but expected 5 based on `send_var function call in test/ir_test.ml on line 196, on chan created in test/ir_test.ml on line 177.") |}]
+       "User read has wrong value: got 4, but expected 5 based on `send' function call in test/ir_test.ml on line 196, on chan created in test/ir_test.ml on line 177.") |}]
 
 let split ~dtype i1 o1 o2 =
   let var1 = Var.create dtype in
@@ -284,7 +284,7 @@ let%expect_test "test_buff 1" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in test/ir_test.ml on line 279, on chan created in test/ir_test.ml on line 245.") |}]
+     "User send did not complete:  called in test/ir_test.ml on line 282, on chan created in test/ir_test.ml on line 248.") |}]
 
 let%expect_test "test_buff 2" =
   let dtype = CInt.dtype_32 in
@@ -308,7 +308,7 @@ let%expect_test "test_buff 2" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in test/ir_test.ml on line 303, on chan created in test/ir_test.ml on line 288.") |}]
+     "User send did not complete:  called in test/ir_test.ml on line 306, on chan created in test/ir_test.ml on line 291.") |}]
 
 let%expect_test "mem" =
   let mem =
@@ -346,7 +346,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Mem access out of bounds: in test/ir_test.ml on line 337, idx is 4, size of mem is 4.") |}]
+     "Mem access out of bounds: in lib/act/chp.ml on line 135, idx is 4, size of mem is 4.") |}]
 
 let%expect_test "mem" =
   let mem =
@@ -375,7 +375,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Simulatnious accesses of a memory/rom: statement 1 in test/ir_test.ml on line 365, statement 2 in test/ir_test.ml on line 360.") |}]
+     "Simulatnious accesses of a memory/rom: statement 1 in lib/act/chp.ml on line 135, statement 2 in lib/act/chp.ml on line 135.") |}]
 
 let%expect_test "test probes" =
   let var = Var.create CInt.dtype_32 in
@@ -556,4 +556,4 @@ let%expect_test "test2" =
   [%expect
     {|
     (Error
-     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in test/ir_test.ml on line 534.") |}]
+     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in test/ir_test.ml on line 537.") |}]

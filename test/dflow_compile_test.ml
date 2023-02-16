@@ -82,7 +82,7 @@ let%expect_test "test5" =
   [%expect
     {|
       (Error
-       "User read has wrong value: got 4, but expected 5 based on `send_var function call in test/dflow_compile_test.ml on line 79, on chan created in test/dflow_compile_test.ml on line 59.") |}]
+       "User read has wrong value: got 4, but expected 5 based on `send' function call in test/dflow_compile_test.ml on line 79, on chan created in test/dflow_compile_test.ml on line 59.") |}]
 
 let split ~dtype i1 o1 o2 =
   let var1 = Var.create dtype in
