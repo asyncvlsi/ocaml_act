@@ -116,3 +116,8 @@ module Chp : sig
   val send' :
     Cint0.t Chan.W.t -> Cint0.t Var.t -> overflow:Overflow_behavior.t -> t
 end
+
+module Chan : sig
+  val bw_le : Cint0.t Chan.R.t -> int -> bool
+  val bw_ge : Cint0.t Chan.W.t -> int -> bool
+end

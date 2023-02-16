@@ -269,7 +269,10 @@ let split ~dtype i1 o1 o2 =
   Chp.loop
     [
       Chp.read i1 var1;
-      Chp.if_else Expr.(var b1) [ Chp.send' o1 var1 ] [ Chp.send' o2 var1 ];
+      Chp.if_else
+        Expr.(var b1)
+        [ Chp.send_var o1 var1 ]
+        [ Chp.send_var o2 var1 ];
       CBool.Chp.toggle b1;
     ]
 

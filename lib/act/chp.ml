@@ -84,7 +84,7 @@ let send chan_id expr =
     (Expr.Ir.max_layout expr) chan_id.d.dtype;
   No_width_checks.send ~loc chan_id expr
 
-let send' chan_id var_id = send chan_id Expr.(var var_id)
+let send_var chan_id var_id = send chan_id Expr.(var var_id)
 
 let wait_probe_r chan_id =
   let loc = Code_pos.psite () in

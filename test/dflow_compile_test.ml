@@ -82,7 +82,7 @@ let%expect_test "test5" =
   [%expect
     {|
       (Error
-       "User read has wrong value: got 4, but expected 5 based on `send' function call in test/dflow_compile_test.ml on line 79, on chan created in test/dflow_compile_test.ml on line 59.") |}]
+       "User read has wrong value: got 4, but expected 5 based on `send_var function call in test/dflow_compile_test.ml on line 79, on chan created in test/dflow_compile_test.ml on line 59.") |}]
 
 let split ~dtype i1 o1 o2 =
   let var1 = Var.create dtype in
@@ -90,7 +90,10 @@ let split ~dtype i1 o1 o2 =
   Chp.loop
     [
       Chp.read i1 var1;
-      Chp.if_else Expr.(var b1) [ Chp.send' o1 var1 ] [ Chp.send' o2 var1 ];
+      Chp.if_else
+        Expr.(var b1)
+        [ Chp.send_var o1 var1 ]
+        [ Chp.send_var o2 var1 ];
       CBool.Chp.toggle b1;
     ]
 

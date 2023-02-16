@@ -111,6 +111,8 @@ var <variable>
 const <cint type>
 cint <integer constant like 8>
 ```
+
+```
 let kmac_cjp ~bw ~kernel ~A ~rightinput ~command ~leftout ~out = (
     assert (List.all_equal [bw; kernel.bw; rightinput.bw; A.bw; command.bw; command.bw; leftout.bw; out.bw]);
     let val_dtype = CInt.dtype ~bits: bw in
@@ -210,12 +212,14 @@ let%expect_test "kmac_cjp_test_1" =
     Sim.wait' sim();
     [%expect {| <output> |}];
 ```
+
 So how this works is: the simulation is run on Sim.wait. 
 The commands before Sim.wait are queued and run randomly if they are on different channels and in series if they're on the same channel.
 Seperate the commands with semicolons.
 To send to a channel, you need to specify that the channel is writable with .w. 
 To read a channel you need to specify that the channel is readable with .r.
 
+Note: This code may be slightly out of date. See the file test/lukas_test.ml for a more up-to-date version.
 
 
 CHP Commands:

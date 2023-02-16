@@ -122,3 +122,19 @@ module Chp = struct
 
   let send' chan_id var_id ~overflow = send chan_id Expr.(var var_id) ~overflow
 end
+
+module Chan = struct
+  let bw_le chan bw =
+    let chan = Chan.Ir.unwrap_r chan in
+    let chan_bw =
+      match Dtype.Ir.layout chan.d.dtype with Bits_fixed bits -> bits
+    in
+    Int.(chan_bw <= bw)
+
+  let bw_ge chan bw =
+    let chan = Chan.Ir.unwrap_w chan in
+    let chan_bw =
+      match Dtype.Ir.layout chan.d.dtype with Bits_fixed bits -> bits
+    in
+    Int.(chan_bw >= bw)
+end

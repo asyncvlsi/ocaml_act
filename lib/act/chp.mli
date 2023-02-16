@@ -5,7 +5,7 @@ type t
 val assign : 'a Var.t -> 'a Expr.t -> t
 val read : 'a Chan.R.t -> 'a Var.t -> t
 val send : 'a Chan.W.t -> 'a Expr.t -> t
-val send' : 'a Chan.W.t -> 'a Var.t -> t
+val send_var : 'a Chan.W.t -> 'a Var.t -> t
 
 (* probes *)
 val wait_probe_r : 'a Chan.R.t -> t
