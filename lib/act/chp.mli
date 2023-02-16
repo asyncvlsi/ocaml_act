@@ -1,6 +1,6 @@
 open! Core
 
-type t
+type t [@@deriving sexp_of]
 
 val assign : 'a Var.t -> 'a Expr.t -> t
 val read : 'a Chan.R.t -> 'a Var.t -> t

@@ -199,8 +199,14 @@ module Proc = struct
   type t = { k : K.t; in_chans : Chan.Set.t; out_chans : Chan.Set.t }
 end
 
-let of_ir ir ~user_sendable_ports ~user_readable_ports =
-  let n = Ir.Chp.unwrap ir in
+let of_program ir ~user_sendable_ports ~user_readable_ports =
+  (* TODO generalize *)
+  let n =
+    match Ir.Program.unwrap ir with
+    | [ Ir.Process.Dflow_iface_on_chp n ] -> n
+    | _ -> failwith "TODO"
+  in
+
   let user_sendable_ports =
     List.map user_sendable_ports ~f:Ir.Chan.unwrap_wu |> Ir.Chan.U.Set.of_list
   in
@@ -576,9 +582,6 @@ let of_ir ir ~user_sendable_ports ~user_readable_ports =
   in
   let procs = List.concat [ [ chp_proc ]; mem_procs; inodes; onodes ] in
   procs
-
-let of_ir ir ~user_sendable_ports ~user_readable_ports =
-  of_ir ir ~user_sendable_ports ~user_readable_ports
 
 (* let check_n n ~user_sendable_ports ~user_readable_ports =
    (* assume n is a top-level statement. For now, we will just unilaterally impose

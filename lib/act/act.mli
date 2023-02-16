@@ -3,16 +3,19 @@ open! Core
 (* The internal data structures. These are only meant to be constructed throguh the above interfaces. *)
 module Internal_rep : sig
   module Chan = Chan.Ir
+  module Chp = Chp.Ir
   module DType = Dtype.Ir
   module Expr = Expr.Ir
   module Mem = Mem.Ir
-  module Chp = Chp.Ir
+  module Process = Process.Ir
+  module Program = Program.Ir
   module Var = Var.Ir
   module Layout = Layout
 end
 
 module Any = Any
 module Chan = Chan
+module Chp = Chp
 module CInt = Cint
 module CBool = Cbool
 module Code_pos = Code_pos
@@ -20,7 +23,8 @@ module DType = Dtype
 module Enum = Enum
 module Expr = Expr
 module Mem = Mem
-module Chp = Chp
+module Process = Process
+module Program = Program
 module Var = Var
 module Vec = Vec
 

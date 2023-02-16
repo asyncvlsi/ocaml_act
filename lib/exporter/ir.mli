@@ -109,8 +109,8 @@ module Proc : sig
   type t = { k : K.t; in_chans : Chan.Set.t; out_chans : Chan.Set.t }
 end
 
-val of_ir :
-  Act.Chp.t ->
+val of_program :
+  Act.Program.t ->
   user_sendable_ports:Act.Chan.W.U.t list ->
   user_readable_ports:Act.Chan.R.U.t list ->
   Proc.t list
