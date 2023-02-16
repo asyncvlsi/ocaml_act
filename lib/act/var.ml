@@ -48,7 +48,8 @@ module T = struct
 
   type 'a t = { u : U.t } [@@deriving sexp_of]
 
-  let create ?loc ?init (dtype : 'a Dtype.Wrap.t) : 'a t =
+  let create ?init (dtype : 'a Dtype.t) : 'a t =
+    let loc = Code_pos.psite () in
     let dtype = Dtype.Ir.unwrap dtype in
     (match init with
     | None -> ()
@@ -62,15 +63,15 @@ module T = struct
                 "Trying to initialize a variable of dtype %{Layout.sexp_of_t \
                  (Dtype.Ir.layout dtype)#Sexp} with a value of max_layout \
                  %{Layout.sexp_of_t init_layout#Sexp}."]));
-    { u = U.create dtype init (Code_pos.value_or_psite loc) }
+    { u = U.create dtype init loc }
 end
 
-module Wrap = struct
-  include T
-end
+include T
 
 module Ir = struct
   include T
+
+  type 'a outer = 'a t
 
   let unwrap (t : 'a t) = t
   let untype (t : 'a t) : U.t = t.u

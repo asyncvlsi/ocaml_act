@@ -33,7 +33,7 @@ let%expect_test "test4" =
         Chp.log "recv 1\n";
         Chp.send chan2.w Expr.(var var1);
         Chp.log "send 1\n";
-        Chp.assert_ CInt.E.(var var1 |> eq (cint 210));
+        Chp.assert_ CInt.E.(var var1 |> eq (of_int 210));
         Chp.log "done\n";
       ]
   in
@@ -265,7 +265,7 @@ let%expect_test "mem" =
   let ir =
     Chp.seq
       [
-        Chp.read_ug_mem mem ~idx:CInt.E.(cint 3) ~dst:var1;
+        Chp.read_ug_mem mem ~idx:CInt.E.(of_int 3) ~dst:var1;
         Chp.log1 var1 ~f:CInt.to_string;
       ]
   in

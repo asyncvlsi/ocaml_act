@@ -10,16 +10,13 @@ type 'a t = {
   expr_tag : 'a Expr_tag.t;
 }
 
-module Wrap = struct
+module Ir = struct
+  type 'a outer = 'a t
   type nonrec 'a t = 'a t
 
   let create ~equal ~sexp_of_t ~max_layout_of ~cint_of ~of_cint ~layout
       ~expr_tag =
     { equal; sexp_of_t; max_layout_of; cint_of; of_cint; layout; expr_tag }
-end
-
-module Ir = struct
-  type nonrec 'a t = 'a t
 
   let dummy_val =
     {

@@ -311,9 +311,7 @@ let to_simple_ir n =
       | Ir.Expr.K.Add (a, b) -> Expr.Add (f a, f b)
       | Sub_no_wrap (a, b) -> Sub_no_wrap (f a, f b)
       | Sub_wrap (a, b, bits) ->
-          let p2bits =
-            Expr.Const (CInt.shift_left CInt.one (CInt.of_int bits))
-          in
+          let p2bits = Expr.Const CInt.(left_shift one ~amt:(of_int bits)) in
           let a = Expr.BitOr (Expr.Clip (f a, bits), p2bits) in
           let b = Expr.Clip (f b, bits) in
           Expr.Clip (Sub_no_wrap (a, b), bits)
@@ -1525,8 +1523,8 @@ let simple_ir_sim ir ~user_sendable_ports ~user_readable_ports =
       | Mul (a, b) -> Act.CInt.E.mul (f a) (f b)
       | Div (a, b) -> Act.CInt.E.div (f a) (f b)
       | Mod (a, b) -> Act.CInt.E.mod_ (f a) (f b)
-      | LShift (a, b) -> Act.CInt.E.lshift (f a) ~amt:(f b)
-      | RShift (a, b) -> Act.CInt.E.rshift (f a) ~amt:(f b)
+      | LShift (a, b) -> Act.CInt.E.left_shift (f a) ~amt:(f b)
+      | RShift (a, b) -> Act.CInt.E.right_shift (f a) ~amt:(f b)
       | BitAnd (a, b) -> Act.CInt.E.bit_and (f a) (f b)
       | BitOr (a, b) -> Act.CInt.E.bit_or (f a) (f b)
       | BitXor (a, b) -> Act.CInt.E.bit_xor (f a) (f b)
@@ -1538,7 +1536,7 @@ let simple_ir_sim ir ~user_sendable_ports ~user_readable_ports =
       | Ge (a, b) -> Act.CInt.E.ge (f a) (f b) |> Act.CBool.E.to_int
       | Var v -> Act.CInt.E.var (of_v v)
       | Clip (e, bits) -> Act.CInt.E.clip (f e) ~bits
-      | Const c -> Act.CInt.E.const c
+      | Const c -> Act.CInt.E.of_cint c
     in
     f e
   in
@@ -1554,7 +1552,8 @@ let simple_ir_sim ir ~user_sendable_ports ~user_readable_ports =
             List.mapi stmts ~f:(fun i stmt ->
                 let i = Act.CInt.(pow (of_int 2) (of_int i)) in
                 let g =
-                  Act.CInt.E.(eq (of_e guard_expr) (const i)) |> Ir.Expr.unwrap
+                  Act.CInt.E.(eq (of_e guard_expr) (of_cint i))
+                  |> Ir.Expr.unwrap
                 in
                 (g, of_n stmt)),
             None )
@@ -1646,8 +1645,8 @@ let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
       | Mul (a, b) -> Act.CInt.E.mul (f a) (f b)
       | Div (a, b) -> Act.CInt.E.div (f a) (f b)
       | Mod (a, b) -> Act.CInt.E.mod_ (f a) (f b)
-      | LShift (a, b) -> Act.CInt.E.lshift (f a) ~amt:(f b)
-      | RShift (a, b) -> Act.CInt.E.rshift (f a) ~amt:(f b)
+      | LShift (a, b) -> Act.CInt.E.left_shift (f a) ~amt:(f b)
+      | RShift (a, b) -> Act.CInt.E.right_shift (f a) ~amt:(f b)
       | BitAnd (a, b) -> Act.CInt.E.bit_and (f a) (f b)
       | BitOr (a, b) -> Act.CInt.E.bit_or (f a) (f b)
       | BitXor (a, b) -> Act.CInt.E.bit_xor (f a) (f b)
@@ -1659,7 +1658,7 @@ let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
       | Ge (a, b) -> Act.CInt.E.ge (f a) (f b) |> Act.CBool.E.to_int
       | Var v -> Act.CInt.E.var (of_v v)
       | Clip (e, bits) -> Act.CInt.E.clip (f e) ~bits
-      | Const c -> Act.CInt.E.const c
+      | Const c -> Act.CInt.E.of_cint c
     in
     f e
   in
@@ -1723,7 +1722,7 @@ let stf_sim ?(optimize = false) ir ~user_sendable_ports ~user_readable_ports =
 
               let i = Act.CInt.(pow (of_int 2) (of_int i)) in
               let g =
-                Act.CInt.E.(eq (of_e gaurd) (const i)) |> Ir.Expr.unwrap
+                Act.CInt.E.(eq (of_e gaurd) (of_cint i)) |> Ir.Expr.unwrap
               in
               let stmt =
                 Ir.Chp.Seq

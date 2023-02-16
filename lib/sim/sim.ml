@@ -489,9 +489,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
           push (Sub_no_underflow (a, b))
       | Sub_wrap (a, b, bits) ->
           let a, b = (convert a, convert b) in
-          let p2bits =
-            push (Const (CInt.shift_left CInt.one (CInt.of_int bits)))
-          in
+          let p2bits = push (Const CInt.(left_shift one ~amt:(of_int bits))) in
           let a = push (Clip (a, bits)) in
           let a = push (BitOr (a, p2bits)) in
           let b = push (Clip (b, bits)) in

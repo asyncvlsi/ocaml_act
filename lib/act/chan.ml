@@ -58,33 +58,31 @@ module Chan_ = struct
 
   type 'a t = { u : U.t } [@@deriving sexp_of]
 
-  let create ?loc (dtype : 'a Dtype.Wrap.t) : 'a t =
+  let create ?loc (dtype : 'a Dtype.t) : 'a t =
     { u = U.create dtype (Code_pos.value_or_psite loc) }
 end
 
-module Wrap = struct
-  module R = struct
-    module U = Chan_.U
+module R = struct
+  module U = Chan_.U
 
-    type 'a t = 'a Chan_.t = { u : U.t } [@@deriving sexp_of]
+  type 'a t = 'a Chan_.t = { u : U.t } [@@deriving sexp_of]
 
-    let create = Chan_.create
-  end
-
-  module W = struct
-    module U = Chan_.U
-
-    type 'a t = 'a Chan_.t = { u : U.t } [@@deriving sexp_of]
-
-    let create = Chan_.create
-  end
-
-  type 'a t = { r : 'a R.t; w : 'a W.t } [@@deriving sexp_of]
-
-  let create ?loc (dtype : 'a Dtype.Wrap.t) : 'a t =
-    let c = Chan_.create ?loc dtype in
-    { r = c; w = c }
+  let create = Chan_.create
 end
+
+module W = struct
+  module U = Chan_.U
+
+  type 'a t = 'a Chan_.t = { u : U.t } [@@deriving sexp_of]
+
+  let create = Chan_.create
+end
+
+type 'a t = { r : 'a R.t; w : 'a W.t } [@@deriving sexp_of]
+
+let create ?loc (dtype : 'a Dtype.t) : 'a t =
+  let c = Chan_.create ?loc dtype in
+  { r = c; w = c }
 
 module Ir = struct
   include Chan_

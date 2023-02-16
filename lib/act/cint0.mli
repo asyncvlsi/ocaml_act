@@ -9,18 +9,29 @@ include Stringable with type t := t
 val to_int_exn : t -> int
 val of_int : int -> t
 val bitwidth : t -> int
-val zero : t
-val one : t
-val ( + ) : t -> t -> t
-val ( - ) : t -> t -> t
-val ( * ) : t -> t -> t
-val ( / ) : t -> t -> t
-val ( % ) : t -> t -> t
-val shift_left : t -> t -> t
-val shift_right_logical : t -> t -> t
+val add : t -> t -> t
+val sub : t -> t -> t
+val mul : t -> t -> t
+val div : t -> t -> t
+val mod_ : t -> t -> t
+val left_shift : t -> amt:t -> t
+val right_shift : t -> amt:t -> t
 val bit_and : t -> t -> t
 val bit_or : t -> t -> t
 val bit_xor : t -> t -> t
 val pow : t -> t -> t
+val eq : t -> t -> bool
+val ne : t -> t -> bool
+val lt : t -> t -> bool
+val le : t -> t -> bool
+val gt : t -> t -> bool
+val ge : t -> t -> bool
 val clip : t -> bits:int -> t
+val add_wrap : t -> t -> bits:int -> t
 val sub_wrap : t -> t -> bits:int -> t
+val zero : t
+val one : t
+val two : t
+val three : t
+val four : t
+val five : t

@@ -6,22 +6,22 @@ module Internal_rep : sig
   module DType = Dtype.Ir
   module Expr = Expr.Ir
   module Mem = Mem.Ir
-  module Chp = Chp_node.Ir
+  module Chp = Chp.Ir
   module Var = Var.Ir
   module Layout = Layout
 end
 
 module Any = Any
-module Chan = Chan.Wrap
+module Chan = Chan
 module CInt = Cint
 module CBool = Cbool
 module Code_pos = Code_pos
-module DType = Dtype.Wrap
+module DType = Dtype
 module Enum = Enum
-module Expr = Expr.Wrap
-module Mem = Mem.Wrap
-module Chp = Chp_node.Wrap
-module Var = Var.Wrap
+module Expr = Expr
+module Mem = Mem
+module Chp = Chp
+module Var = Var
 module Vec = Vec
 
 val block11 :

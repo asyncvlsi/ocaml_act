@@ -29,27 +29,41 @@ let bitwidth t =
   if Bigint.equal t (of_int 0) then 1
   else Bigint.to_zarith_bigint t |> Z.numbits
 
-let zero = of_int 0
-let one = of_int 1
-let two = of_int 2
-let ( + ) a b = Bigint.(a + b)
+let add a b = Bigint.(a + b)
 
-let ( - ) a b =
+let sub a b =
   let r = Bigint.(a - b) in
   assert (Bigint.(r >= zero));
   r
 
-let ( * ) a b = Bigint.(a * b)
-let ( / ) a b = Bigint.(a / b)
-let ( % ) a b = Bigint.(a % b)
-let shift_left a b = Bigint.shift_left a (Bigint.to_int_exn b)
-let shift_right_logical a b = Bigint.( / ) a (Bigint.pow two b)
+let mul a b = Bigint.(a * b)
+let div a b = Bigint.(a / b)
+let mod_ a b = Bigint.(a % b)
+let zero = of_int 0
+let one = of_int 1
+let two = of_int 2
+let three = of_int 3
+let four = of_int 4
+let five = of_int 5
+let left_shift a ~amt:b = Bigint.shift_left a (Bigint.to_int_exn b)
+let right_shift a ~amt:b = Bigint.( / ) a (Bigint.pow two b)
 let bit_and a b = Bigint.bit_and a b
 let bit_or a b = Bigint.bit_or a b
 let bit_xor a b = Bigint.bit_xor a b
 let pow a b = Bigint.pow a b
-let clip t ~bits = bit_and t (pow two (of_int bits) - one)
-let sub_wrap a b ~bits = (b * pow two (of_int bits)) + a - b |> clip ~bits
+let eq a b = Bigint.equal a b
+let ne a b = not (eq a b)
+let lt a b = Bigint.(a < b)
+let le a b = Bigint.(a <= b)
+let gt a b = Bigint.(a > b)
+let ge a b = Bigint.(a >= b)
+let clip t ~bits = bit_and t (sub (pow two (of_int bits)) one)
+let add_wrap a b ~bits = add a b |> clip ~bits
+
+let sub_wrap a b ~bits =
+  (* TODO this could be better *)
+  let shift = mul b (pow two (of_int bits)) in
+  sub (add shift a) b |> clip ~bits
 
 let%expect_test "width" =
   let f i = print_s [%sexp ((i, bitwidth (of_int i)) : int * int)] in

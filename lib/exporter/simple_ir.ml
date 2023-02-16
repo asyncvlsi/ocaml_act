@@ -348,7 +348,7 @@ let of_ir ir ~user_sendable_ports ~user_readable_ports =
       | Sub_no_wrap (a, b) -> Sub_no_wrap (f a, f b)
       | Sub_wrap (a, b, bits) ->
           let p2bits =
-            Expr.Const (CInt.shift_left CInt.one (CInt.of_int bits))
+            Expr.Const CInt.(left_shift one ~amt:(CInt.of_int bits))
           in
           let a = Expr.BitOr (Expr.Clip (f a, bits), p2bits) in
           let b = Expr.Clip (f b, bits) in

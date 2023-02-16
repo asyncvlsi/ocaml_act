@@ -341,22 +341,22 @@ let step' t ~pc_idx =
       (match expr.ns.(!i) with
       | Var id -> reg.(!i) <- t.s.var_table.(id).value
       | Const c -> reg.(!i) <- c
-      | Add (a, b) -> reg.(!i) <- CInt.( + ) reg.(a) reg.(b)
-      | Sub_no_underflow (a, b) -> reg.(!i) <- CInt.( - ) reg.(a) reg.(b)
-      | Mul (a, b) -> reg.(!i) <- CInt.( * ) reg.(a) reg.(b)
-      | Div (a, b) -> reg.(!i) <- CInt.( / ) reg.(a) reg.(b)
-      | Mod (a, b) -> reg.(!i) <- CInt.( % ) reg.(a) reg.(b)
-      | LShift (a, b) -> reg.(!i) <- CInt.shift_left reg.(a) reg.(b)
-      | RShift (a, b) -> reg.(!i) <- CInt.shift_right_logical reg.(a) reg.(b)
+      | Add (a, b) -> reg.(!i) <- CInt.add reg.(a) reg.(b)
+      | Sub_no_underflow (a, b) -> reg.(!i) <- CInt.sub reg.(a) reg.(b)
+      | Mul (a, b) -> reg.(!i) <- CInt.mul reg.(a) reg.(b)
+      | Div (a, b) -> reg.(!i) <- CInt.div reg.(a) reg.(b)
+      | Mod (a, b) -> reg.(!i) <- CInt.mod_ reg.(a) reg.(b)
+      | LShift (a, b) -> reg.(!i) <- CInt.left_shift reg.(a) ~amt:reg.(b)
+      | RShift (a, b) -> reg.(!i) <- CInt.right_shift reg.(a) ~amt:reg.(b)
       | BitAnd (a, b) -> reg.(!i) <- CInt.bit_and reg.(a) reg.(b)
       | BitOr (a, b) -> reg.(!i) <- CInt.bit_or reg.(a) reg.(b)
       | BitXor (a, b) -> reg.(!i) <- CInt.bit_xor reg.(a) reg.(b)
-      | Eq (a, b) -> reg.(!i) <- CInt.equal reg.(a) reg.(b) |> of_bool
-      | Ne (a, b) -> reg.(!i) <- CInt.equal reg.(a) reg.(b) |> not |> of_bool
-      | Lt (a, b) -> reg.(!i) <- CInt.( < ) reg.(a) reg.(b) |> of_bool
-      | Le (a, b) -> reg.(!i) <- CInt.( <= ) reg.(a) reg.(b) |> of_bool
-      | Gt (a, b) -> reg.(!i) <- CInt.( > ) reg.(a) reg.(b) |> of_bool
-      | Ge (a, b) -> reg.(!i) <- CInt.( >= ) reg.(a) reg.(b) |> of_bool
+      | Eq (a, b) -> reg.(!i) <- CInt.eq reg.(a) reg.(b) |> of_bool
+      | Ne (a, b) -> reg.(!i) <- CInt.ne reg.(a) reg.(b) |> of_bool
+      | Lt (a, b) -> reg.(!i) <- CInt.lt reg.(a) reg.(b) |> of_bool
+      | Le (a, b) -> reg.(!i) <- CInt.le reg.(a) reg.(b) |> of_bool
+      | Gt (a, b) -> reg.(!i) <- CInt.gt reg.(a) reg.(b) |> of_bool
+      | Ge (a, b) -> reg.(!i) <- CInt.ge reg.(a) reg.(b) |> of_bool
       | Clip (a, bits) -> reg.(!i) <- CInt.clip reg.(a) ~bits
       | Assert (a, err_id) ->
           if CInt.equal reg.(a) CInt.one then ()

@@ -1,6 +1,9 @@
 open! Core
 
-module Wrap : sig
+type 'a t
+
+module Ir : sig
+  type 'a outer = 'a t
   type 'a t
 
   val create :
@@ -11,16 +14,12 @@ module Wrap : sig
     of_cint:(Cint0.t -> 'a option) ->
     layout:Layout.t ->
     expr_tag:'a Expr_tag.t ->
-    'a t
-end
-
-module Ir : sig
-  type 'a t
+    'a outer
 
   val dummy_val : Any.t t
-  val unwrap : 'a Wrap.t -> 'a t
+  val unwrap : 'a outer -> 'a t
   val untype : 'a t -> Any.t t
-  val untype' : 'a Wrap.t -> Any.t t
+  val untype' : 'a outer -> Any.t t
   val equal_ : 'a t -> 'a -> 'a -> bool
   val sexp_of_t_ : 'a t -> 'a -> Sexp.t
   val cint_of_value : 'a t -> 'a -> Cint0.t

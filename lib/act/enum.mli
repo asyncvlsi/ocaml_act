@@ -2,20 +2,20 @@ open! Core
 
 module type E_S = sig
   type elt
-  type t = elt Expr.Wrap.t
+  type t = elt Expr.t
 
-  val var : elt Var.Wrap.t -> elt Expr.Wrap.t
-  val const : elt -> elt Expr.Wrap.t
-  val eq : elt Expr.Wrap.t -> elt Expr.Wrap.t -> Cbool0.t Expr.Wrap.t
-  val to_int : elt Expr.Wrap.t -> Cint0.t Expr.Wrap.t
-  val of_int : Cint0.t Expr.Wrap.t -> elt Expr.Wrap.t
+  val var : elt Var.t -> elt Expr.t
+  val const : elt -> elt Expr.t
+  val eq : elt Expr.t -> elt Expr.t -> Cbool0.t Expr.t
+  val to_int : elt Expr.t -> Cint0.t Expr.t
+  val of_int : Cint0.t Expr.t -> elt Expr.t
 end
 
 module type Chp_S = sig
   type elt
-  type t = Chp_node.Wrap.t
+  type t = Chp.t
 
-  val match_ : elt Expr.Wrap.t -> f:(elt -> t) -> t
+  val match_ : elt Expr.t -> f:(elt -> t) -> t
 end
 
 module type S = sig
@@ -25,7 +25,7 @@ module type S = sig
   include Comparable with type t := t
   include Hashable with type t := t
 
-  val dtype : t Dtype.Wrap.t
+  val dtype : t Dtype.t
   val bitwidth : t -> int
   val to_int : t -> Cint0.t
   val of_int : Cint0.t -> t option

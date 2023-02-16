@@ -89,7 +89,7 @@ let cpu instrs ~ochan ~ichan =
   let set_pc_to_addr ~addr_high ~addr_low =
     let expr =
       CInt.E.(
-        lshift (var addr_high) ~amt:(cint 8)
+        left_shift (var addr_high) ~amt:(of_int 8)
         |> bit_or (var addr_low)
         |> clip ~bits:12)
     in
@@ -161,7 +161,7 @@ let cpu instrs ~ochan ~ichan =
                   pop ~dst:addr_low;
                   pop ~dst:flag;
                   CBool.Chp.match_
-                    CInt.E.(eq (var flag) (cint 0))
+                    CInt.E.(eq (var flag) (of_int 0))
                     ~f:(function
                       | true -> set_pc_to_addr ~addr_high ~addr_low
                       | false -> CInt.Chp.incr pc ~overflow:Cant);

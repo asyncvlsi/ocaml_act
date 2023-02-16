@@ -12,7 +12,7 @@ let%expect_test "test1" =
     let chan2 = Chan.create CInt.dtype_32 in
     Chp.seq
       [
-        Chp.assign var0 CInt.E.(cint 12345);
+        Chp.assign var0 CInt.E.(of_int 12345);
         Chp.par
           [
             Chp.loop [ Chp.send chan2.w CInt.E.(var var0) ];
@@ -93,17 +93,17 @@ let%expect_test "test2" =
     Chp.seq
       [
         Chp.while_loop
-          CInt.E.(ne (var var0) (cint 1))
+          CInt.E.(ne (var var0) (of_int 1))
           [
             CInt.Chp.assign var1
-              CInt.E.(var var1 |> add (cint 1))
+              CInt.E.(var var1 |> add (of_int 1))
               ~overflow:Cant;
             Chp.if_else
-              CInt.E.(mod_ (var var0) (cint 2) |> eq (cint 0))
-              [ Chp.assign var0 CInt.E.(div (var var0) (cint 2)) ]
+              CInt.E.(mod_ (var var0) (of_int 2) |> eq (of_int 0))
+              [ Chp.assign var0 CInt.E.(div (var var0) (of_int 2)) ]
               [
                 CInt.Chp.assign var0
-                  CInt.E.(var var0 |> mul (cint 3) |> add (cint 1))
+                  CInt.E.(var var0 |> mul (of_int 3) |> add (of_int 1))
                   ~overflow:Cant;
               ];
           ];
@@ -176,7 +176,7 @@ let%expect_test "test3" =
         Chp.log "recv 1\n";
         Chp.send chan2.w Expr.(var var1);
         Chp.log "send 1\n";
-        Chp.assert_ CInt.E.(var var1 |> eq (cint 200));
+        Chp.assert_ CInt.E.(var var1 |> eq (of_int 200));
         Chp.log "done\n";
       ]
   in
@@ -214,7 +214,7 @@ let%expect_test "test4" =
         Chp.log "recv 1\n";
         Chp.send chan2.w Expr.(var var1);
         Chp.log "send 1\n";
-        Chp.assert_ CInt.E.(var var1 |> eq (cint 210));
+        Chp.assert_ CInt.E.(var var1 |> eq (of_int 210));
         Chp.log "done\n";
       ]
   in
@@ -385,7 +385,7 @@ let%expect_test "mem" =
   let ir =
     Chp.seq
       [
-        Chp.read_ug_mem mem ~idx:CInt.E.(cint 3) ~dst:var1;
+        Chp.read_ug_mem mem ~idx:CInt.E.(of_int 3) ~dst:var1;
         Chp.log1 var1 ~f:CInt.to_string;
       ]
   in
@@ -423,7 +423,7 @@ let%expect_test "mem" =
   let ir =
     Chp.seq
       [
-        Chp.read_ug_mem mem ~idx:CInt.E.(cint 4) ~dst:var1;
+        Chp.read_ug_mem mem ~idx:CInt.E.(of_int 4) ~dst:var1;
         Chp.log1 var1 ~f:CInt.to_string;
       ]
   in
@@ -464,12 +464,12 @@ let%expect_test "mem" =
       [
         Chp.seq
           [
-            Chp.read_ug_mem mem ~idx:CInt.E.(cint 3) ~dst:var1;
+            Chp.read_ug_mem mem ~idx:CInt.E.(of_int 3) ~dst:var1;
             Chp.log1 var1 ~f:CInt.to_string;
           ];
         Chp.seq
           [
-            Chp.read_ug_mem mem ~idx:CInt.E.(cint 3) ~dst:var2;
+            Chp.read_ug_mem mem ~idx:CInt.E.(of_int 3) ~dst:var2;
             Chp.log1 var2 ~f:CInt.to_string;
           ];
       ]
@@ -512,7 +512,7 @@ let%expect_test "test probes" =
             Chp.wait_probe_w chan.w;
             Chp.log "B ";
             Chp.log "C ";
-            Chp.send chan.w CInt.E.(cint 3);
+            Chp.send chan.w CInt.E.(of_int 3);
             Chp.log "D ";
             Chp.log "E ";
             Chp.log "F ";

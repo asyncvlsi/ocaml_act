@@ -20,9 +20,9 @@ end
 module Chp : sig
   include Enum.Chp_S with type elt := t
 
-  type t = Chp_node.Wrap.t
+  type t = Chp.t
 
-  val toggle : ?loc:Code_pos.t -> Cbool0.t Var.Wrap.t -> t
-  val set_false : ?loc:Code_pos.t -> Cbool0.t Var.Wrap.t -> t
-  val set_true : ?loc:Code_pos.t -> Cbool0.t Var.Wrap.t -> t
+  val toggle : Cbool0.t Var.t -> t
+  val set_false : Cbool0.t Var.t -> t
+  val set_true : Cbool0.t Var.t -> t
 end

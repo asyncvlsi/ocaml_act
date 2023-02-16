@@ -18,11 +18,7 @@ end
 module Chan : sig
   module Id : Identifiable
 
-  type t = {
-    id : Id.t;
-    bitwidth : int;
-    creation_code_pos : Code_pos.t;
-  }
+  type t = { id : Id.t; bitwidth : int; creation_code_pos : Code_pos.t }
   [@@deriving sexp_of, hash, equal, compare]
 
   include Comparable with type t := t
@@ -57,7 +53,7 @@ module Expr : sig
   val bitwidth : 'v t -> bits_of_var:('v -> int) -> int
 end
 
-module Assert :sig
+module Assert : sig
   type t = {
     cond : Var.t Expr.t;
     log_e : Var.t Expr.t;
@@ -66,7 +62,7 @@ module Assert :sig
   [@@deriving sexp_of]
 end
 
-module Chp_stmt :sig
+module Chp_stmt : sig
   type t =
     | Nop
     | Log of Code_pos.t * Var.t Expr.t * (CInt.t -> string)
@@ -84,11 +80,11 @@ module Chp_stmt :sig
   [@@deriving sexp_of]
 end
 
-module Chp_proc :sig
+module Chp_proc : sig
   type t = Chp_stmt.t [@@deriving sexp_of]
 end
 
-module Mem_proc :sig
+module Mem_proc : sig
   type t = {
     init : CInt.t array;
     idx_bits : int;
@@ -100,8 +96,8 @@ module Mem_proc :sig
   [@@deriving sexp_of]
 end
 
-module Proc :sig
-  module K :sig
+module Proc : sig
+  module K : sig
     type t =
       | Chp of Chp_proc.t
       | Mem of Mem_proc.t

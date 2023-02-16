@@ -68,7 +68,7 @@ module Expr = struct
   let map_var_nodes e ~f =
     let rec h e =
       match e with
-      | Var v -> (f v)
+      | Var v -> f v
       | Const c -> Const c
       | Add (a, b) -> Add (h a, h b)
       | Sub_no_wrap (a, b) -> Add (h a, h b)
@@ -247,18 +247,15 @@ let of_ir ir ~user_sendable_ports ~user_readable_ports =
       | Ir.Expr.K.Add (a, b) -> Expr.Add (f a, f b)
       | Sub_no_wrap (a, b) ->
           let a, b = (f a, f b) in
-          let width_b =
-              Expr.bitwidth b ~bits_of_var:Var.bitwidth 
+          let width_b = Expr.bitwidth b ~bits_of_var:Var.bitwidth in
 
-
-          in
           let a_concat_b =
             Expr.BitOr (LShift (a, Const (CInt.of_int width_b)), b)
           in
           let msg i =
-            let b_mask = CInt.(pow (of_int 2) (of_int width_b) - of_int 1) in
+            let b_mask = CInt.(sub (pow two (of_int width_b)) one) in
             let b = CInt.bit_and i b_mask in
-            let a = CInt.shift_right_logical i (CInt.of_int width_b) in
+            let a = CInt.(right_shift i ~amt:(of_int width_b)) in
             [%string
               "Subtraction underflowed when computing %{a#CInt} - %{b#CInt}"]
           in
@@ -266,7 +263,7 @@ let of_ir ir ~user_sendable_ports ~user_readable_ports =
           Sub_no_wrap (a, b)
       | Sub_wrap (a, b, bits) ->
           let p2bits =
-            Expr.Const (CInt.shift_left CInt.one (CInt.of_int bits))
+            Expr.Const (CInt.left_shift CInt.one ~amt:(CInt.of_int bits))
           in
           let a = Expr.BitOr (Expr.Clip (f a, bits), p2bits) in
           let b = Expr.Clip (f b, bits) in
@@ -332,13 +329,16 @@ let of_ir ir ~user_sendable_ports ~user_readable_ports =
           cell_bits ))
   in
 
-
   let assert_fits_cond _dtype e =
-    let dummy_var = Act.Var.create (CInt.dtype ~bits:(Expr.bitwidth e ~bits_of_var:Var.bitwidth)) in
-    let dummy_expr = failwith "TODO" in 
+    let dummy_var =
+      Act.Var.create
+        (CInt.dtype ~bits:(Expr.bitwidth e ~bits_of_var:Var.bitwidth))
+    in
+    let dummy_expr = failwith "TODO" in
     (* DType.assert_fits_expr dtype ~dummy_var |> of_e in *)
     let dummy_var = of_v (Ir.Var.unwrap dummy_var).u in
-    Expr.map_var_nodes dummy_expr ~f:(fun v -> if Var.equal v dummy_var then e else Var v)
+    Expr.map_var_nodes dummy_expr ~f:(fun v ->
+        if Var.equal v dummy_var then e else Var v)
   in
 
   let rec of_n n =
@@ -396,7 +396,7 @@ let of_ir ir ~user_sendable_ports ~user_readable_ports =
         let assert_val_fits_in_var =
           {
             Assert.cond = assert_fits_cond var.d.dtype (Var (of_v var));
-            log_e =  (Var (of_v var));
+            log_e = Var (of_v var);
             log_fn = (fun _ -> failwith "TODO");
           }
         in
@@ -407,7 +407,8 @@ let of_ir ir ~user_sendable_ports ~user_readable_ports =
           match else_ with
           | Some _ ->
               let any_guard_true =
-                List.map guards ~f:fst |> List.reduce  ~f:(fun a b -> Expr.BitOr (a, b))
+                List.map guards ~f:fst
+                |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
                 |> Option.value ~default:(Expr.Const CInt.zero)
               in
               [ (Expr.BitXor (any_guard_true, Const CInt.one), []) ]
@@ -446,15 +447,15 @@ let of_ir ir ~user_sendable_ports ~user_readable_ports =
             log_e = idx;
             log_fn =
               (fun idx ->
-                 [%string
-                    "idx %{idx#CInt} is to big for array of length \
-                     %{array_len#Int}."]);
+                [%string
+                  "idx %{idx#CInt} is to big for array of length \
+                   %{array_len#Int}."]);
           }
         in
         let assert_val_fits_in_var =
           {
             Assert.cond = assert_fits_cond dst.d.dtype (Var (of_v dst));
-            log_e = (Var (of_v dst));
+            log_e = Var (of_v dst);
             log_fn = (fun _ -> failwith "TODO");
           }
         in
@@ -480,8 +481,8 @@ let of_ir ir ~user_sendable_ports ~user_readable_ports =
             log_fn =
               (fun idx ->
                 [%string
-                    "idx %{idx#CInt} is to big for array of length \
-                     %{array_len#Int}."]);
+                  "idx %{idx#CInt} is to big for array of length \
+                   %{array_len#Int}."]);
           }
         in
         let assert_val_fits_in_cell =

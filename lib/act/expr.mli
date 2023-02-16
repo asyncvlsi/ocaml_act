@@ -1,13 +1,63 @@
 open! Core
 
-module Wrap : sig
-  type 'a t [@@deriving sexp_of]
+type 'a t [@@deriving sexp_of]
 
-  val var : 'a Var.Wrap.t -> 'a t
-end
+val var : 'a Var.t -> 'a t
+val bool_of_int : Cint0.t t -> Cbool0.t t
+val int_of_bool : Cbool0.t t -> Cint0.t t
+
+val with_assert_log :
+  ?new_max_bits:int ->
+  assert_e:Cbool0.t t ->
+  val_e:'a t ->
+  log_e:'b t ->
+  ('b -> string) ->
+  'a t
+
+val of_bool : bool -> Cbool0.t t
+val of_int : int -> Cint0.t t
+val of_cint : Cint0.t -> Cint0.t t
+
+(* ops *)
+val add : Cint0.t t -> Cint0.t t -> Cint0.t t
+val sub : Cint0.t t -> Cint0.t t -> Cint0.t t
+val mul : Cint0.t t -> Cint0.t t -> Cint0.t t
+val div : Cint0.t t -> Cint0.t t -> Cint0.t t
+val mod_ : Cint0.t t -> Cint0.t t -> Cint0.t t
+val left_shift : Cint0.t t -> amt:Cint0.t t -> Cint0.t t
+val right_shift : Cint0.t t -> amt:Cint0.t t -> Cint0.t t
+val bit_and : Cint0.t t -> Cint0.t t -> Cint0.t t
+val bit_or : Cint0.t t -> Cint0.t t -> Cint0.t t
+val bit_xor : Cint0.t t -> Cint0.t t -> Cint0.t t
+val eq : Cint0.t t -> Cint0.t t -> Cbool0.t t
+val ne : Cint0.t t -> Cint0.t t -> Cbool0.t t
+val lt : Cint0.t t -> Cint0.t t -> Cbool0.t t
+val le : Cint0.t t -> Cint0.t t -> Cbool0.t t
+val gt : Cint0.t t -> Cint0.t t -> Cbool0.t t
+val ge : Cint0.t t -> Cint0.t t -> Cbool0.t t
+val clip : Cint0.t t -> bits:int -> Cint0.t t
+val add_wrap : Cint0.t t -> Cint0.t t -> bits:int -> Cint0.t t
+val sub_wrap : Cint0.t t -> Cint0.t t -> bits:int -> Cint0.t t
+val not_ : Cbool0.t t -> Cbool0.t t
+val and_ : Cbool0.t t -> Cbool0.t t -> Cbool0.t t
+val or_ : Cbool0.t t -> Cbool0.t t -> Cbool0.t t
+val xor_ : Cbool0.t t -> Cbool0.t t -> Cbool0.t t
+val bool_eq : Cbool0.t t -> Cbool0.t t -> Cbool0.t t
+val bool_ne : Cbool0.t t -> Cbool0.t t -> Cbool0.t t
+val zero : Cint0.t t
+val one : Cint0.t t
+val two : Cint0.t t
+val three : Cint0.t t
+val four : Cint0.t t
+val five : Cint0.t t
+val true_ : Cbool0.t t
+val false_ : Cbool0.t t
 
 module Ir : sig
   module Tag = Expr_tag
+
+  val cbool_tag : Cbool0.t Expr_tag.t
+  val cint_tag : Cint0.t Expr_tag.t
 
   module K : sig
     type t =
@@ -44,6 +94,7 @@ module Ir : sig
     [@@deriving sexp_of]
   end
 
+  type 'a outer = 'a t
   type 'a t = { k : K.t; tag : 'a Tag.t; max_bits : int } [@@deriving sexp_of]
 
   module U : sig
@@ -51,52 +102,8 @@ module Ir : sig
   end
 
   val max_layout : 'a t -> Layout.t
-  val unwrap : 'a Wrap.t -> 'a t
-  val wrap : 'a t -> 'a Wrap.t
+  val unwrap : 'a outer -> 'a t
+  val wrap : 'a t -> 'a outer
   val untype : 'a t -> U.t
-  val untype' : 'a Wrap.t -> U.t
-end
-
-module CBool : sig
-  val tag : Cbool0.t Expr_tag.t
-  val of_int : Cint0.t Wrap.t -> Cbool0.t Wrap.t
-  val to_int : Cbool0.t Wrap.t -> Cint0.t Wrap.t
-end
-
-val with_assert_log :
-  ?new_max_bits:int ->
-  assert_e:Cbool0.t Wrap.t ->
-  val_e:'a Wrap.t ->
-  log_e:'b Wrap.t ->
-  ('b -> string) ->
-  'a Wrap.t
-
-module CInt : sig
-  type nonrec t = Cint0.t Wrap.t [@@deriving sexp_of]
-
-  val var : Cint0.t Var.Wrap.t -> t
-  val const : Cint0.t -> t
-  val cint : int -> t
-  val tag : Cint0.t Expr_tag.t
-
-  (* ops *)
-  val add : t -> t -> t
-  val sub : t -> t -> t
-  val mul : t -> t -> t
-  val div : t -> t -> t
-  val mod_ : t -> t -> t
-  val lshift : t -> amt:t -> t
-  val rshift : t -> amt:t -> t
-  val bit_and : t -> t -> t
-  val bit_or : t -> t -> t
-  val bit_xor : t -> t -> t
-  val eq : t -> t -> Cbool0.t Wrap.t
-  val ne : t -> t -> Cbool0.t Wrap.t
-  val lt : t -> t -> Cbool0.t Wrap.t
-  val le : t -> t -> Cbool0.t Wrap.t
-  val gt : t -> t -> Cbool0.t Wrap.t
-  val ge : t -> t -> Cbool0.t Wrap.t
-  val clip : t -> bits:int -> t
-  val add_wrap : t -> t -> bits:int -> t
-  val sub_wrap : t -> t -> bits:int -> t
+  val untype' : 'a outer -> U.t
 end
