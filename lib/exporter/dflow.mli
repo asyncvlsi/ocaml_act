@@ -10,13 +10,12 @@ end
 module Stmt : sig
   type t =
     | Assign of Dflow_id.t * Dflow_id.t Expr.t
-    | Rename_assign of Dflow_id.t * Dflow_id.t
     | Split of Dflow_id.t * Dflow_id.t * Dflow_id.t option list
     | Merge of Dflow_id.t * Dflow_id.t list * Dflow_id.t
     | MergeBoolGuard of Dflow_id.t * (Dflow_id.t * Dflow_id.t) * Dflow_id.t
     | SplitBoolGuard of
         Dflow_id.t * Dflow_id.t * (Dflow_id.t option * Dflow_id.t option)
-    | Copy_init of Dflow_id.t * Dflow_id.t * Act.CInt.t
+    | Copy_init of (*dst *) Dflow_id.t * (*src*) Dflow_id.t * Act.CInt.t
   [@@deriving sexp_of]
 end
 

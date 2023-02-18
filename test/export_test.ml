@@ -572,7 +572,8 @@ let%expect_test "test probes" =
       ]
   in
   Exporter.export_chp ir ~user_sendable_ports:[] ~user_readable_ports:[];
-  [%expect{|
+  [%expect
+    {|
     defproc proc_0() {
       chan(int<32>) C0;
       int<32> v0;

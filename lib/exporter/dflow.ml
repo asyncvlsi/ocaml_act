@@ -15,7 +15,6 @@ end
 module Stmt = struct
   type t =
     | Assign of Dflow_id.t * Dflow_id.t Expr.t
-    | Rename_assign of Dflow_id.t * Dflow_id.t
     | Split of Dflow_id.t * Dflow_id.t * Dflow_id.t option list
     | Merge of Dflow_id.t * Dflow_id.t list * Dflow_id.t
     | MergeBoolGuard of Dflow_id.t * (Dflow_id.t * Dflow_id.t) * Dflow_id.t
@@ -277,13 +276,13 @@ let dflow_of_stf proc =
           List.concat_map splits ~f:(fun split ->
               List.filter_map split.out_vs ~f:Fn.id
               |> List.map ~f:(fun out_v ->
-                     Stmt.Rename_assign (of_v out_v, of_v split.in_v)))
+                     Stmt.Assign (of_v out_v, Var (of_v split.in_v))))
         in
         let merges =
           List.concat_map merges ~f:(fun merge ->
               List.filter_map merge.in_vs ~f:Fn.id
               |> List.map ~f:(fun in_v ->
-                     Stmt.Rename_assign (of_v merge.out_v, of_v in_v)))
+                     Stmt.Assign (of_v merge.out_v, Var (of_v in_v))))
         in
         let stmts = List.map stmts ~f:of_stmt in
         let alias_map =
@@ -410,4 +409,71 @@ let dflow_of_stf proc =
   in
   { Proc.stmt = dflow; iports; oports }
 
-let optimize_proc dflow = dflow
+let optimize_proc proc =
+  let eliminate_dead_code dflows ~oports =
+    let dependecies_of_id =
+      List.concat_map dflows ~f:(fun dflow ->
+          match dflow with
+          | Stmt.Assign (dst, e) ->
+              Expr.var_ids e |> List.map ~f:(fun src_id -> (dst, src_id))
+          | Split (g, v, os) ->
+              List.filter_opt os
+              |> List.concat_map ~f:(fun o -> [ (o, g); (o, v) ])
+          | Merge (g, ins, v) -> List.map (g :: ins) ~f:(fun i -> (v, i))
+          | MergeBoolGuard (g, (i1, i2), v) ->
+              List.map [ g; i1; i2 ] ~f:(fun i -> (v, i))
+          | SplitBoolGuard (g, v, (o1, o2)) ->
+              List.filter_opt [ o1; o2 ]
+              |> List.concat_map ~f:(fun o -> [ (o, g); (o, v) ])
+          | Copy_init (dst, src, _) -> [ (dst, src) ])
+      |> Dflow_id.Map.of_alist_multi
+    in
+    let alive = Dflow_id.Table.create () in
+    let queue = Queue.create () in
+    List.iter oports ~f:(fun (_, port) ->
+        Hashtbl.find_or_add alive port ~default:(fun () ->
+            Queue.enqueue queue port));
+    while Queue.length queue > 0 do
+      let id = Queue.dequeue_exn queue in
+      let deps = Map.find dependecies_of_id id |> Option.value ~default:[] in
+      List.iter deps ~f:(fun id ->
+          Hashtbl.find_or_add alive id ~default:(fun () ->
+              Queue.enqueue queue id))
+    done;
+    let alive = Hashtbl.keys alive |> Dflow_id.Set.of_list in
+    List.filter_map dflows ~f:(fun dflow ->
+        match dflow with
+        | Assign (dst, e) ->
+            if Set.mem alive dst then Some (Stmt.Assign (dst, e)) else None
+        | Split (g, v, os) ->
+            let os =
+              List.map os
+                ~f:
+                  (Option.bind ~f:(fun o ->
+                       if Set.mem alive o then Some o else None))
+            in
+            if List.exists os ~f:Option.is_some then Some (Split (g, v, os))
+            else None
+        | Merge (g, ins, v) ->
+            if Set.mem alive v then Some (Merge (g, ins, v)) else None
+        | MergeBoolGuard (g, (i1, i2), v) ->
+            if Set.mem alive v then Some (MergeBoolGuard (g, (i1, i2), v))
+            else None
+        | SplitBoolGuard (g, v, (o1, o2)) ->
+            let o1 =
+              Option.bind o1 ~f:(fun o ->
+                  if Set.mem alive o then Some o else None)
+            in
+            let o2 =
+              Option.bind o2 ~f:(fun o ->
+                  if Set.mem alive o then Some o else None)
+            in
+            if Option.is_some o1 || Option.is_some o2 then
+              Some (SplitBoolGuard (g, v, (o1, o2)))
+            else None
+        | Copy_init (dst, src, init) ->
+            if Set.mem alive dst then Some (Copy_init (dst, src, init))
+            else None)
+  in
+  let dflows = eliminate_dead_code proc.Proc.stmt ~oports:proc.oports in
+  { Proc.stmt = dflows; iports = proc.iports; oports = proc.oports }

@@ -177,7 +177,6 @@ module Dflow_exporter = struct
       List.concat_map ns ~f:(fun n ->
           match n with
           | Assign (v, e) -> v :: Expr.var_ids e
-          | Rename_assign (v1, v2) -> [ v1; v2 ]
           | Split (g, v, os) -> g :: v :: List.filter_opt os
           | Merge (g, ins, v) -> g :: v :: ins
           | MergeBoolGuard (g, (i1, i2), v) -> [ g; i1; i2; v ]
@@ -219,8 +218,6 @@ module Dflow_exporter = struct
       List.map ns ~f:(fun n ->
           match n with
           | Assign (v, e) -> [%string "  v%{v.id#Int} <- %{ee e};"]
-          | Rename_assign (v1, v2) ->
-              [%string "  v%{v1.id#Int} <- v%{v2.id#Int};"]
           | Split (g, v, os) ->
               let os = List.map os ~f:vvo |> String.concat ~sep:", " in
               [%string "  {v%{g.id#Int}} v%{v.id#Int} -> %{os};"]
