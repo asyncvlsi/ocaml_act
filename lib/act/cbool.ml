@@ -13,6 +13,7 @@ let dtype =
   Dtype.Ir.create ~equal ~sexp_of_t
     ~max_layout_of:(fun t -> Bits_fixed (bitwidth t))
     ~cint_of:(fun t -> to_int t)
+    ~of_cint_assert_expr_fn:(Expr0.Le (Var (), Const Cint0.one))
     ~of_cint:of_int ~layout:(Bits_fixed max_bitwidth) ~expr_tag
 
 module E = struct

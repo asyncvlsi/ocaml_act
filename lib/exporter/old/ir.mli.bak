@@ -2,14 +2,14 @@ open! Core
 open! Act
 
 module Code_pos : sig
-  type t
+  type t [@@deriving sexp]
 end
 
 module Var : sig
   module Id : Identifiable
 
   type t = { id : Id.t; bitwidth : int; creation_code_pos : Code_pos.t }
-  [@@deriving sexp_of, hash, equal, compare]
+  [@@deriving sexp, hash, equal, compare]
 
   include Comparable with type t := t
   include Hashable with type t := t
@@ -19,7 +19,7 @@ module Chan : sig
   module Id : Identifiable
 
   type t = { id : Id.t; bitwidth : int; creation_code_pos : Code_pos.t }
-  [@@deriving sexp_of, hash, equal, compare]
+  [@@deriving sexp, hash, equal, compare]
 
   include Comparable with type t := t
   include Hashable with type t := t
@@ -54,11 +54,16 @@ module Expr : sig
 end
 
 module Assert : sig
-  type t = {
-    cond : Var.t Expr.t;
-    log_e : Var.t Expr.t;
-    log_fn : CInt.t -> string;
-  }
+  module Err_msg : sig
+    type t =
+      | Eval_expr_failed of (Code_pos.t * (CInt.t -> string))
+      | Assert_failed of Code_pos.t
+      | Value_doesnt_fit of (Code_pos.t * [ `Var | `Chan | `Mem_cell ])
+      | Idx_out_of_bounds of (Code_pos.t * int)
+    [@@deriving sexp_of]
+  end
+
+  type t = { cond : Var.t Expr.t; log_e : Var.t Expr.t; msg : Err_msg.t }
   [@@deriving sexp_of]
 end
 
@@ -81,7 +86,11 @@ module Chp_stmt : sig
 end
 
 module Chp_proc : sig
-  type t = Chp_stmt.t [@@deriving sexp_of]
+  type t = { chp : Chp_stmt.t } [@@deriving sexp_of]
+end
+
+module Dflow_interface_for_chp_proc : sig
+  type t = { chp : Chp_stmt.t } [@@deriving sexp_of]
 end
 
 module Mem_proc : sig
@@ -100,13 +109,15 @@ module Proc : sig
   module K : sig
     type t =
       | Chp of Chp_proc.t
+      | Dflow_interface_for_chp of Dflow_interface_for_chp_proc.t
       | Mem of Mem_proc.t
       | INode of Chan.t * Act.Internal_rep.Chan.U.t
       | ONode of Chan.t * Act.Internal_rep.Chan.U.t
     [@@deriving sexp_of]
   end
 
-  type t = { k : K.t; in_chans : Chan.Set.t; out_chans : Chan.Set.t }
+  type t = { k : K.t }
+  (* in_chans : Chan.Set.t; out_chans : Chan.Set.t } *)
 end
 
 val of_program :

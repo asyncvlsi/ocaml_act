@@ -59,43 +59,12 @@ module Ir : sig
   val cbool_tag : Cbool0.t Expr_tag.t
   val cint_tag : Cint0.t Expr_tag.t
 
-  module K : sig
-    type t =
-      | Var of Var.Ir.U.t
-      | Const of Cint0.t
-      | Add of t * t
-      | Sub_no_wrap of t * t
-      | Sub_wrap of t * t * int
-      | Mul of t * t
-      | Div of t * t
-      | Mod of t * t
-      | LShift of t * t
-      | LogicalRShift of t * t
-      | BitAnd of t * t
-      | BitOr of t * t
-      | BitXor of t * t
-      | Eq of t * t
-      | Ne of t * t
-      | Lt of t * t
-      | Le of t * t
-      | Gt of t * t
-      | Ge of t * t
-      | Clip of t * int
-      (* This asserts that the first expression (which must have value 0 or 1) is 1, and then returns the second value.
-         In the simulator, if it is false, it calls the function for a nice error report. *)
-      | With_assert_log of
-          (* assert *) t
-          * (* value *) t
-          * (* log_input *) t
-          * (Cint0.t -> string)
-        (* It is undefined behavior for a act program to return Some from this function. In practice,
-           this is only checked in the simulator, and not used in simulation. If you want it used for
-           optimization, use With_assert or With_assert_log instead *)
-    [@@deriving sexp_of]
-  end
+  module K = Expr0
 
   type 'a outer = 'a t
-  type 'a t = { k : K.t; tag : 'a Tag.t; max_bits : int } [@@deriving sexp_of]
+
+  type 'a t = { k : Var.Ir.U.t K.t; tag : 'a Tag.t; max_bits : int }
+  [@@deriving sexp_of]
 
   module U : sig
     type nonrec t = Any.t t [@@deriving sexp_of]

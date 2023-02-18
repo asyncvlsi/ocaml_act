@@ -20,71 +20,44 @@ let%expect_test "test1" =
           ];
       ]
   in
-  let exporter =
-    Exporter.create ir ~user_sendable_ports:[] ~user_readable_ports:[]
-  in
-  ignore (exporter : Exporter.t);
+  Exporter.export_chp ir ~user_sendable_ports:[] ~user_readable_ports:[];
   [%expect
     {|
-    defproc my_proc() {
+    defproc proc_0() {
       chan(int<32>) C0;
       int<32> v0;
       int<32> v1;
-
-
     chp {
-
-
-    (v0 := 12345); (( *[C0!((v0))] ), (C0?v1))
+    (v0 := 0); (v1 := 0); (v0 := 12345); (( *[ C0!((v0)) <- bool(1) ] ), (C0?v1))
     }
+    }
+
+
+    defproc main() {
+
+
+    proc_0 proc_0_ ();
+
     } |}];
-  let exporter =
-    Exporter.create_dflow ir ~user_sendable_ports:[] ~user_readable_ports:[]
-  in
-  ignore (exporter : Exporter.dflow);
+  Exporter.export_chp ir ~user_sendable_ports:[] ~user_readable_ports:[];
   [%expect
     {|
-    (Par ()
-     ((Seq
-       ((Assign ((id 2) (bitwidth 32)) (Const 12345))
-        (Par
-         (((in_v ((id 2) (bitwidth 32))) (out_vs ((((id 4) (bitwidth 32))) ()))))
-         ((DoWhile
-           (((init_v (((id 4) (bitwidth 32))))
-             (body_in_v (((id 3) (bitwidth 32))))
-             (body_out_v (((id 3) (bitwidth 32)))) (out_v ())))
-           (Send ((id 0) (bitwidth 32)) (Var ((id 3) (bitwidth 32)))) (Const 1))
-          (Read ((id 0) (bitwidth 32)) ((id 5) (bitwidth 32))))
-         ())))
-      Nop)
-     ())
-    ((Assign ((id 0) (bitwidth 32)) (Const 12345))
-     (Rename_assign ((id 1) (bitwidth 32)) ((id 0) (bitwidth 32)))
-     (Assign ((id 2) (bitwidth 1)) (Const 1))
-     (Merge ((id 3) (bitwidth 1)) (((id 1) (bitwidth 32)) ((id 4) (bitwidth 32)))
-      ((id 5) (bitwidth 32)))
-     (Split ((id 2) (bitwidth 1)) ((id 5) (bitwidth 32))
-      (() (((id 4) (bitwidth 32)))))
-     (Copy_init ((id 3) (bitwidth 1)) ((id 2) (bitwidth 1)) 0)
-     (Assign ((id 6) (bitwidth 32)) (Var ((id 5) (bitwidth 32))))
-     (Copy_init ((id 7) (bitwidth 1)) ((id 8) (bitwidth 1)) 0)
-     (Assign ((id 8) (bitwidth 1))
-      (BitXor (Const 1) (Var ((id 7) (bitwidth 1)))))
-     (Assign ((id 10) (bitwidth 1)) (Var ((id 7) (bitwidth 1))))
-     (SplitBoolGuard ((id 10) (bitwidth 1)) ((id 11) (bitwidth 1))
-      (() (((id 13) (bitwidth 1)))))
-     (MergeBoolGuard ((id 10) (bitwidth 1))
-      (((id 2) (bitwidth 1)) ((id 13) (bitwidth 1))) ((id 12) (bitwidth 1)))
-     (Assign ((id 14) (bitwidth 1))
-      (BitOr (Var ((id 10) (bitwidth 1)))
-       (BitXor (Var ((id 11) (bitwidth 1))) (Const 1))))
-     (SplitBoolGuard ((id 14) (bitwidth 1)) ((id 10) (bitwidth 1))
-      (() (((id 9) (bitwidth 1)))))
-     (Copy_init ((id 11) (bitwidth 1)) ((id 12) (bitwidth 1)) 0)
-     (Assign ((id 16) (bitwidth 32)) (Var ((id 6) (bitwidth 32))))
-     (Copy_init ((id 15) (bitwidth 1)) ((id 17) (bitwidth 1)) 0)
-     (Assign ((id 17) (bitwidth 1))
-      (BitXor (Const 1) (Var ((id 15) (bitwidth 1)))))) |}]
+    defproc proc_0() {
+      chan(int<32>) C0;
+      int<32> v0;
+      int<32> v1;
+    chp {
+    (v0 := 0); (v1 := 0); (v0 := 12345); (( *[ C0!((v0)) <- bool(1) ] ), (C0?v1))
+    }
+    }
+
+
+    defproc main() {
+
+
+    proc_0 proc_0_ ();
+
+    } |}]
 
 let%expect_test "test2" =
   let ir =
@@ -110,24 +83,24 @@ let%expect_test "test2" =
         Chp.log1 var1 ~f:(fun v -> [%string "%{v#CInt}\n"]);
       ]
   in
-  let exporter =
-    Exporter.create ir ~user_sendable_ports:[] ~user_readable_ports:[]
-  in
-  ignore (exporter : Exporter.t);
+  Exporter.export_chp ir ~user_sendable_ports:[] ~user_readable_ports:[];
   [%expect
     {|
-    defproc my_proc() {
+    defproc proc_0() {
 
       int<32> v0;
       int<32> v1;
-
-
     chp {
-    v0 := 123456;
-        v1 := 1;
-
-     *[ bool(int((v0) != 1)) -> (v1 := (1 + (v1))); ([bool(int(0 = ((v0) % 2))) -> v0 := ((v0) / 2) [] else -> v0 := (1 + (3 * (v0)))]) ]
+    (v0 := 123456); (v1 := 1); ([(int((v0) != 1) + 1) = 1 ->  [true]  [] (int((v0) != 1) + 1) = 2 ->  *[ (v1 := (1 + (v1))); ([((int(0 = ((v0) % 2)) << 0) | ((int(0 = ((v0) % 2)) ^ 1) << 1)) = 1 -> v0 := ((v0) / 2) [] ((int(0 = ((v0) % 2)) << 0) | ((int(0 = ((v0) % 2)) ^ 1) << 1)) = 2 -> v0 := (1 + (3 * (v0)))]) <- bool(int((v0) != 1)) ] ])
     }
+    }
+
+
+    defproc main() {
+
+
+    proc_0 proc_0_ ();
+
     } |}]
 
 let%expect_test "test3" =
@@ -146,22 +119,24 @@ let%expect_test "test3" =
         Chp.log "done\n";
       ]
   in
-  let exporter =
-    Exporter.create ir ~user_sendable_ports:[ chan.w.u ] ~user_readable_ports:[]
-  in
-  ignore (exporter : Exporter.t);
+  Exporter.export_chp ir ~user_sendable_ports:[ chan.w.u ]
+    ~user_readable_ports:[];
   [%expect
     {|
-    defproc my_proc(chan?(int<9>) C0) {
+    defproc proc_0(chan!(int<9>) C0) {
 
       int<9> v0;
-
-
     chp {
-
-
-    (C0?v0); (C0?v0); (C0?v0)
+    (v0 := 0); (C0?v0); (C0?v0); (C0?v0)
     }
+    }
+
+
+    defproc main(chan?(int<9>) user_i0) {
+
+      chan(int<9>) c0;
+    proc_0 proc_0_ (c0);
+    c0 = user_i0;
     } |}]
 
 let%expect_test "test3" =
@@ -180,23 +155,26 @@ let%expect_test "test3" =
         Chp.log "done\n";
       ]
   in
-  let exporter =
-    Exporter.create ir ~user_sendable_ports:[ chan1.w.u ]
-      ~user_readable_ports:[ chan2.r.u ]
-  in
-  ignore (exporter : Exporter.t);
+  Exporter.export_chp ir ~user_sendable_ports:[ chan1.w.u ]
+    ~user_readable_ports:[ chan2.r.u ];
   [%expect
     {|
-    defproc my_proc(chan!(int<32>) C1; chan?(int<32>) C0) {
+    defproc proc_0(chan!(int<32>) C0; chan?(int<32>) C1) {
 
       int<32> v0;
-
-
     chp {
-
-
-    (C0?v0); (C1!((v0)))
+    (v0 := 0); (C0?v0); (C1!((v0)))
     }
+    }
+
+
+    defproc main(chan?(int<32>) user_i0;chan!(int<32>) user_o0) {
+
+      chan(int<32>) c0;
+      chan(int<32>) c1;
+    proc_0 proc_0_ (c0,c1);
+    c0 = user_i0;
+    c1 = user_o0;
     } |}]
 
 let%expect_test "test4" =
@@ -218,23 +196,26 @@ let%expect_test "test4" =
         Chp.log "done\n";
       ]
   in
-  let exporter =
-    Exporter.create ir ~user_sendable_ports:[ chan1.w.u ]
-      ~user_readable_ports:[ chan2.r.u ]
-  in
-  ignore (exporter : Exporter.t);
+  Exporter.export_chp ir ~user_sendable_ports:[ chan1.w.u ]
+    ~user_readable_ports:[ chan2.r.u ];
   [%expect
     {|
-      defproc my_proc(chan!(int<32>) C1; chan?(int<32>) C0) {
+      defproc proc_0(chan!(int<32>) C0; chan?(int<32>) C1) {
 
         int<32> v0;
-
-
       chp {
-
-
-      (C0?v0); (C1!((v0)))
+      (v0 := 0); (C0?v0); (C1!((v0)))
       }
+      }
+
+
+      defproc main(chan?(int<32>) user_i0;chan!(int<32>) user_o0) {
+
+        chan(int<32>) c0;
+        chan(int<32>) c1;
+      proc_0 proc_0_ (c0,c1);
+      c0 = user_i0;
+      c1 = user_o0;
       } |}]
 
 let%expect_test "test5" =
@@ -244,23 +225,26 @@ let%expect_test "test5" =
   let ir =
     Chp.loop [ Chp.read chan1.r var1; Chp.send chan2.w Expr.(var var1) ]
   in
-  let exporter =
-    Exporter.create ir ~user_sendable_ports:[ chan1.w.u ]
-      ~user_readable_ports:[ chan2.r.u ]
-  in
-  ignore (exporter : Exporter.t);
+  Exporter.export_chp ir ~user_sendable_ports:[ chan1.w.u ]
+    ~user_readable_ports:[ chan2.r.u ];
   [%expect
     {|
-    defproc my_proc(chan!(int<32>) C1; chan?(int<32>) C0) {
+    defproc proc_0(chan!(int<32>) C0; chan?(int<32>) C1) {
 
       int<32> v0;
-
-
     chp {
-
-
-     *[(C0?v0); (C1!((v0)))]
+    (v0 := 0); ( *[ (C0?v0); (C1!((v0))) <- bool(1) ] )
     }
+    }
+
+
+    defproc main(chan?(int<32>) user_i0;chan!(int<32>) user_o0) {
+
+      chan(int<32>) c0;
+      chan(int<32>) c1;
+    proc_0 proc_0_ (c0,c1);
+    c0 = user_i0;
+    c1 = user_o0;
     } |}]
 
 let split ~dtype i1 o1 o2 =
@@ -310,27 +294,30 @@ let%expect_test "test_buff 1" =
   let i = Chan.W.create dtype in
   let o = Chan.R.create dtype in
   let ir = block11 i o ~f:(fun i o -> buff ~depth:1 ~dtype i o) in
-  let exporter =
-    Exporter.create ir ~user_sendable_ports:[ i.u ] ~user_readable_ports:[ o.u ]
-  in
-  ignore (exporter : Exporter.t);
+  Exporter.export_chp ir ~user_sendable_ports:[ i.u ]
+    ~user_readable_ports:[ o.u ];
   [%expect
     {|
-    defproc my_proc(chan!(int<32>) C1; chan?(int<32>) C0) {
+    defproc proc_0(chan!(int<32>) C0; chan?(int<32>) C3) {
+      chan(int<32>) C1;
       chan(int<32>) C2;
-      chan(int<32>) C3;
       int<32> v0;
       int<1> v1;
-      int<32> v2;
-      int<1> v3;
-
-
+      int<1> v2;
+      int<32> v3;
     chp {
-    v1 := 0;
-        v3 := 0;
-
-    ( *[(C0?v2); ([bool((v3)) -> C2!((v2)) [] else -> C3!((v2))]); (v3 := int((v3) = 0))] ), ( *[([bool((v1)) -> C2?v0 [] else -> C3?v0]); (C1!((v0))); (v1 := int((v1) = 0))] )
+    (v3 := 0); (v2 := 0); (v0 := 0); (v1 := 0); (( *[ (C0?v0); ([(((v1) << 0) | (((v1) ^ 1) << 1)) = 1 -> C1!((v0)) [] (((v1) << 0) | (((v1) ^ 1) << 1)) = 2 -> C2!((v0))]); (v1 := int((v1) = 0)) <- bool(1) ] ), ( *[ ([(((v2) << 0) | (((v2) ^ 1) << 1)) = 1 -> C1?v3 [] (((v2) << 0) | (((v2) ^ 1) << 1)) = 2 -> C2?v3]); (C3!((v3))); (v2 := int((v2) = 0)) <- bool(1) ] ))
     }
+    }
+
+
+    defproc main(chan?(int<32>) user_i0;chan!(int<32>) user_o0) {
+
+      chan(int<32>) c0;
+      chan(int<32>) c1;
+    proc_0 proc_0_ (c0,c1);
+    c0 = user_i0;
+    c1 = user_o0;
     } |}]
 
 let%expect_test "test_buff 2" =
@@ -338,13 +325,12 @@ let%expect_test "test_buff 2" =
   let i = Chan.W.create dtype in
   let o = Chan.R.create dtype in
   let ir = block11 i o ~f:(fun i o -> buff ~depth:2 ~dtype i o) in
-  let exporter =
-    Exporter.create ir ~user_sendable_ports:[ i.u ] ~user_readable_ports:[ o.u ]
-  in
-  ignore (exporter : Exporter.t);
+  Exporter.export_chp ir ~user_sendable_ports:[ i.u ]
+    ~user_readable_ports:[ o.u ];
   [%expect
     {|
-    defproc my_proc(chan!(int<32>) C1; chan?(int<32>) C0) {
+    defproc proc_0(chan!(int<32>) C0; chan?(int<32>) C9) {
+      chan(int<32>) C1;
       chan(int<32>) C2;
       chan(int<32>) C3;
       chan(int<32>) C4;
@@ -352,31 +338,31 @@ let%expect_test "test_buff 2" =
       chan(int<32>) C6;
       chan(int<32>) C7;
       chan(int<32>) C8;
-      chan(int<32>) C9;
       int<32> v0;
       int<1> v1;
       int<32> v2;
       int<1> v3;
-      int<32> v4;
-      int<1> v5;
+      int<1> v4;
+      int<32> v5;
       int<32> v6;
       int<1> v7;
-      int<32> v8;
-      int<1> v9;
-      int<32> v10;
-      int<1> v11;
-
-
+      int<1> v8;
+      int<32> v9;
+      int<1> v10;
+      int<32> v11;
     chp {
-    v1 := 0;
-        v3 := 0;
-        v5 := 0;
-        v7 := 0;
-        v9 := 0;
-        v11 := 0;
-
-    ( *[(C0?v10); ([bool((v11)) -> C2!((v10)) [] else -> C4!((v10))]); (v11 := int((v11) = 0))] ), ( *[(C2?v8); ([bool((v9)) -> C8!((v8)) [] else -> C9!((v8))]); (v9 := int((v9) = 0))] ), ( *[([bool((v7)) -> C8?v6 [] else -> C9?v6]); (C3!((v6))); (v7 := int((v7) = 0))] ), ( *[(C4?v4); ([bool((v5)) -> C6!((v4)) [] else -> C7!((v4))]); (v5 := int((v5) = 0))] ), ( *[([bool((v3)) -> C6?v2 [] else -> C7?v2]); (C5!((v2))); (v3 := int((v3) = 0))] ), ( *[([bool((v1)) -> C3?v0 [] else -> C5?v0]); (C1!((v0))); (v1 := int((v1) = 0))] )
+    (v11 := 0); (v10 := 0); (v9 := 0); (v8 := 0); (v6 := 0); (v7 := 0); (v5 := 0); (v4 := 0); (v2 := 0); (v3 := 0); (v0 := 0); (v1 := 0); (( *[ (C0?v0); ([(((v1) << 0) | (((v1) ^ 1) << 1)) = 1 -> C1!((v0)) [] (((v1) << 0) | (((v1) ^ 1) << 1)) = 2 -> C2!((v0))]); (v1 := int((v1) = 0)) <- bool(1) ] ), ( *[ (C1?v2); ([(((v3) << 0) | (((v3) ^ 1) << 1)) = 1 -> C3!((v2)) [] (((v3) << 0) | (((v3) ^ 1) << 1)) = 2 -> C4!((v2))]); (v3 := int((v3) = 0)) <- bool(1) ] ), ( *[ ([(((v4) << 0) | (((v4) ^ 1) << 1)) = 1 -> C3?v5 [] (((v4) << 0) | (((v4) ^ 1) << 1)) = 2 -> C4?v5]); (C5!((v5))); (v4 := int((v4) = 0)) <- bool(1) ] ), ( *[ (C2?v6); ([(((v7) << 0) | (((v7) ^ 1) << 1)) = 1 -> C6!((v6)) [] (((v7) << 0) | (((v7) ^ 1) << 1)) = 2 -> C7!((v6))]); (v7 := int((v7) = 0)) <- bool(1) ] ), ( *[ ([(((v8) << 0) | (((v8) ^ 1) << 1)) = 1 -> C6?v9 [] (((v8) << 0) | (((v8) ^ 1) << 1)) = 2 -> C7?v9]); (C8!((v9))); (v8 := int((v8) = 0)) <- bool(1) ] ), ( *[ ([(((v10) << 0) | (((v10) ^ 1) << 1)) = 1 -> C5?v11 [] (((v10) << 0) | (((v10) ^ 1) << 1)) = 2 -> C8?v11]); (C9!((v11))); (v10 := int((v10) = 0)) <- bool(1) ] ))
     }
+    }
+
+
+    defproc main(chan?(int<32>) user_i0;chan!(int<32>) user_o0) {
+
+      chan(int<32>) c0;
+      chan(int<32>) c1;
+    proc_0 proc_0_ (c0,c1);
+    c0 = user_i0;
+    c1 = user_o0;
     } |}]
 
 let%expect_test "mem" =
@@ -392,29 +378,47 @@ let%expect_test "mem" =
         Chp.log1 var1 ~f:CInt.to_string;
       ]
   in
-  let exporter =
-    Exporter.create ir ~user_sendable_ports:[] ~user_readable_ports:[]
-  in
-  ignore (exporter : Exporter.t);
+  Exporter.export_chp ir ~user_sendable_ports:[] ~user_readable_ports:[];
   [%expect
     {|
-    template<pint N; pint LN;  pint W> defproc ram(chan?(int<1>) Op; chan?(int<LN>) Idx; chan?(int<W>) WValue; chan!(int<W>) RValue) {
-    int<W> mem[N]; int<1> op; int<LN> idx; int<W> tmp;
-    chp { *[ Op?op, Idx?idx;
-    [ op = 0 -> [ ([] i:N: idx = i -> RValue!(mem[i]) ) ]
-    []  op = 1 -> WValue?tmp; [ ([] i:N: idx = i -> mem[i] := tmp ) ] ] ]
-    } }
-
-    defproc my_proc() {
+    defproc proc_0(chan!(int<32>) C0; chan?(int<3>) C1) {
 
       int<32> v0;
-      ram<4, 2, 32> M0;
-
     chp {
-
-    (M0.Op!1, M0.Idx!0, M0.WValue!1); (M0.Op!1, M0.Idx!1, M0.WValue!2); (M0.Op!1, M0.Idx!2, M0.WValue!3); (M0.Op!1, M0.Idx!3, M0.WValue!4);
-    (M0.Op!0, M0.Idx!(3), M0.RValue?v0)
+    (v0 := 0); ((C1!((3 << 1))), (C0?v0))
     }
+    }
+
+    defproc proc_1(chan?(int<3>>) cmd_chan; chan?(int<32>>) read_chan) {
+
+    int<32> v[4];
+    int<3> cmd;
+    int<3> tmp;
+    chp {
+    v[0] := 1;v[1] := 2;v[2] := 3;v[3] := 4;
+    *[
+    cmd_chan?cmd;
+    [ cmd & 1 = 0 ->
+    [
+    ([]: j:4:  (cmd >> 1) = j   ->  tmp := v[j]  )
+    ];
+    read_chan!tmp
+    [] cmd & 1 = 1 ->
+    skip
+
+    ]
+    ]
+    }
+    }
+
+
+    defproc main() {
+
+      chan(int<32>) c0;
+      chan(int<3>) c1;
+    proc_0 proc_0_ (c0,c1);
+    proc_1 proc_1_ (c1,c0);
+
     } |}]
 
 let%expect_test "mem" =
@@ -430,29 +434,47 @@ let%expect_test "mem" =
         Chp.log1 var1 ~f:CInt.to_string;
       ]
   in
-  let exporter =
-    Exporter.create ir ~user_sendable_ports:[] ~user_readable_ports:[]
-  in
-  ignore (exporter : Exporter.t);
+  Exporter.export_chp ir ~user_sendable_ports:[] ~user_readable_ports:[];
   [%expect
     {|
-    template<pint N; pint LN;  pint W> defproc ram(chan?(int<1>) Op; chan?(int<LN>) Idx; chan?(int<W>) WValue; chan!(int<W>) RValue) {
-    int<W> mem[N]; int<1> op; int<LN> idx; int<W> tmp;
-    chp { *[ Op?op, Idx?idx;
-    [ op = 0 -> [ ([] i:N: idx = i -> RValue!(mem[i]) ) ]
-    []  op = 1 -> WValue?tmp; [ ([] i:N: idx = i -> mem[i] := tmp ) ] ] ]
-    } }
-
-    defproc my_proc() {
+    defproc proc_0(chan!(int<32>) C0; chan?(int<3>) C1) {
 
       int<32> v0;
-      ram<4, 2, 32> M0;
-
     chp {
-
-    (M0.Op!1, M0.Idx!0, M0.WValue!1); (M0.Op!1, M0.Idx!1, M0.WValue!2); (M0.Op!1, M0.Idx!2, M0.WValue!3); (M0.Op!1, M0.Idx!3, M0.WValue!4);
-    (M0.Op!0, M0.Idx!(4), M0.RValue?v0)
+    (v0 := 0); ((C1!((4 << 1))), (C0?v0))
     }
+    }
+
+    defproc proc_1(chan?(int<3>>) cmd_chan; chan?(int<32>>) read_chan) {
+
+    int<32> v[4];
+    int<3> cmd;
+    int<3> tmp;
+    chp {
+    v[0] := 1;v[1] := 2;v[2] := 3;v[3] := 4;
+    *[
+    cmd_chan?cmd;
+    [ cmd & 1 = 0 ->
+    [
+    ([]: j:4:  (cmd >> 1) = j   ->  tmp := v[j]  )
+    ];
+    read_chan!tmp
+    [] cmd & 1 = 1 ->
+    skip
+
+    ]
+    ]
+    }
+    }
+
+
+    defproc main() {
+
+      chan(int<32>) c0;
+      chan(int<3>) c1;
+    proc_0 proc_0_ (c0,c1);
+    proc_1 proc_1_ (c1,c0);
+
     } |}]
 
 let%expect_test "mem" =
@@ -477,30 +499,48 @@ let%expect_test "mem" =
           ];
       ]
   in
-  let exporter =
-    Exporter.create ir ~user_sendable_ports:[] ~user_readable_ports:[]
-  in
-  ignore (exporter : Exporter.t);
+  Exporter.export_chp ir ~user_sendable_ports:[] ~user_readable_ports:[];
   [%expect
     {|
-    template<pint N; pint LN;  pint W> defproc ram(chan?(int<1>) Op; chan?(int<LN>) Idx; chan?(int<W>) WValue; chan!(int<W>) RValue) {
-    int<W> mem[N]; int<1> op; int<LN> idx; int<W> tmp;
-    chp { *[ Op?op, Idx?idx;
-    [ op = 0 -> [ ([] i:N: idx = i -> RValue!(mem[i]) ) ]
-    []  op = 1 -> WValue?tmp; [ ([] i:N: idx = i -> mem[i] := tmp ) ] ] ]
-    } }
-
-    defproc my_proc() {
+    defproc proc_0(chan!(int<32>) C0; chan?(int<3>) C1) {
 
       int<32> v0;
       int<32> v1;
-      ram<4, 2, 32> M0;
-
     chp {
-
-    (M0.Op!1, M0.Idx!0, M0.WValue!1); (M0.Op!1, M0.Idx!1, M0.WValue!2); (M0.Op!1, M0.Idx!2, M0.WValue!3); (M0.Op!1, M0.Idx!3, M0.WValue!4);
-    ((M0.Op!0, M0.Idx!(3), M0.RValue?v0)), ((M0.Op!0, M0.Idx!(3), M0.RValue?v1))
+    (v0 := 0); (v1 := 0); ((C1!((3 << 1))), (C0?v0), (C1!((3 << 1))), (C0?v1))
     }
+    }
+
+    defproc proc_1(chan?(int<3>>) cmd_chan; chan?(int<32>>) read_chan) {
+
+    int<32> v[4];
+    int<3> cmd;
+    int<3> tmp;
+    chp {
+    v[0] := 1;v[1] := 2;v[2] := 3;v[3] := 4;
+    *[
+    cmd_chan?cmd;
+    [ cmd & 1 = 0 ->
+    [
+    ([]: j:4:  (cmd >> 1) = j   ->  tmp := v[j]  )
+    ];
+    read_chan!tmp
+    [] cmd & 1 = 1 ->
+    skip
+
+    ]
+    ]
+    }
+    }
+
+
+    defproc main() {
+
+      chan(int<32>) c0;
+      chan(int<3>) c1;
+    proc_0 proc_0_ (c0,c1);
+    proc_1 proc_1_ (c1,c0);
+
     } |}]
 
 let%expect_test "test probes" =
@@ -531,23 +571,29 @@ let%expect_test "test probes" =
           ];
       ]
   in
-  let exporter =
-    Exporter.create ir ~user_sendable_ports:[] ~user_readable_ports:[]
-  in
-  ignore (exporter : Exporter.t);
-  [%expect
-    {|
-    defproc my_proc() {
-      chan(int<32>) C0;
-      int<32> v0;
+  Exporter.export_chp ir ~user_sendable_ports:[] ~user_readable_ports:[];
+  [%expect.unreachable]
+[@@expect.uncaught_exn {|
+  (* CR expect_test_collector: This test expectation appears to contain a backtrace.
+     This is strongly discouraged as backtraces are fragile.
+     Please change this test to not include a backtrace. *)
 
-
-    chp {
-
-
-    (([ #C0]); (C0!(3))), (C0?v0)
-    }
-    } |}]
+  (Failure
+    "TODO - flat_program WaitUntilReadReady and WaitUntilSendReady are unimplemented")
+  Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
+  Called from Base__List.count_map in file "src/list.ml", line 481, characters 13-17
+  Called from Base__List.map in file "src/list.ml" (inlined), line 493, characters 15-31
+  Called from Exporter__Flat_program.of_chp.of_chp.of_n in file "lib/exporter/flat_program.ml", line 250, characters 27-48
+  Called from Base__List.count_map in file "src/list.ml", line 465, characters 13-17
+  Called from Base__List.map in file "src/list.ml" (inlined), line 493, characters 15-31
+  Called from Exporter__Flat_program.of_chp.of_chp.of_n in file "lib/exporter/flat_program.ml", line 249, characters 43-64
+  Called from Exporter__Flat_program.of_chp.of_chp in file "lib/exporter/flat_program.ml", line 418, characters 12-18
+  Called from Base__List.count_map in file "src/list.ml", line 462, characters 13-17
+  Called from Base__List.map in file "src/list.ml" (inlined), line 493, characters 15-31
+  Called from Exporter__Flat_program.of_program in file "lib/exporter/flat_program.ml", line 506, characters 4-325
+  Called from Exporter.export_program in file "lib/exporter/exporter.ml", line 5, characters 4-77
+  Called from My_test__Export_test.(fun) in file "test/export_test.ml", line 574, characters 2-72
+  Called from Expect_test_collector.Make.Instance_io.exec in file "collector/expect_test_collector.ml", line 262, characters 12-19 |}]
 
 module Op : sig
   type t = Add | Mul | And | Or [@@deriving sexp, equal, hash, compare]
@@ -613,23 +659,30 @@ end
 
 let%expect_test "mini cpu" =
   let ir, op, arg0, arg1, result = Mini_alu.alu in
-  let exporter =
-    Exporter.create ir ~user_sendable_ports:[ op.u; arg0.u; arg1.u ]
-      ~user_readable_ports:[ result.u ]
-  in
-  ignore (exporter : Exporter.t);
+  Exporter.export_chp ir ~user_sendable_ports:[ op.u; arg0.u; arg1.u ]
+    ~user_readable_ports:[ result.u ];
   [%expect
     {|
-    defproc my_proc(chan!(int<8>) C3; chan?(int<2>) C0; chan?(int<8>) C1; chan?(int<8>) C2) {
+    defproc proc_0(chan!(int<2>) C0; chan!(int<8>) C1; chan!(int<8>) C2; chan?(int<8>) C3) {
 
       int<2> v0;
       int<8> v1;
       int<8> v2;
-
-
     chp {
-
-
-     *[(C0?v0); ([bool(int(0 = (v0))) -> ((C1?v1), (C2?v2)); (C3!((((v1) + (v2)) & 255))) [] bool(int(1 = (v0))) -> ((C1?v1), (C2?v2)); (C3!((((v1) * (v2)) & 255))) [] bool(int(2 = (v0))) -> ((C1?v1), (C2?v2)); (C3!(((v1) & (v2)))) [] bool(int(3 = (v0))) -> ((C1?v1), (C2?v2)); (C3!(((v1) | (v2))))])]
+    (v0 := 0); (v1 := 0); (v2 := 0); ( *[ (C0?v0); ([((((int(0 = (v0)) << 0) | (int(1 = (v0)) << 1)) | (int(2 = (v0)) << 2)) | (int(3 = (v0)) << 3)) = 1 -> ((C1?v1), (C2?v2)); (C3!((((v1) + (v2)) & 255))) [] ((((int(0 = (v0)) << 0) | (int(1 = (v0)) << 1)) | (int(2 = (v0)) << 2)) | (int(3 = (v0)) << 3)) = 2 -> ((C1?v1), (C2?v2)); (C3!((((v1) * (v2)) & 255))) [] ((((int(0 = (v0)) << 0) | (int(1 = (v0)) << 1)) | (int(2 = (v0)) << 2)) | (int(3 = (v0)) << 3)) = 4 -> ((C1?v1), (C2?v2)); (C3!(((v1) & (v2)))) [] ((((int(0 = (v0)) << 0) | (int(1 = (v0)) << 1)) | (int(2 = (v0)) << 2)) | (int(3 = (v0)) << 3)) = 8 -> ((C1?v1), (C2?v2)); (C3!(((v1) | (v2))))]) <- bool(1) ] )
     }
+    }
+
+
+    defproc main(chan?(int<2>) user_i0;chan?(int<8>) user_i1;chan?(int<8>) user_i2;chan!(int<8>) user_o0) {
+
+      chan(int<2>) c0;
+      chan(int<8>) c1;
+      chan(int<8>) c2;
+      chan(int<8>) c3;
+    proc_0 proc_0_ (c0,c1,c2,c3);
+    c0 = user_i0;
+    c1 = user_i1;
+    c2 = user_i2;
+    c3 = user_o0;
     } |}]

@@ -62,11 +62,46 @@ end) : S with type t := X.t = struct
 
   let expr_tag = Expr_tag.create ~cint_of_value:to_int ~value_of_cint:of_int
 
+  let ok_cint_intervals =
+    let l =
+      List.map X.mapping ~f:snd |> Cint0.Set.of_list |> Core.Set.to_list
+      |> Array.of_list
+    in
+    Array.filter_mapi l ~f:(fun i v ->
+        if Int.(i > 0) && Cint0.equal l.(i - 1) Cint0.(sub v one) then None
+        else
+          let n = ref 1 in
+          let j = ref (i + 1) in
+          while
+            Int.(!j < Array.length l) && Cint0.(eq l.(!j) (add v (of_int !n)))
+          do
+            incr j;
+            incr n
+          done;
+          Some (v, !n))
+    |> Array.to_list
+
+  let of_cint_assert_expr_fn =
+    List.map ok_cint_intervals ~f:(fun (v, n) ->
+        match n with
+        | 1 -> Expr0.(Eq (Const v, Var ()))
+        | _ ->
+            if Cint0.equal v (Cint0.of_int 0) then
+              Expr0.(Lt (Var (), Const Cint0.(add v (of_int n))))
+            else
+              Expr0.(
+                BitAnd
+                  ( Le (Const v, Var ()),
+                    Lt (Var (), Const Cint0.(add v (of_int n))) )))
+    |> List.reduce ~f:(fun a b -> Expr0.(BitOr (a, b)))
+    |> Option.value_exn
+
   let dtype =
     Dtype.Ir.create ~equal ~sexp_of_t:X.sexp_of_t
       ~max_layout_of:(fun t -> Bits_fixed (bitwidth t))
       ~cint_of:(fun t -> to_int t)
-      ~of_cint:of_int ~layout:(Bits_fixed max_bitwidth) ~expr_tag
+      ~of_cint:of_int ~layout:(Bits_fixed max_bitwidth) ~of_cint_assert_expr_fn
+      ~expr_tag
 
   module E = struct
     type t = X.t Expr.t
@@ -76,28 +111,7 @@ end) : S with type t := X.t = struct
 
     let expr_of_int_expr i =
       let assert_e =
-        let l =
-          List.map X.mapping ~f:snd |> Cint0.Set.of_list |> Core.Set.to_list
-          |> Array.of_list
-        in
-        let l =
-          Array.filter_mapi l ~f:(fun i v ->
-              if Int.(i > 0) && Cint0.equal l.(i - 1) Cint0.(sub v one) then
-                None
-              else
-                let n = ref 1 in
-                let j = ref (i + 1) in
-                while
-                  Int.(!j < Array.length l)
-                  && Cint0.(eq l.(!j) (add v (of_int !n)))
-                do
-                  incr j;
-                  incr n
-                done;
-                Some (v, !n))
-          |> Array.to_list
-        in
-        List.map l ~f:(fun (v, n) ->
+        List.map ok_cint_intervals ~f:(fun (v, n) ->
             match n with
             | 1 -> Expr.(eq (of_cint v) i)
             | _ ->

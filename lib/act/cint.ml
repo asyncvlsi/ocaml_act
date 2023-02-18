@@ -6,7 +6,8 @@ let dtype ~bits =
     ~max_layout_of:(fun v -> Bits_fixed (bitwidth v))
     ~cint_of:(fun v -> v)
     ~of_cint:(fun v -> Some v)
-    ~layout:(Bits_fixed bits) ~expr_tag:Expr.Ir.cint_tag
+    ~of_cint_assert_expr_fn:(Expr0.Const Cint0.one) ~layout:(Bits_fixed bits)
+    ~expr_tag:Expr.Ir.cint_tag
 
 let dtype_8 = dtype ~bits:8
 let dtype_16 = dtype ~bits:16

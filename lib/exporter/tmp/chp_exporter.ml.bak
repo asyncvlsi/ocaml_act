@@ -67,7 +67,7 @@ let create ir ~user_sendable_ports ~user_readable_ports =
   assert (Set.inter user_readable_ports user_sendable_ports |> Set.is_empty);
 
   let all_vars =
-    let rec extract_expr (e : Ir.Expr.K.t) =
+    let rec extract_expr (e : Ir.Var.U.t Ir.Expr.K.t) =
       match e with
       | Ir.Expr.K.Add (a, b)
       | Sub_no_wrap (a, b)
@@ -269,7 +269,7 @@ let create ir ~user_sendable_ports ~user_readable_ports =
     let extract_var var = Map.find_exn all_vars var in
     let extract_chan chan = Map.find_exn all_chans chan in
     let extract_mem mem = Map.find_exn all_mems mem in
-    let rec ee (e : Ir.Expr.K.t) =
+    let rec ee (e : Ir.Var.U.t Ir.Expr.K.t) =
       match e with
       | Ir.Expr.K.Add (a, b) -> [%string "(%{ee a} + %{ee b})"]
       | Sub_no_wrap (a, b) -> [%string "(%{ee a} - %{ee b})"]

@@ -1,10 +1,12 @@
 open! Core
-open! Act
 
-type t = Chp_exporter.t
-type dflow = Dflow_exporter.t
+let export_program program ~user_sendable_ports ~user_readable_ports =
+  let flat_program =
+    Flat_program.of_program program ~user_sendable_ports ~user_readable_ports
+  in
+  let s = Opt_program.export_program flat_program in
+  printf "%s" s
 
-let create = Chp_exporter.create
-let create_dflow = Dflow_exporter.create
-let simple_ir_sim = Dflow_exporter.simple_ir_sim
-let stf_sim = Dflow_exporter.stf_sim
+let export_chp chp ~user_sendable_ports ~user_readable_ports =
+  let program = Act.Program.of_procs [ Act.Process.of_chp chp ] in
+  export_program program ~user_sendable_ports ~user_readable_ports

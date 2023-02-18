@@ -1,0 +1,28 @@
+open! Core
+module CInt = Act.CInt
+module Expr = Ir.Expr
+
+module Dflow_id : sig
+  type t = { id : int; bitwidth : int } [@@deriving sexp, hash, equal, compare]
+
+  include Comparable.S with type t := t
+  include Hashable.S with type t := t
+end
+
+module Dflow : sig
+  type t =
+    | Assign of Dflow_id.t * Dflow_id.t Expr.t
+    | Rename_assign of Dflow_id.t * Dflow_id.t
+    | Split of Dflow_id.t * Dflow_id.t * Dflow_id.t option list
+    | Merge of Dflow_id.t * Dflow_id.t list * Dflow_id.t
+    | MergeBoolGuard of Dflow_id.t * (Dflow_id.t * Dflow_id.t) * Dflow_id.t
+    | SplitBoolGuard of
+        Dflow_id.t * Dflow_id.t * (Dflow_id.t option * Dflow_id.t option)
+    | Copy_init of Dflow_id.t * Dflow_id.t * CInt.t
+    | INode of Ir.Chan.t * Dflow_id.t
+    | ONode of Ir.Chan.t * Dflow_id.t
+  [@@deriving sexp_of]
+end
+
+val dflow_of_stf : Stf.STF.t -> Dflow.t
+val optimize_dflow : Dflow.t -> Dflow.t

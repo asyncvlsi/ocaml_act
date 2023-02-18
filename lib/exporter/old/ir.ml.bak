@@ -1,12 +1,7 @@
 open! Core
 open! Act
 module Ir = Internal_rep
-
-module Code_pos = struct
-  include Code_pos
-
-  let to_string t = Sexp.to_string (sexp_of_t t)
-end
+module Code_pos = Code_pos
 
 module Var = struct
   module Id = Int
@@ -144,11 +139,16 @@ module Expr = struct
 end
 
 module Assert = struct
-  type t = {
-    cond : Var.t Expr.t;
-    log_e : Var.t Expr.t;
-    log_fn : CInt.t -> string;
-  }
+  module Err_msg = struct
+    type t =
+      | Eval_expr_failed of (Code_pos.t * (CInt.t -> string))
+      | Assert_failed of Code_pos.t
+      | Value_doesnt_fit of (Code_pos.t * [ `Var | `Chan | `Mem_cell ])
+      | Idx_out_of_bounds of (Code_pos.t * int)
+    [@@deriving sexp_of]
+  end
+
+  type t = { cond : Var.t Expr.t; log_e : Var.t Expr.t; msg : Err_msg.t }
   [@@deriving sexp_of]
 end
 
@@ -171,7 +171,11 @@ module Chp_stmt = struct
 end
 
 module Chp_proc = struct
-  type t = Chp_stmt.t [@@deriving sexp_of]
+  type t = { chp : Chp_stmt.t } [@@deriving sexp_of]
+end
+
+module Dflow_interface_for_chp_proc = struct
+  type t = { chp : Chp_stmt.t } [@@deriving sexp_of]
 end
 
 module Mem_proc = struct
@@ -190,45 +194,30 @@ module Proc = struct
   module K = struct
     type t =
       | Chp of Chp_proc.t
+      | Dflow_interface_for_chp of Dflow_interface_for_chp_proc.t
       | Mem of Mem_proc.t
       | INode of Chan.t * Act.Internal_rep.Chan.U.t
       | ONode of Chan.t * Act.Internal_rep.Chan.U.t
     [@@deriving sexp_of]
   end
 
-  type t = { k : K.t; in_chans : Chan.Set.t; out_chans : Chan.Set.t }
+  type t = { k : K.t }
+  (* in_chans : Chan.Set.t; out_chans : Chan.Set.t } *)
+end
+
+module Mem_with_proc_id = struct
+  module T = struct
+    type t = { mem : (Ir.Mem.t[@sexp.opaque]); proc_id : int }
+    [@@deriving hash, sexp, compare, equal]
+  end
+
+  include Hashable.Make (T)
+  include Comparable.Make (T)
+  include T
 end
 
 let of_program ir ~user_sendable_ports ~user_readable_ports =
-  (* TODO generalize *)
-  let n =
-    match Ir.Program.unwrap ir with
-    | [ Ir.Process.Dflow_iface_on_chp n ] -> n
-    | _ -> failwith "TODO"
-  in
-
-  let user_sendable_ports =
-    List.map user_sendable_ports ~f:Ir.Chan.unwrap_wu |> Ir.Chan.U.Set.of_list
-  in
-  let user_readable_ports =
-    List.map user_readable_ports ~f:Ir.Chan.unwrap_ru |> Ir.Chan.U.Set.of_list
-  in
-
-  (* let%map.Result () = check_n n ~user_sendable_ports ~user_readable_ports in *)
   let next_v_id = ref 0 in
-  let var_of_var = Ir.Var.U.Table.create () in
-  let new_var creation_code_pos bitwidth =
-    let id = !next_v_id in
-    incr next_v_id;
-    { Var.id; bitwidth; creation_code_pos }
-  in
-  let of_v v =
-    Hashtbl.find_or_add var_of_var v ~default:(fun () ->
-        let bitwidth =
-          match Ir.DType.layout v.d.dtype with Bits_fixed bitwidth -> bitwidth
-        in
-        new_var v.d.creation_code_pos bitwidth)
-  in
 
   let next_c_id = ref 0 in
   let chan_of_chan = Ir.Chan.U.Table.create () in
@@ -246,15 +235,13 @@ let of_program ir ~user_sendable_ports ~user_readable_ports =
         new_chan c.d.creation_code_pos bitwidth)
   in
 
-  let of_e e loc =
-    let asserts = Queue.create () in
+  let of_e0 e loc ~of_assert ~of_var =
     let rec f e =
       match e with
       | Ir.Expr.K.Add (a, b) -> Expr.Add (f a, f b)
       | Sub_no_wrap (a, b) ->
           let a, b = (f a, f b) in
           let width_b = Expr.bitwidth b ~bits_of_var:Var.bitwidth in
-
           let a_concat_b =
             Expr.BitOr (LShift (a, Const (CInt.of_int width_b)), b)
           in
@@ -265,7 +252,8 @@ let of_program ir ~user_sendable_ports ~user_readable_ports =
             [%string
               "Subtraction underflowed when computing %{a#CInt} - %{b#CInt}"]
           in
-          Queue.enqueue asserts (Expr.Ge (a, b), a_concat_b, msg);
+          let msg = Assert.Err_msg.Eval_expr_failed (loc, msg) in
+          of_assert (Expr.Ge (a, b), a_concat_b, msg);
           Sub_no_wrap (a, b)
       | Sub_wrap (a, b, bits) ->
           let p2bits =
@@ -288,7 +276,7 @@ let of_program ir ~user_sendable_ports ~user_readable_ports =
       | Le (a, b) -> Le (f a, f b)
       | Gt (a, b) -> Gt (f a, f b)
       | Ge (a, b) -> Ge (f a, f b)
-      | Var v -> Var (of_v v)
+      | Var v -> of_var v
       | Clip (e, bits) -> Clip (f e, bits)
       | Const c -> Const c
       | With_assert_log (a, v, l, ff) ->
@@ -296,22 +284,22 @@ let of_program ir ~user_sendable_ports ~user_readable_ports =
           let v = f v in
           let l = f l in
           let msg ll = [%string "Assertion failure: %{ff ll}"] in
-          Queue.enqueue asserts (a, l, msg);
+          let msg = Assert.Err_msg.Eval_expr_failed (loc, msg) in
+          of_assert (a, l, msg);
           v
     in
-    let e = f e.Ir.Expr.k in
-    let asserts =
-      Queue.to_list asserts
-      |> List.map ~f:(fun (cond, log_e, ff) ->
-             let log_fn vl =
-               [%string
-                 "Failed to evaluate expression on line %{loc#Code_pos}: %{ff \
-                  vl}"]
-             in
-             let assert_ = { Assert.cond; log_e; log_fn } in
-             Chp_stmt.Assert assert_)
+    f e
+  in
+
+  let of_e e loc ~of_v =
+    let asserts = Queue.create () in
+    let e =
+      of_e0 e.Ir.Expr.k loc
+        ~of_var:(fun v -> Var (of_v v))
+        ~of_assert:(fun (cond, log_e, msg) ->
+          Queue.enqueue asserts (Chp_stmt.Assert { Assert.cond; log_e; msg }))
     in
-    (e, asserts)
+    (e, Queue.to_list asserts)
   in
 
   (* This IR should encode as many runtime asserts in the tree as possible. The idea is to
@@ -319,9 +307,9 @@ let of_program ir ~user_sendable_ports ~user_readable_ports =
      or code generation, and so it must maintain lines of code for now. *)
 
   (* We pull each mem out into seperate process *)
-  let mems_table = Ir.Mem.Table.create () in
-  let chans_of_mem mem =
-    Hashtbl.find_or_add mems_table mem ~default:(fun () ->
+  let mems_table = Mem_with_proc_id.Table.create () in
+  let chans_of_mem proc_id mem =
+    Hashtbl.find_or_add mems_table { proc_id; mem } ~default:(fun () ->
         let idx_bits = mem.d.init |> Array.length |> Int.ceil_log2 in
         let cell_bits =
           match Ir.DType.layout mem.d.dtype with
@@ -335,211 +323,293 @@ let of_program ir ~user_sendable_ports ~user_readable_ports =
           cell_bits ))
   in
 
-  let assert_fits_cond _dtype e =
-    let dummy_var =
-      Act.Var.create
-        (CInt.dtype ~bits:(Expr.bitwidth e ~bits_of_var:Var.bitwidth))
-    in
-    let dummy_expr = failwith "TODO" in
-    (* DType.assert_fits_expr dtype ~dummy_var |> of_e in *)
-    let dummy_var = of_v (Ir.Var.unwrap dummy_var).u in
-    Expr.map_var_nodes dummy_expr ~f:(fun v ->
-        if Var.equal v dummy_var then e else Var v)
+  let assert_fits_cond dtype e =
+    (* TODO for now ignoring asserts here *)
+    let a = DType.Ir.of_cint_assert_expr_fn dtype in
+    of_e0 a Code_pos.dummy_loc ~of_var:(fun () -> e) ~of_assert:(fun _ -> ())
   in
 
-  let rec of_n n =
-    match n with
-    | Ir.Chp.Par (_, ns) -> Chp_stmt.Par (List.map ns ~f:of_n)
-    | Seq (_, ns) -> Seq (List.map ns ~f:of_n)
-    | Nop -> Nop
-    | Log (loc, s) -> Log (loc, Const CInt.zero, fun _ -> s)
-    | Log1 (loc, e, f) ->
-        let f cint =
-          Ir.Expr.Tag.value_of_cint e.tag cint |> Option.value_exn |> f
-        in
-        let e, asserts = of_e e loc in
-        Seq [ Seq asserts; Log (loc, e, f) ]
-    | Assert (loc, e) ->
-        let e, asserts = of_e e loc in
-        let log_fn _ = [%string "Assertion failure at %{loc#Code_pos}"] in
-        let assert_ = { Assert.cond = e; log_e = Const CInt.zero; log_fn } in
-        Seq [ Seq asserts; Assert assert_ ]
-    | Loop (loc, n) -> DoWhile (loc, of_n n, Expr.Const CInt.one)
-    | DoWhile (loc, seq, expr) ->
-        let expr, asserts = of_e expr loc in
-        DoWhile (loc, Seq [ of_n seq; Seq asserts ], expr)
-    | Assign (loc, id, expr) ->
-        let expr, asserts = of_e expr loc in
-        let assert_val_fits_in_var =
-          {
-            Assert.cond = assert_fits_cond id.d.dtype expr;
-            log_e = expr;
-            log_fn = (fun _ -> failwith "TODO");
-          }
-        in
-        Seq
-          [
-            Seq asserts;
-            Assert assert_val_fits_in_var;
-            Assign (loc, of_v id, expr);
-          ]
-    | Send (loc, chan, expr) ->
-        let expr, asserts = of_e expr loc in
-        let assert_val_fits_in_chan =
-          {
-            Assert.cond = assert_fits_cond chan.d.dtype expr;
-            log_e = expr;
-            log_fn = (fun _ -> failwith "TODO");
-          }
-        in
-        Seq
-          [
-            Seq asserts;
-            Assert assert_val_fits_in_chan;
-            Send (loc, of_c chan, expr);
-          ]
-    | Read (loc, chan, var) ->
-        let assert_val_fits_in_var =
-          {
-            Assert.cond = assert_fits_cond var.d.dtype (Var (of_v var));
-            log_e = Var (of_v var);
-            log_fn = (fun _ -> failwith "TODO");
-          }
-        in
-        ReadThenAssert (loc, of_c chan, of_v var, assert_val_fits_in_var)
-    | SelectImm (loc, branches, else_) ->
-        let guards = List.map branches ~f:(fun (guard, _) -> of_e guard loc) in
-        let else_guard =
-          match else_ with
-          | Some _ ->
-              let any_guard_true =
-                List.map guards ~f:fst
-                |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
-                |> Option.value ~default:(Expr.Const CInt.zero)
-              in
-              [ (Expr.BitXor (any_guard_true, Const CInt.one), []) ]
-          | None -> []
-        in
-        let guards, guard_asserts = guards @ else_guard |> List.unzip in
-        let stmts =
-          List.map branches ~f:snd @ Option.to_list else_ |> List.map ~f:of_n
-        in
-        (* TODO do this better *)
-        let guard_expr =
-          List.mapi guards ~f:(fun i guard ->
-              Expr.LShift (guard, Const (CInt.of_int i)))
-          |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
-          |> Option.value_exn
-        in
-        Seq (List.concat guard_asserts @ [ SelectImm (loc, guard_expr, stmts) ])
-    | WhileLoop (loc, expr, seq) ->
-        let expr, asserts = of_e expr loc in
-        let guard_expr = Expr.Add (expr, Const CInt.one) in
-        Seq
-          [
-            Seq asserts;
-            SelectImm
-              ( loc,
-                guard_expr,
-                [ Nop; DoWhile (loc, Seq [ of_n seq; Seq asserts ], expr) ] );
-          ]
-    | ReadUGMem (loc, mem, idx, dst) ->
-        let idx, asserts = of_e idx loc in
-        let cmd_chan, _, read_chan, _, _ = chans_of_mem mem in
-        let array_len = Array.length mem.d.init in
-        let assert_idx_in_bounds =
-          {
-            Assert.cond = Expr.(Lt (idx, Const (CInt.of_int array_len)));
-            log_e = idx;
-            log_fn =
-              (fun idx ->
-                [%string
-                  "idx %{idx#CInt} is to big for array of length \
-                   %{array_len#Int}."]);
-          }
-        in
-        let assert_val_fits_in_var =
-          {
-            Assert.cond = assert_fits_cond dst.d.dtype (Var (of_v dst));
-            log_e = Var (of_v dst);
-            log_fn = (fun _ -> failwith "TODO");
-          }
-        in
-        Seq
-          [
-            Seq asserts;
-            Assert assert_idx_in_bounds;
-            Par
-              [
-                Send (loc, cmd_chan, LShift (idx, Const CInt.one));
-                ReadThenAssert (loc, read_chan, of_v dst, assert_val_fits_in_var);
-              ];
-          ]
-    | WriteUGMem (loc, mem, idx, value) ->
-        let cmd_chan, write_chan, _, _, _ = chans_of_mem mem in
-        let idx, asserts1 = of_e idx loc in
-        let value, asserts2 = of_e value loc in
-        let array_len = Array.length mem.d.init in
-        let assert_idx_in_bounds =
-          {
-            Assert.cond = Expr.(Lt (idx, Const (CInt.of_int array_len)));
-            log_e = idx;
-            log_fn =
-              (fun idx ->
-                [%string
-                  "idx %{idx#CInt} is to big for array of length \
-                   %{array_len#Int}."]);
-          }
-        in
-        let assert_val_fits_in_cell =
-          {
-            Assert.cond = assert_fits_cond mem.d.dtype value;
-            log_e = value;
-            log_fn = (fun _ -> failwith "TODO");
-          }
-        in
-        Seq
-          [
-            Seq asserts1;
-            Seq asserts2;
-            Assert assert_idx_in_bounds;
-            Assert assert_val_fits_in_cell;
-            Par
-              [
-                Send
-                  ( loc,
-                    cmd_chan,
-                    BitOr (LShift (idx, Const CInt.one), Const CInt.one) );
-                Send (loc, write_chan, value);
-              ];
-          ]
-    | WaitUntilReadReady _ | WaitUntilSendReady _ ->
-        failwith "TODO - exporter bug. Should have checked this in is_dflowable"
+  let of_chp proc_id n =
+    let var_of_var = Ir.Var.U.Table.create () in
+    let new_var creation_code_pos bitwidth =
+      let id = !next_v_id in
+      incr next_v_id;
+      { Var.id; bitwidth; creation_code_pos }
+    in
+    let of_v v =
+      Hashtbl.find_or_add var_of_var v ~default:(fun () ->
+          let bitwidth =
+            match Ir.DType.layout v.d.dtype with
+            | Bits_fixed bitwidth -> bitwidth
+          in
+          new_var v.d.creation_code_pos bitwidth)
+    in
+    let of_e e loc = of_e e loc ~of_v in
+    let rec of_n n =
+      match n with
+      | Ir.Chp.Par (_, ns) -> Chp_stmt.Par (List.map ns ~f:of_n)
+      | Seq (_, ns) -> Seq (List.map ns ~f:of_n)
+      | Nop -> Nop
+      | Log (loc, s) -> Log (loc, Const CInt.zero, fun _ -> s)
+      | Log1 (loc, e, f) ->
+          let f cint =
+            Ir.Expr.Tag.value_of_cint e.tag cint |> Option.value_exn |> f
+          in
+          let e, asserts = of_e e loc in
+          Seq [ Seq asserts; Log (loc, e, f) ]
+      | Assert (loc, e) ->
+          let e, asserts = of_e e loc in
+          let assert_ =
+            {
+              Assert.cond = e;
+              log_e = Const CInt.zero;
+              msg = Assert_failed loc;
+            }
+          in
+          Seq [ Seq asserts; Assert assert_ ]
+      | Loop (loc, n) -> DoWhile (loc, of_n n, Expr.Const CInt.one)
+      | DoWhile (loc, seq, expr) ->
+          let expr, asserts = of_e expr loc in
+          DoWhile (loc, Seq [ of_n seq; Seq asserts ], expr)
+      | Assign (loc, id, expr) ->
+          let expr, asserts = of_e expr loc in
+          let assert_val_fits_in_var =
+            {
+              Assert.cond = assert_fits_cond id.d.dtype expr;
+              log_e = expr;
+              msg = Value_doesnt_fit (loc, `Var);
+            }
+          in
+          Seq
+            [
+              Seq asserts;
+              Assert assert_val_fits_in_var;
+              Assign (loc, of_v id, expr);
+            ]
+      | Send (loc, chan, expr) ->
+          let expr, asserts = of_e expr loc in
+          let assert_val_fits_in_chan =
+            {
+              Assert.cond = assert_fits_cond chan.d.dtype expr;
+              log_e = expr;
+              msg = Value_doesnt_fit (loc, `Chan);
+            }
+          in
+          Seq
+            [
+              Seq asserts;
+              Assert assert_val_fits_in_chan;
+              Send (loc, of_c chan, expr);
+            ]
+      | Read (loc, chan, var) ->
+          let assert_val_fits_in_var =
+            {
+              Assert.cond = assert_fits_cond var.d.dtype (Var (of_v var));
+              log_e = Var (of_v var);
+              msg = Value_doesnt_fit (loc, `Var);
+            }
+          in
+          ReadThenAssert (loc, of_c chan, of_v var, assert_val_fits_in_var)
+      | SelectImm (loc, branches, else_) ->
+          let guards =
+            List.map branches ~f:(fun (guard, _) -> of_e guard loc)
+          in
+          let else_guard =
+            match else_ with
+            | Some _ ->
+                let any_guard_true =
+                  List.map guards ~f:fst
+                  |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
+                  |> Option.value ~default:(Expr.Const CInt.zero)
+                in
+                [ (Expr.BitXor (any_guard_true, Const CInt.one), []) ]
+            | None -> []
+          in
+          let guards, guard_asserts = guards @ else_guard |> List.unzip in
+          let stmts =
+            List.map branches ~f:snd @ Option.to_list else_ |> List.map ~f:of_n
+          in
+          (* TODO do this better *)
+          let guard_expr =
+            List.mapi guards ~f:(fun i guard ->
+                Expr.LShift (guard, Const (CInt.of_int i)))
+            |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
+            |> Option.value_exn
+          in
+          Seq
+            (List.concat guard_asserts @ [ SelectImm (loc, guard_expr, stmts) ])
+      | WhileLoop (loc, expr, seq) ->
+          let expr, asserts = of_e expr loc in
+          let guard_expr = Expr.Add (expr, Const CInt.one) in
+          Seq
+            [
+              Seq asserts;
+              SelectImm
+                ( loc,
+                  guard_expr,
+                  [ Nop; DoWhile (loc, Seq [ of_n seq; Seq asserts ], expr) ] );
+            ]
+      | ReadUGMem (loc, mem, idx, dst) ->
+          let idx, asserts = of_e idx loc in
+          let cmd_chan, _, read_chan, _, _ = chans_of_mem proc_id mem in
+          let array_len = Array.length mem.d.init in
+          let assert_idx_in_bounds =
+            {
+              Assert.cond = Expr.(Lt (idx, Const (CInt.of_int array_len)));
+              log_e = idx;
+              msg = Idx_out_of_bounds (loc, array_len);
+            }
+          in
+          let assert_val_fits_in_var =
+            {
+              Assert.cond = assert_fits_cond dst.d.dtype (Var (of_v dst));
+              log_e = Var (of_v dst);
+              msg = Value_doesnt_fit (loc, `Var);
+            }
+          in
+          Seq
+            [
+              Seq asserts;
+              Assert assert_idx_in_bounds;
+              Par
+                [
+                  Send (loc, cmd_chan, LShift (idx, Const CInt.one));
+                  ReadThenAssert
+                    (loc, read_chan, of_v dst, assert_val_fits_in_var);
+                ];
+            ]
+      | WriteUGMem (loc, mem, idx, value) ->
+          let cmd_chan, write_chan, _, _, _ = chans_of_mem proc_id mem in
+          let idx, asserts1 = of_e idx loc in
+          let value, asserts2 = of_e value loc in
+          let array_len = Array.length mem.d.init in
+          let assert_idx_in_bounds =
+            {
+              Assert.cond = Expr.(Lt (idx, Const (CInt.of_int array_len)));
+              log_e = idx;
+              msg = Idx_out_of_bounds (loc, array_len);
+            }
+          in
+          let assert_val_fits_in_cell =
+            {
+              Assert.cond = assert_fits_cond mem.d.dtype value;
+              log_e = value;
+              msg = Value_doesnt_fit (loc, `Mem_cell);
+            }
+          in
+          Seq
+            [
+              Seq asserts1;
+              Seq asserts2;
+              Assert assert_idx_in_bounds;
+              Assert assert_val_fits_in_cell;
+              Par
+                [
+                  Send
+                    ( loc,
+                      cmd_chan,
+                      BitOr (LShift (idx, Const CInt.one), Const CInt.one) );
+                  Send (loc, write_chan, value);
+                ];
+            ]
+      | WaitUntilReadReady _ | WaitUntilSendReady _ ->
+          failwith
+            "TODO - exporter bug. Should have checked this in is_dflowable"
+    in
+    let n = of_n n in
+    (* Then add on all the initializers *)
+    (* This map conversion makes the order deterministic *)
+    let inits =
+      Hashtbl.to_alist var_of_var
+      |> Ir.Var.U.Map.of_alist_exn |> Map.to_alist
+      |> List.map ~f:(fun (var, var_id) ->
+             let init =
+               Option.map var.d.init ~f:(fun init ->
+                   Ir.DType.cint_of_value var.d.dtype init)
+               |> Option.value ~default:CInt.zero
+             in
+             Chp_stmt.Assign (Code_pos.dummy_loc, var_id, Const init))
+    in
+    Chp_stmt.Seq [ Seq inits; n ]
   in
-  let n = of_n n in
-  (* Then add on all the initializers *)
-  (* This map conversion makes the order deterministic *)
-  let inits =
-    Hashtbl.to_alist var_of_var
-    |> Ir.Var.U.Map.of_alist_exn |> Map.to_alist
-    |> List.map ~f:(fun (var, var_id) ->
-           let init =
-             Option.map var.d.init ~f:(fun init ->
-                 Ir.DType.cint_of_value var.d.dtype init)
-             |> Option.value ~default:CInt.zero
-           in
-           Chp_stmt.Assign (Code_pos.dummy_loc, var_id, Const init))
+
+  (* TODO generalize *)
+  let user_sendable_ports =
+    List.map user_sendable_ports ~f:Ir.Chan.unwrap_wu |> Ir.Chan.U.Set.of_list
   in
-  let n = Chp_stmt.Seq [ Seq inits; n ] in
-  let chp_proc =
-    { Proc.k = Chp n; in_chans = failwith "TODO"; out_chans = failwith "TODO" }
+  let user_readable_ports =
+    List.map user_readable_ports ~f:Ir.Chan.unwrap_ru |> Ir.Chan.U.Set.of_list
   in
+
+  let program = Ir.Program.unwrap ir in
+  (* let () =
+       match program with
+       | [ Ir.Process.Dflow_iface_on_chp _ ] -> ()
+       | _ -> failwith "TODO"
+     in
+  *)
+  let chp_procs =
+    List.mapi program ~f:(fun proc_id process ->
+        match process with
+        | Dflow_iface_on_chp chp ->
+            let chp = of_chp proc_id chp in
+            {
+              Proc.k =
+                Dflow_interface_for_chp { Dflow_interface_for_chp_proc.chp };
+              (* in_chans = failwith "TODO"; *)
+              (* out_chans = failwith "TODO"; *)
+            }
+        | Chp chp ->
+            let chp = of_chp proc_id chp in
+            {
+              Proc.k = Chp { Chp_proc.chp };
+              (* in_chans = failwith "TODO"; *)
+              (* out_chans = failwith "TODO"; *)
+            })
+  in
+
   let mem_procs =
     Hashtbl.to_alist mems_table
-    |> Ir.Mem.Map.of_alist_exn |> Map.to_alist
-    |> List.map
-         ~f:(fun (mem, (cmd_chan, write_chan, read_chan, idx_bits, cell_bits))
-            ->
+    |> List.map ~f:(fun ({ mem; proc_id }, chans) -> (mem, (proc_id, chans)))
+    |> Ir.Mem.Map.of_alist_multi
+    |> Map.map ~f:(fun l -> Int.Map.of_alist_exn l |> Map.data)
+    |> Map.to_alist
+    |> List.concat_map ~f:(fun (mem, chans) ->
+           let ( (cmd_chan, write_chan, read_chan, idx_bits, cell_bits),
+                 ctrl_procs ) =
+             match chans with
+             | [] -> failwith "unreachable"
+             | [ chans ] -> (chans, [])
+             | chans ->
+                 let chans, bits =
+                   List.map chans
+                     ~f:(fun
+                          (cmd_chan, write_chan, read_chan, idx_bits, cell_bits)
+                        ->
+                       ((cmd_chan, write_chan, read_chan), (idx_bits, cell_bits)))
+                   |> List.unzip
+                 in
+                 let idx_bits =
+                   bits |> List.unzip |> fst
+                   |> List.all_equal ~equal:Int.equal
+                   |> Option.value_exn
+                 in
+                 let cell_bits =
+                   bits |> List.unzip |> snd
+                   |> List.all_equal ~equal:Int.equal
+                   |> Option.value_exn
+                 in
+                 let cmd_chan = new_chan Code_pos.dummy_loc (idx_bits + 1) in
+                 let write_chan = new_chan Code_pos.dummy_loc cell_bits in
+                 let read_chan = new_chan Code_pos.dummy_loc cell_bits in
+                 let ctrl_proc =
+                   let _chans = chans in
+                   failwith "TODO"
+                 in
+                 ( (cmd_chan, write_chan, read_chan, idx_bits, cell_bits),
+                   [ ctrl_proc ] )
+           in
+
            let init =
              Array.map mem.d.init ~f:(fun init_val ->
                  Ir.DType.cint_of_value mem.d.dtype init_val)
@@ -554,11 +624,14 @@ let of_program ir ~user_sendable_ports ~user_readable_ports =
                read_chan;
              }
            in
-           {
-             Proc.k = Mem mem_proc;
-             in_chans = failwith "TODO";
-             out_chans = failwith "TODO";
-           })
+           let mem_proc =
+             {
+               Proc.k = Mem mem_proc;
+               (* in_chans = failwith "TODO"; *)
+               (* out_chans = failwith "TODO"; *)
+             }
+           in
+           mem_proc :: ctrl_procs)
   in
   let inodes =
     Set.to_list user_sendable_ports
@@ -566,8 +639,8 @@ let of_program ir ~user_sendable_ports ~user_readable_ports =
            let my_chan = Hashtbl.find_exn chan_of_chan chan in
            {
              Proc.k = INode (my_chan, chan);
-             in_chans = Chan.Set.empty;
-             out_chans = Chan.Set.singleton my_chan;
+             (* in_chans = Chan.Set.empty; *)
+             (* out_chans = Chan.Set.singleton my_chan; *)
            })
   in
   let onodes =
@@ -576,12 +649,11 @@ let of_program ir ~user_sendable_ports ~user_readable_ports =
            let my_chan = Hashtbl.find_exn chan_of_chan chan in
            {
              Proc.k = ONode (my_chan, chan);
-             in_chans = Chan.Set.singleton my_chan;
-             out_chans = Chan.Set.empty;
+             (* in_chans = Chan.Set.singleton my_chan; *)
+             (* out_chans = Chan.Set.empty; *)
            })
   in
-  let procs = List.concat [ [ chp_proc ]; mem_procs; inodes; onodes ] in
-  procs
+  List.concat [ chp_procs; mem_procs; inodes; onodes ]
 
 (* let check_n n ~user_sendable_ports ~user_readable_ports =
    (* assume n is a top-level statement. For now, we will just unilaterally impose

@@ -1,0 +1,255 @@
+open! Core
+module CInt = Act.CInt
+
+module Proc = struct
+  module K = struct
+    type t =
+      | Chp of Ir.Chp_proc.t
+      | Dflow of Dflow.Dflow.t
+      | Mem of Ir.Mem_proc.t
+      | INode of Ir.Chan.t * Act.Internal_rep.Chan.U.t
+      | ONode of Ir.Chan.t * Act.Internal_rep.Chan.U.t
+    [@@deriving sexp_of]
+  end
+
+  type t = { k : K.t }
+end
+
+let of_ir ir =
+  let procs =
+    List.map ir ~f:(fun v ->
+        match v.Ir.Proc.k with
+        | Ir.Proc.K.Chp chp_proc -> Proc.K.Chp chp_proc
+        | Dflow_interface_for_chp proc ->
+            let stf = Stf.stf_of_dflow_interface_for_chp_proc proc in
+            let stf = Stf.optimize_stf stf in
+            let dflow = Dflow.dflow_of_stf stf in
+            let dflow = Dflow.optimize_dflow dflow in
+            Dflow dflow
+        | Mem mem_proc -> Mem mem_proc
+        | INode (raw_chan, ichan) -> INode (raw_chan, ichan)
+        | ONode (raw_chan, ochan) -> ONode (raw_chan, ochan))
+  in
+  procs
+
+let export_chp_proc chp_proc ~proc_name =
+  (* let ir = Ir.Chp.unwrap ir |> flatten in
+     let user_sendable_ports =
+       List.map user_sendable_ports ~f:Ir.Chan.unwrap_wu |> Ir.Chan.U.Set.of_list
+     in
+     let user_readable_ports =
+       List.map user_readable_ports ~f:Ir.Chan.unwrap_ru |> Ir.Chan.U.Set.of_list
+     in
+     assert (Set.inter user_readable_ports user_sendable_ports |> Set.is_empty);
+  *)
+  let all_vars =
+    let rec extract_expr (e : Ir.Var.U.t Ir.Expr.K.t) = Ir.Expr.var_ids e in
+    let rec extract_n n =
+      match n with
+      | Ir.Chp_stmt.Par ns | Seq ns -> List.concat_map ns ~f:extract_n
+      | Assign (var_id, expr) -> var_id :: extract_expr expr
+      | Nop -> []
+      | Read (_, var_id) -> [ var_id ]
+      | Send (_, expr) -> extract_expr expr
+      | DoWhile (n, expr) -> extract_expr expr @ extract_n n
+      | SelectImm (guard, branches) ->
+          List.concat_map branches ~f:extract_n @ extract_expr guard
+      (* | ReadUGMem (_, idx, dst) -> dst :: extract_expr idx
+         | WriteUGMem (_, idx, value) -> extract_expr idx @ extract_expr value
+         | WaitUntilReadReady _ -> []
+         | WaitUntilSendReady _ -> [] *)
+    in
+    extract_n ir |> Ir.Var.U.Set.of_list
+  in
+
+  let all_chans =
+    let rec extract_n n =
+      match n with
+      | N.Par ns | Seq ns -> List.concat_map ns ~f:extract_n
+      | Nop -> []
+      | Assign (_, _) -> []
+      | Read (chan, _) -> [ chan ]
+      | Send (chan, _) -> [ chan ]
+      | DoWhile (n, _) -> extract_n n
+      | SelectImm (guard, branches) -> List.concat_map branches ~f:extract_n
+      (* | ReadUGMem (_, _, _) -> []
+         | WriteUGMem (_, _, _) -> []
+         | WaitUntilReadReady chan -> [ chan ]
+         | WaitUntilSendReady chan -> [ chan ] *)
+    in
+    extract_n ir |> Ir.Chan.U.Set.of_list
+    |> Set.union user_sendable_ports
+    |> Set.union user_readable_ports
+  in
+
+  let all_vars =
+    Set.to_list all_vars
+    |> List.mapi ~f:(fun i var -> (var, sprintf "v%d" i))
+    |> Ir.Var.U.Map.of_alist_exn
+  in
+  let all_chans =
+    Set.to_list all_chans
+    |> List.mapi ~f:(fun i chan -> (chan, sprintf "C%d" i))
+    |> Ir.Chan.U.Map.of_alist_exn
+  in
+
+  let decl_user_readable_ports =
+    Set.to_list user_readable_ports
+    |> List.map ~f:(fun port ->
+           let bitwidth =
+             match Ir.DType.layout port.d.dtype with
+             | Bits_fixed bitwidth -> bitwidth
+           in
+           let name = Map.find_exn all_chans port in
+           sprintf "chan!(int<%d>) %s" bitwidth name)
+  in
+  let decl_user_sendable_ports =
+    Set.to_list user_sendable_ports
+    |> List.map ~f:(fun port ->
+           let bitwidth =
+             match Ir.DType.layout port.d.dtype with
+             | Bits_fixed bitwidth -> bitwidth
+           in
+           let name = Map.find_exn all_chans port in
+           sprintf "chan?(int<%d>) %s" bitwidth name)
+  in
+  let decl_io_ports =
+    decl_user_readable_ports @ decl_user_sendable_ports
+    |> String.concat ~sep:"; "
+  in
+  let not_io_chans =
+    Set.diff (Map.key_set all_chans)
+      (Set.union user_readable_ports user_sendable_ports)
+  in
+  let decl_not_io_chans =
+    Set.to_list not_io_chans
+    |> List.map ~f:(fun chan ->
+           let bitwidth =
+             match Ir.DType.layout chan.d.dtype with
+             | Bits_fixed bitwidth -> bitwidth
+           in
+           let name = Map.find_exn all_chans chan in
+           sprintf "  chan(int<%d>) %s;" bitwidth name)
+    |> String.concat ~sep:"\n"
+  in
+  let decl_vars, init_vars =
+    Map.keys all_vars
+    |> List.map ~f:(fun var ->
+           let bitwidth =
+             match Ir.DType.layout var.d.dtype with
+             | Bits_fixed bitwidth -> bitwidth
+           in
+           let name = Map.find_exn all_vars var in
+           let decl = sprintf "  int<%d> %s;" bitwidth name in
+           let init =
+             Option.map var.d.init ~f:(fun init ->
+                 let init =
+                   Ir.DType.cint_of_value var.d.dtype init |> CInt.to_string
+                 in
+                 sprintf "%s := %s;" name init)
+           in
+           (decl, init))
+    |> List.unzip
+  in
+  let decl_vars = String.concat decl_vars ~sep:"\n" in
+  let init_vars = List.filter_opt init_vars |> String.concat ~sep:"\n    " in
+
+  let chp_code =
+    let extract_var var = Map.find_exn all_vars var in
+    let extract_chan chan = Map.find_exn all_chans chan in
+    let rec ee (e : Ir.Var.U.t Ir.Expr.K.t) =
+      match e with
+      | Ir.Expr.K.Add (a, b) -> [%string "(%{ee a} + %{ee b})"]
+      | Sub_no_wrap (a, b) -> [%string "(%{ee a} - %{ee b})"]
+      | Sub_wrap (a, b, bits) ->
+          [%string "int(int(%{ee a}, %{bits+1#Int}) - %{ee b}, %{bits#Int})"]
+      | Mul (a, b) -> [%string "(%{ee a} * %{ee b})"]
+      | Div (a, b) -> [%string "(%{ee a} / %{ee b})"]
+      | Mod (a, b) -> [%string "(%{ee a} % %{ee b})"]
+      | LShift (a, b) -> [%string "(%{ee a} << %{ee b})"]
+      | LogicalRShift (a, b) -> [%string "(%{ee a} >> %{ee b})"]
+      | BitAnd (a, b) -> [%string "(%{ee a} & %{ee b})"]
+      | BitOr (a, b) -> [%string "(%{ee a} | %{ee b})"]
+      | BitXor (a, b) -> [%string "(%{ee a} ^ %{ee b})"]
+      | Eq (a, b) -> [%string "int(%{ee a} = %{ee b})"]
+      | Ne (a, b) -> [%string "int(%{ee a} != %{ee b})"]
+      | Lt (a, b) -> [%string "int(%{ee a} < %{ee b})"]
+      | Le (a, b) -> [%string "int(%{ee a} <= %{ee b})"]
+      | Gt (a, b) -> [%string "int(%{ee a} > %{ee b})"]
+      | Ge (a, b) -> [%string "int(%{ee a} >= %{ee b})"]
+      | Var var_id -> [%string "(%{extract_var var_id})"]
+      | Clip (e, bits) -> [%string "int(%{ee e}, %{bits#Int})"]
+      | Const c -> [%string "%{c#CInt}"]
+    in
+    let extract_expr e = ee e.Ir.Expr.k in
+    let rec extract n =
+      match n with
+      | N.Par ns ->
+          List.map ns ~f:(fun n -> [%string "(%{extract n})"])
+          |> String.concat ~sep:", "
+      | Seq ns ->
+          List.map ns ~f:(fun n -> [%string "(%{extract n})"])
+          |> String.concat ~sep:"; "
+      | Assign (var_id, expr) ->
+          [%string "%{extract_var var_id} := %{extract_expr expr}"]
+      | Read (chan, var) -> [%string "%{extract_chan chan}?%{extract_var var}"]
+      | Send (chan, expr) ->
+          [%string "%{extract_chan chan}!(%{extract_expr expr})"]
+      | DoWhile (n, guard) ->
+          [%string " *[ %{extract n} <- bool(%{extract_expr guard}) ] "]
+      | SelectImm (branches, else_) ->
+          let branches =
+            List.map branches ~f:(fun (expr, n) ->
+                [%string "bool(%{extract_expr expr}) -> %{extract n}"])
+            @ (Option.map else_ ~f:(fun else_ ->
+                   [ [%string "else -> %{extract else_}"] ])
+              |> Option.value ~default:[])
+            |> String.concat ~sep:" [] "
+          in
+          [%string "[%{branches}]"]
+      | Nop -> " [true] "
+    in
+    extract ir
+  in
+  (* let mem_proc_decl =
+       let mem_proc =
+         [%string
+           "template<pint N; pint LN;  pint W> defproc ram(chan?(int<1>) Op; \
+            chan?(int<LN>) Idx; chan?(int<W>) WValue; chan!(int<W>) RValue) {\n\
+            int<W> mem[N]; int<1> op; int<LN> idx; int<W> tmp;\n\
+            chp { *[ Op?op, Idx?idx;\n\
+            [ op = 0 -> [ ([] i:N: idx = i -> RValue!(mem[i]) ) ]\n\
+            []  op = 1 -> WValue?tmp; [ ([] i:N: idx = i -> mem[i] := tmp ) ] ] ]\n\
+            } }\n\n"]
+       in
+       if Map.is_empty all_mems then "" else mem_proc
+     in *)
+  let s =
+    [%string
+      "defproc %{proc_name}(%{decl_io_ports}) {\n\
+       %{decl_not_io_chans}\n\
+       %{decl_vars}\n\
+       chp {\n\
+       %{init_vars}\n\
+       %{chp_code}\n\
+       }\n\
+       }"]
+  in
+  printf "%s" s;
+  s
+
+let export procs =
+  let header = "" in
+  (* First export each process *)
+  let procs =
+    List.map procs ~f:(fun proc ->
+        match proc with
+        | Proc.K.Chp chp_proc -> export_chp_proc chp_proc
+        | Dflow dflow_proc -> export_dflow_proc dflow_proc
+        | Mem mem_proc -> export_mem_proc mem_proc
+        | INode (raw_chan, ichan) -> export_inode raw_chan ichan
+        | ONode (raw_chan, ochan) -> export_onode raw_chan ochan)
+    |> String.concat ~sep:"\n\n"
+  in
+  let top_level_proc = failwith "TODO" in
+  String.concat ~sep:"\n\n" [ header; procs; top_level_proc ]

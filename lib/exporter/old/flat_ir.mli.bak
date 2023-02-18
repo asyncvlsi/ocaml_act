@@ -1,0 +1,19 @@
+open! Core
+open! Act
+
+module Proc : sig
+  module K : sig
+    type t =
+      | Chp of Ir.Chp_proc.t
+      | Dflow of Dflow.Dflow.t
+      | Mem of Ir.Mem_proc.t
+      | INode of Ir.Chan.t * Act.Internal_rep.Chan.U.t
+      | ONode of Ir.Chan.t * Act.Internal_rep.Chan.U.t
+    [@@deriving sexp_of]
+  end
+
+  type t = { k : K.t }
+  (* in_chans : Chan.Set.t; out_chans : Chan.Set.t } *)
+end
+
+val of_ir : Ir.Proc.t list -> Proc.t list

@@ -12,6 +12,7 @@ module Ir : sig
     max_layout_of:('a -> Layout.t) ->
     cint_of:('a -> Cint0.t) ->
     of_cint:(Cint0.t -> 'a option) ->
+    of_cint_assert_expr_fn:unit Expr0.t ->
     layout:Layout.t ->
     expr_tag:'a Expr_tag.t ->
     'a outer
@@ -23,6 +24,7 @@ module Ir : sig
   val equal_ : 'a t -> 'a -> 'a -> bool
   val sexp_of_t_ : 'a t -> 'a -> Sexp.t
   val cint_of_value : 'a t -> 'a -> Cint0.t
+  val of_cint_assert_expr_fn : 'a t -> unit Expr0.t
   val value_of_cint_exn : 'a t -> Cint0.t -> 'a
   val equal_fn : 'a t -> ('a -> 'a -> bool) Staged.t
   val sexp_of_t_fn : 'a t -> ('a -> Sexp.t) Staged.t
