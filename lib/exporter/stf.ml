@@ -72,10 +72,10 @@ module Proc = struct
 end
 
 let stf_of_dflowable_chp_proc proc =
-  assert proc.Flat_program.Chp.Proc.dflowable;
+  assert proc.Flat_chp.Proc.dflowable;
   (* then put the program in standard token form *)
-  let of_c (c : Flat_program.Chp.Chan.t) =
-    { Chan.id = Flat_program.Chp.Chan.Id.to_int c.id; bitwidth = c.bitwidth }
+  let of_c (c : Flat_chp.Chan.t) =
+    { Chan.id = Flat_chp.Chan.Id.to_int c.id; bitwidth = c.bitwidth }
   in
 
   let next_v_id = ref 0 in
@@ -87,14 +87,14 @@ let stf_of_dflowable_chp_proc proc =
           Hashtbl.find_or_add stf_id_of_raw_read_id v ~default:(fun () ->
               let id = !next_v_id in
               incr next_v_id;
-              { Var.id; bitwidth = v.Flat_program.Chp.Var.bitwidth })
+              { Var.id; bitwidth = v.Flat_chp.Var.bitwidth })
     in
     let of_v v = of_v' v ~stf_id_of_id ~stf_id_of_raw_read_id in
 
     let write_v' v ~stf_id_of_id =
       let id = !next_v_id in
       incr next_v_id;
-      let data = { Var.id; bitwidth = v.Flat_program.Chp.Var.bitwidth } in
+      let data = { Var.id; bitwidth = v.Flat_chp.Var.bitwidth } in
       Hashtbl.set stf_id_of_id ~key:v ~data;
       data
     in
@@ -128,12 +128,11 @@ let stf_of_dflowable_chp_proc proc =
     let of_e e = of_e' e ~stf_id_of_id ~stf_id_of_raw_read_id in
 
     match stmt with
-    | Flat_program.Chp.Stmt.Nop -> Stmt.Nop
-    | Log _ -> Nop
+    | Flat_chp.Stmt.Nop -> Stmt.Nop
     | Assert _ -> Nop
-    | Assign (_, v, e) -> Assign (write_v v, of_e e)
-    | Send (_, c, e) -> Send (of_c c, of_e e)
-    | ReadThenAssert (_, c, v, _) -> Read (of_c c, write_v v)
+    | Assign (v, e) -> Assign (write_v v, of_e e)
+    | Send (c, e) -> Send (of_c c, of_e e)
+    | ReadThenAssert (c, v, _) -> Read (of_c c, write_v v)
     | Seq stmts ->
         let stmts =
           List.map stmts ~f:(fun stmt ->
@@ -143,10 +142,8 @@ let stf_of_dflowable_chp_proc proc =
     | Par stmts ->
         let l =
           List.map stmts ~f:(fun stmt ->
-              let stf_id_of_id = Flat_program.Chp.Var.Table.create () in
-              let stf_id_of_raw_read_id =
-                Flat_program.Chp.Var.Table.create ()
-              in
+              let stf_id_of_id = Flat_chp.Var.Table.create () in
+              let stf_id_of_raw_read_id = Flat_chp.Var.Table.create () in
               let stmt = of_stmt stmt ~stf_id_of_id ~stf_id_of_raw_read_id in
               (stmt, stf_id_of_id, stf_id_of_raw_read_id))
         in
@@ -154,12 +151,12 @@ let stf_of_dflowable_chp_proc proc =
         let write_ids =
           List.concat_map l ~f:(fun (_, stf_id_of_id, _) ->
               Hashtbl.keys stf_id_of_id)
-          |> Flat_program.Chp.Var.Set.of_list
+          |> Flat_chp.Var.Set.of_list
         in
         let raw_read_ids =
           List.concat_map l ~f:(fun (_, _, stf_id_of_raw_read_id) ->
               Hashtbl.keys stf_id_of_raw_read_id)
-          |> Flat_program.Chp.Var.Set.of_list
+          |> Flat_chp.Var.Set.of_list
         in
         (* print_s [%sexp (("pre_split stf_id_of_raw_read_id", stf_id_of_raw_read_id): string * Var.t Var.Table.t )]; *)
         (* print_s [%sexp (("pre_split stf_id_of_id", stf_id_of_id): string * Var.t Var.Table.t)]; *)
@@ -186,14 +183,12 @@ let stf_of_dflowable_chp_proc proc =
         (* print_s [%sexp (("splits", raw_read_ids, splits): string * Var.Set.t * Stmt.Par_split.t list)]; *)
         (* print_s [%sexp (("merges", merges): string * Stmt.Par_merge.t list)]; *)
         Par (splits, stmts, merges)
-    | SelectImm (_, gaurd_expr, branches) ->
+    | SelectImm (gaurd_expr, branches) ->
         let gaurd_expr = of_e gaurd_expr in
         let l =
           List.map branches ~f:(fun stmt ->
-              let stf_id_of_id = Flat_program.Chp.Var.Table.create () in
-              let stf_id_of_raw_read_id =
-                Flat_program.Chp.Var.Table.create ()
-              in
+              let stf_id_of_id = Flat_chp.Var.Table.create () in
+              let stf_id_of_raw_read_id = Flat_chp.Var.Table.create () in
               let stmt = of_stmt stmt ~stf_id_of_id ~stf_id_of_raw_read_id in
               (stmt, stf_id_of_id, stf_id_of_raw_read_id))
         in
@@ -201,7 +196,7 @@ let stf_of_dflowable_chp_proc proc =
         let write_ids =
           List.concat_map l ~f:(fun (_, stf_id_of_id, _) ->
               Hashtbl.keys stf_id_of_id)
-          |> Flat_program.Chp.Var.Set.of_list
+          |> Flat_chp.Var.Set.of_list
         in
         (* every branch must either write the write_id or have it as a raw read. If not, add it as a raw read *)
         let merges' =
@@ -217,7 +212,7 @@ let stf_of_dflowable_chp_proc proc =
         let raw_read_ids =
           List.concat_map l ~f:(fun (_, _, stf_id_of_raw_read_id) ->
               Hashtbl.keys stf_id_of_raw_read_id)
-          |> Flat_program.Chp.Var.Set.of_list
+          |> Flat_chp.Var.Set.of_list
         in
         let splits =
           Set.to_list raw_read_ids
@@ -235,9 +230,9 @@ let stf_of_dflowable_chp_proc proc =
               { Select_merge.in_vs; out_v })
         in
         SelectImm (gaurd_expr, splits, branches, merges)
-    | DoWhile (_, stmt, guard) ->
-        let stf_id_of_id' = Flat_program.Chp.Var.Table.create () in
-        let stf_id_of_raw_read_id' = Flat_program.Chp.Var.Table.create () in
+    | DoWhile (stmt, guard) ->
+        let stf_id_of_id' = Flat_chp.Var.Table.create () in
+        let stf_id_of_raw_read_id' = Flat_chp.Var.Table.create () in
         let stmt =
           of_stmt stmt ~stf_id_of_id:stf_id_of_id'
             ~stf_id_of_raw_read_id:stf_id_of_raw_read_id'
@@ -248,7 +243,7 @@ let stf_of_dflowable_chp_proc proc =
         in
         let phis =
           Hashtbl.keys stf_id_of_id' @ Hashtbl.keys stf_id_of_raw_read_id'
-          |> Flat_program.Chp.Var.Set.of_list |> Set.to_list
+          |> Flat_chp.Var.Set.of_list |> Set.to_list
           |> List.map ~f:(fun var_id ->
                  let body_read = Hashtbl.find stf_id_of_raw_read_id' var_id in
                  let body_write = Hashtbl.find stf_id_of_id' var_id in
@@ -283,10 +278,10 @@ let stf_of_dflowable_chp_proc proc =
         in
         DoWhile (phis, stmt, guard)
   in
-  let stf_id_of_id = Flat_program.Chp.Var.Table.create () in
-  let stf_id_of_raw_read_id = Flat_program.Chp.Var.Table.create () in
+  let stf_id_of_id = Flat_chp.Var.Table.create () in
+  let stf_id_of_raw_read_id = Flat_chp.Var.Table.create () in
   let stmt =
-    of_stmt proc.Flat_program.Chp.Proc.stmt ~stf_id_of_id ~stf_id_of_raw_read_id
+    of_stmt proc.Flat_chp.Proc.stmt ~stf_id_of_id ~stf_id_of_raw_read_id
   in
   assert (Hashtbl.is_empty stf_id_of_raw_read_id);
   let iports =

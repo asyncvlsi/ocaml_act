@@ -1,0 +1,60 @@
+open! Core
+
+module Var : sig
+  module Id = Int
+
+  type t = { id : Id.t; bitwidth : int } [@@deriving sexp, hash, equal, compare]
+
+  include Comparable with type t := t
+  include Hashable with type t := t
+
+  val bitwidth : t -> int
+end
+
+module Chan : sig
+  module Id = Int
+
+  type t = { id : Id.t; bitwidth : int } [@@deriving sexp, hash, equal, compare]
+
+  include Comparable with type t := t
+  include Hashable with type t := t
+end
+
+module Stmt : sig
+  type t =
+    | Nop
+    | Assert of Var.t Expr.t
+    | Assign of Var.t * Var.t Expr.t
+    | Seq of t list
+    | Par of t list
+    (* assert happens immediatly after read before any other code runs *)
+    | ReadThenAssert of Chan.t * Var.t * Var.t Expr.t
+    | Send of Chan.t * Var.t Expr.t
+    | DoWhile of t * Var.t Expr.t
+      (* This expr is a one-hot vector with List.length branches bits
+          indexing into the list of branches *)
+    | SelectImm of Var.t Expr.t * t list
+  [@@deriving sexp_of]
+
+  val flatten : t -> t
+end
+
+module Proc : sig
+  type t = {
+    dflowable : bool;
+    stmt : Stmt.t;
+    iports : (Interproc_chan.t * Chan.t) list;
+    oports : (Interproc_chan.t * Chan.t) list;
+  }
+  [@@deriving sexp_of]
+end
+
+val of_chp :
+  Act.Internal_rep.Chp.t ->
+  new_interproc_chan:(int -> Interproc_chan.t) ->
+  interproc_chan_of_ir_chan:(Act.Internal_rep.Chan.U.t -> Interproc_chan.t) ->
+  dflowable:bool ->
+  Proc.t
+  * ((Interproc_chan.t * Interproc_chan.t option * Interproc_chan.t option)
+    * (int * int))
+    Act.Mem.Ir.Map.t

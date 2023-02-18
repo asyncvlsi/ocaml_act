@@ -63,5 +63,5 @@ module Proc : sig
   [@@deriving sexp_of]
 end
 
-val stf_of_dflowable_chp_proc : Flat_program.Chp.Proc.t -> Proc.t
+val stf_of_dflowable_chp_proc : Flat_chp.Proc.t -> Proc.t
 val optimize_proc : Proc.t -> Proc.t

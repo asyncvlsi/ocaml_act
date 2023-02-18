@@ -410,4 +410,4 @@ let dflow_of_stf proc =
   in
   { Proc.stmt = dflow; iports; oports }
 
-let optimize_dflow dflow = dflow
+let optimize_proc dflow = dflow

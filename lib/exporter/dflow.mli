@@ -30,4 +30,4 @@ module Proc : sig
 end
 
 val dflow_of_stf : Stf.Proc.t -> Proc.t
-val optimize_dflow : Proc.t -> Proc.t
+val optimize_proc : Proc.t -> Proc.t

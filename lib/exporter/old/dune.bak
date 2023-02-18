@@ -1,6 +1,0 @@
-(library
- (name exporter)
- (libraries core act sim)
- (preprocess
-  (pps ppx_jane))
- (inline_tests))

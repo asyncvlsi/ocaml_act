@@ -2,8 +2,7 @@ open! Core
 module Id = Int
 
 module T = struct
-  type t = { id : Id.t; bitwidth : int; creation_code_pos : Act.Code_pos.t }
-  [@@deriving sexp, hash, equal, compare]
+  type t = { id : Id.t; bitwidth : int } [@@deriving sexp, hash, equal, compare]
 end
 
 include T

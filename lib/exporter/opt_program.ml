@@ -2,58 +2,18 @@ open! Core
 module CInt = Act.CInt
 
 module Chp_exporter = struct
-  module Var = Flat_program.Chp.Var
-  module Chan = Flat_program.Chp.Chan
-
-  module N = struct
-    type t =
-      | Nop
-      | Assign of Var.t * Var.t Expr.t
-      | Seq of t list
-      | Par of t list
-      | Read of Chan.t * Var.t
-      | Send of Chan.t * Var.t Expr.t
-      | DoWhile of t * Var.t Expr.t
-      | SelectImm of Var.t Expr.t * t list
-  end
-
-  let rec flatten n =
-    match n with
-    | Flat_program.Chp.Stmt.Par ns -> (
-        let ns =
-          List.map ns ~f:flatten
-          |> List.filter ~f:(fun n -> match n with N.Nop -> false | _ -> true)
-          |> List.concat_map ~f:(fun n ->
-                 match n with N.Par ns -> ns | _ -> [ n ])
-        in
-        match ns with [] -> Nop | [ n ] -> n | ls -> N.Par ls)
-    | Seq ns -> (
-        let ns =
-          List.map ns ~f:flatten
-          |> List.filter ~f:(fun n -> match n with Nop -> false | _ -> true)
-          |> List.concat_map ~f:(fun n ->
-                 match n with N.Seq ns -> ns | _ -> [ n ])
-        in
-        match ns with [] -> Nop | [ n ] -> n | ls -> N.Seq ls)
-    | SelectImm (_, guard, branches) ->
-        SelectImm (guard, List.map branches ~f:flatten)
-    | DoWhile (_, seq, expr) -> DoWhile (flatten seq, expr)
-    | Assign (_, id, expr) -> Assign (id, expr)
-    | Send (_, chan, expr) -> Send (chan, expr)
-    | ReadThenAssert (_, chan, var, _) -> Read (chan, var)
-    (* | WaitUntilReadReady (_, chan) -> WaitUntilReadReady chan *)
-    (* | WaitUntilSendReady (_, chan) -> WaitUntilSendReady chan *)
-    | Log _ | Assert _ | Nop -> Nop
+  module Var = Flat_chp.Var
+  module Chan = Flat_chp.Chan
 
   let export_proc n ~iports ~oports ~name =
     let all_vars =
       let extract_expr (e : Var.t Expr.t) = Expr.var_ids e in
       let rec extract_n n =
         match n with
-        | N.Par ns | Seq ns -> List.concat_map ns ~f:extract_n
+        | Flat_chp.Stmt.Par ns | Seq ns -> List.concat_map ns ~f:extract_n
         | Assign (var_id, expr) -> var_id :: extract_expr expr
-        | Nop -> []
-        | Read (_, var_id) -> [ var_id ]
+        | Nop | Assert _ -> []
+        | ReadThenAssert (_, var_id, _) -> [ var_id ]
         | Send (_, expr) -> extract_expr expr
         | DoWhile (n, expr) -> extract_expr expr @ extract_n n
         | SelectImm (guard, branches) ->
@@ -65,10 +25,10 @@ module Chp_exporter = struct
     let all_chans =
       let rec extract_n n =
         match n with
-        | N.Par ns | Seq ns -> List.concat_map ns ~f:extract_n
-        | Nop -> []
+        | Flat_chp.Stmt.Par ns | Seq ns -> List.concat_map ns ~f:extract_n
+        | Nop | Assert _ -> []
         | Assign (_, _) -> []
-        | Read (chan, _) -> [ chan ]
+        | ReadThenAssert (chan, _, _) -> [ chan ]
         | Send (chan, _) -> [ chan ]
         | DoWhile (n, _) -> extract_n n
         | SelectImm (_, branches) -> List.concat_map branches ~f:extract_n
@@ -151,7 +111,7 @@ module Chp_exporter = struct
       let extract_expr e = ee e in
       let rec extract n =
         match n with
-        | N.Par ns ->
+        | Flat_chp.Stmt.Par ns ->
             List.map ns ~f:(fun n -> [%string "(%{extract n})"])
             |> String.concat ~sep:", "
         | Seq ns ->
@@ -159,7 +119,7 @@ module Chp_exporter = struct
             |> String.concat ~sep:"; "
         | Assign (var_id, expr) ->
             [%string "%{extract_var var_id} := %{extract_expr expr}"]
-        | Read (chan, var) ->
+        | ReadThenAssert (chan, var, _) ->
             [%string "%{extract_chan chan}?%{extract_var var}"]
         | Send (chan, expr) ->
             [%string "%{extract_chan chan}!(%{extract_expr expr})"]
@@ -174,7 +134,7 @@ module Chp_exporter = struct
               |> String.concat ~sep:" [] "
             in
             [%string "[%{branches}]"]
-        | Nop -> " [true] "
+        | Nop | Assert _ -> " [true] "
       in
       extract n
     in
@@ -188,17 +148,129 @@ module Chp_exporter = struct
        }\n\
        }"]
 
-  let export (chp_proc : Flat_program.Chp.Proc.t) ~name =
-    let n = flatten chp_proc.stmt in
+  let export (chp_proc : Flat_chp.Proc.t) ~name =
+    let stmt = Flat_chp.Stmt.flatten chp_proc.stmt in
     let io_ports = List.map ~f:fst (chp_proc.iports @ chp_proc.oports) in
     let s =
-      export_proc n ~name ~iports:chp_proc.iports ~oports:chp_proc.oports
+      export_proc stmt ~name ~iports:chp_proc.iports ~oports:chp_proc.oports
+    in
+    (s, (name, io_ports))
+end
+
+module Dflow_exporter = struct
+  let export_proc (ns : Dflow.Stmt.t list) ~iports ~oports ~name =
+    let all_ids =
+      List.concat_map ns ~f:(fun n ->
+          match n with
+          | Assign (v, e) -> v :: Expr.var_ids e
+          | Rename_assign (v1, v2) -> [ v1; v2 ]
+          | Split (g, v, os) -> g :: v :: List.filter_opt os
+          | Merge (g, ins, v) -> g :: v :: ins
+          | MergeBoolGuard (g, (i1, i2), v) -> [ g; i1; i2; v ]
+          | SplitBoolGuard (g, v, (o1, o2)) ->
+              List.filter_opt [ Some g; Some v; o1; o2 ]
+          | Copy_init (i, o, _) -> [ i; o ])
+      |> Dflow.Dflow_id.Set.of_list |> Set.to_list
+    in
+    let decl_vars =
+      List.map all_ids ~f:(fun id ->
+          [%string "  chan(int<%{id.bitwidth#Int}>) v%{id.id#Int};"])
+      |> String.concat ~sep:"\n"
+    in
+    let stmts =
+      let rec ee (e : Dflow.Dflow_id.t Expr.t) =
+        match e with
+        | Expr.Add (a, b) -> [%string "(%{ee a} + %{ee b})"]
+        | Sub_no_wrap (a, b) -> [%string "(%{ee a} - %{ee b})"]
+        | Mul (a, b) -> [%string "(%{ee a} * %{ee b})"]
+        | Div (a, b) -> [%string "(%{ee a} / %{ee b})"]
+        | Mod (a, b) -> [%string "(%{ee a} % %{ee b})"]
+        | LShift (a, b) -> [%string "(%{ee a} << %{ee b})"]
+        | RShift (a, b) -> [%string "(%{ee a} >> %{ee b})"]
+        | BitAnd (a, b) -> [%string "(%{ee a} & %{ee b})"]
+        | BitOr (a, b) -> [%string "(%{ee a} | %{ee b})"]
+        | BitXor (a, b) -> [%string "(%{ee a} ^ %{ee b})"]
+        | Eq (a, b) -> [%string "int(%{ee a} = %{ee b})"]
+        | Ne (a, b) -> [%string "int(%{ee a} != %{ee b})"]
+        | Lt (a, b) -> [%string "int(%{ee a} < %{ee b})"]
+        | Le (a, b) -> [%string "int(%{ee a} <= %{ee b})"]
+        | Gt (a, b) -> [%string "int(%{ee a} > %{ee b})"]
+        | Ge (a, b) -> [%string "int(%{ee a} >= %{ee b})"]
+        | Var v -> [%string "(v%{v.id#Int})"]
+        | Clip (e, bits) -> [%string "int(%{ee e}, %{bits#Int})"]
+        | Const c -> [%string "%{c#CInt}"]
+      in
+      let vv (v : Dflow.Dflow_id.t) = [%string "v%{v.id#Int}"] in
+      let vvo o = match o with Some v -> vv v | None -> "*" in
+      List.map ns ~f:(fun n ->
+          match n with
+          | Assign (v, e) -> [%string "  v%{v.id#Int} <- %{ee e};"]
+          | Rename_assign (v1, v2) ->
+              [%string "  v%{v1.id#Int} <- v%{v2.id#Int};"]
+          | Split (g, v, os) ->
+              let os = List.map os ~f:vvo |> String.concat ~sep:", " in
+              [%string "  {v%{g.id#Int}} v%{v.id#Int} -> %{os};"]
+          | Merge (g, ins, v) ->
+              let ins =
+                List.map ins ~f:(fun i -> [%string "v%{i.id#Int}"])
+                |> String.concat ~sep:", "
+              in
+              [%string "  {v%{g.id#Int}} %{ins} -> v%{v.id#Int};"]
+          | MergeBoolGuard (g, (i1, i2), v) ->
+              [%string
+                "  {v%{g.id#Int}} v%{i1.id#Int}, v%{i2.id#Int} -> v%{v.id#Int};"]
+          | SplitBoolGuard (g, v, (o1, o2)) ->
+              [%string
+                "  {v%{g.id#Int}} v%{v.id#Int} -> v%{vvo  o1}, v%{vvo o2};"]
+          | Copy_init (i, o, init) ->
+              [%string " v%{i.id#Int} -> [1,%{init#CInt}] v%{o.id#Int};"])
+      |> String.concat ~sep:"\n"
+    in
+
+    let decl_iports =
+      iports |> List.map ~f:snd
+      |> List.map ~f:(fun port ->
+             let bitwidth = port.Dflow.Dflow_id.bitwidth in
+             [%string "chan!(int<%{bitwidth#Int}>) iport%{port.id#Int}"])
+    in
+    let decl_oports =
+      oports |> List.map ~f:snd
+      |> List.map ~f:(fun port ->
+             let bitwidth = port.Dflow.Dflow_id.bitwidth in
+             [%string "chan?(int<%{bitwidth#Int}>) oport%{port.id#Int}"])
+    in
+    let decl_io_ports = decl_iports @ decl_oports |> String.concat ~sep:"; " in
+    let connect_ports =
+      List.map iports ~f:(fun (_, port) ->
+          [%string "iport%{port.id#Int} -> v%{port.id#Int};"])
+      @ List.map oports ~f:(fun (_, port) ->
+            [%string "v%{port.id#Int} -> oport%{port.id#Int};"])
+      |> String.concat ~sep:"\n"
+    in
+    [%string
+      "defproc %{name}(%{decl_io_ports}) {\n\
+       %{decl_vars}\n\
+       dataflow {\n\
+       %{stmts}\n\
+       %{connect_ports}\n\
+       }\n\
+       }"]
+
+  let export (chp_proc : Flat_chp.Proc.t) ~name =
+    assert chp_proc.dflowable;
+    let dflow =
+      Stf.stf_of_dflowable_chp_proc chp_proc
+      |> Stf.optimize_proc |> Dflow.dflow_of_stf |> Dflow.optimize_proc
+    in
+    let io_ports = List.map ~f:fst (dflow.iports @ dflow.oports) in
+    let s =
+      export_proc dflow.stmt ~name ~iports:dflow.iports ~oports:dflow.oports
     in
     (s, (name, io_ports))
 end
 
 module Mem_exporter = struct
-  let export (mem : Flat_program.Mem_proc.t) ~name =
+  let export (mem : Program.Mem_proc.t) ~name =
     let init = mem.init in
     let vars_inits =
       Array.mapi init ~f:(fun i vl -> [%string "v[%{i#Int}] := %{vl#CInt};"])
@@ -245,13 +317,16 @@ module Mem_exporter = struct
     (s, (name, io_ports))
 end
 
-let export_program (prog : Flat_program.Program.t) =
+let export_program (prog : Program.t) =
   (* First export each process *)
   let procs_decls, procs =
     List.mapi prog.processes ~f:(fun i proc ->
         let name = [%string "proc_%{i#Int}"] in
         match proc.k with
-        | Chp chp_proc -> Chp_exporter.export chp_proc ~name
+        | Chp chp_proc -> (
+            match chp_proc.dflowable with
+            | false -> Chp_exporter.export chp_proc ~name
+            | true -> Dflow_exporter.export chp_proc ~name)
         | Mem mem_proc -> Mem_exporter.export mem_proc ~name)
     |> List.unzip
   in
@@ -302,4 +377,3 @@ let export_program (prog : Flat_program.Program.t) =
      %{instantiate_procs}\n\
      %{connect_user_ports}\n\
      }"]
-(* String.concat ~sep:"\n\n" [ header; procs; top_level_proc ] *)
