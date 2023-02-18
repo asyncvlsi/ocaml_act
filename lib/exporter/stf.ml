@@ -183,7 +183,7 @@ let stf_of_dflowable_chp_proc proc =
         (* print_s [%sexp (("splits", raw_read_ids, splits): string * Var.Set.t * Stmt.Par_split.t list)]; *)
         (* print_s [%sexp (("merges", merges): string * Stmt.Par_merge.t list)]; *)
         Par (splits, stmts, merges)
-    | Nondeterm_select _ -> failwith "STF does not support Nondeterm_select"
+    | Nondeterm_select (_) -> failwith "STF does not support Nondeterm_select"
     | SelectImm (gaurd_expr, branches) ->
         let gaurd_expr = of_e gaurd_expr in
         let l =
