@@ -18,6 +18,8 @@ module Chp_exporter = struct
         | DoWhile (n, expr) -> extract_expr expr @ extract_n n
         | SelectImm (guard, branches) ->
             extract_expr guard @ List.concat_map branches ~f:extract_n
+        | Nondeterm_select branches ->
+            List.concat_map branches ~f:(fun (_, stmt) -> extract_n stmt)
       in
       extract_n n |> Var.Set.of_list
     in
@@ -32,6 +34,10 @@ module Chp_exporter = struct
         | Send (chan, _) -> [ chan ]
         | DoWhile (n, _) -> extract_n n
         | SelectImm (_, branches) -> List.concat_map branches ~f:extract_n
+        | Nondeterm_select branches ->
+            List.concat_map branches ~f:(fun (probe, stmt) ->
+                let probe = match probe with Read chan | Send chan -> chan in
+                probe :: extract_n stmt)
       in
       extract_n n |> Chan.Set.of_list
     in
@@ -134,6 +140,14 @@ module Chp_exporter = struct
               |> String.concat ~sep:" [] "
             in
             [%string "[%{branches}]"]
+        | Nondeterm_select branches ->
+            let branches =
+              List.map branches ~f:(fun (probe, n) ->
+                  let chan = match probe with Send chan | Read chan -> chan in
+                  [%string "#%{extract_chan chan} -> %{extract n}"])
+              |> String.concat ~sep:" [] "
+            in
+            [%string "[| %{branches} |]"]
         | Nop | Assert _ -> " [true] "
       in
       extract n

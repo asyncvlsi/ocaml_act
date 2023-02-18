@@ -651,6 +651,17 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     | WaitUntilSendReady (loc, chan) ->
         let chan_idx = get_chan chan in
         push_select_probes loc [ (Send_ready chan_idx, Nop) ]
+    | Nondeterm_select (loc, branches) ->
+        let branches =
+          List.map branches ~f:(fun (probe, stmt) ->
+              let probe =
+                match probe with
+                | Read chan -> Inner.Probe.Read_ready (get_chan chan)
+                | Send chan -> Send_ready (get_chan chan)
+              in
+              (probe, stmt))
+        in
+        push_select_probes loc branches
   in
 
   (* Build the main program. An initial jump is required. *)

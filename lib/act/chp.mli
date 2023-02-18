@@ -37,6 +37,10 @@ val select_imm : (Cbool0.t Expr.t * t) list -> else_:t option -> t
 module Ir : sig
   type outer = t
 
+  module Chan_end : sig
+    type t = Read of Chan.Ir.U.t | Send of Chan.Ir.U.t [@@deriving sexp_of]
+  end
+
   type t =
     | Nop
     | Assign of Code_pos.t * Var.Ir.U.t * Expr.Ir.U.t
@@ -55,6 +59,7 @@ module Ir : sig
     | WriteUGMem of Code_pos.t * Mem.Ir.t * Cint0.t Expr.Ir.t * Expr.Ir.U.t
     | WaitUntilReadReady of Code_pos.t * Chan.Ir.U.t
     | WaitUntilSendReady of Code_pos.t * Chan.Ir.U.t
+    | Nondeterm_select of Code_pos.t * (Chan_end.t * t) list
   [@@deriving sexp_of]
 
   val unwrap : outer -> t

@@ -20,6 +20,10 @@ module Chan : sig
   include Hashable with type t := t
 end
 
+module Probe : sig
+  type t = Read of Chan.t | Send of Chan.t [@@deriving sexp_of]
+end
+
 module Stmt : sig
   type t =
     | Nop
@@ -34,6 +38,7 @@ module Stmt : sig
       (* This expr is a one-hot vector with List.length branches bits
           indexing into the list of branches *)
     | SelectImm of Var.t Expr.t * t list
+    | Nondeterm_select of (Probe.t * t) list
   [@@deriving sexp_of]
 
   val flatten : t -> t

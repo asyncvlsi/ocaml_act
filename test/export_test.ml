@@ -572,29 +572,22 @@ let%expect_test "test probes" =
       ]
   in
   Exporter.export_chp ir ~user_sendable_ports:[] ~user_readable_ports:[];
-  [%expect.unreachable]
-  [@@expect.uncaught_exn
-    {|
-  (* CR expect_test_collector: This test expectation appears to contain a backtrace.
-     This is strongly discouraged as backtraces are fragile.
-     Please change this test to not include a backtrace. *)
+  [%expect{|
+    defproc proc_0() {
+      chan(int<32>) C0;
+      int<32> v0;
+    chp {
+    (v0 := 0); ((([| #C0 ->  [true]  |]); ( [true] ); (C0!(3))), (C0?v0))
+    }
+    }
 
-  (Failure
-    "TODO - flat_program WaitUntilReadReady and WaitUntilSendReady are unimplemented")
-  Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
-  Called from Base__List.count_map in file "src/list.ml", line 481, characters 13-17
-  Called from Base__List.map in file "src/list.ml" (inlined), line 493, characters 15-31
-  Called from Exporter__Flat_chp.of_chp.of_chp.of_n in file "lib/exporter/flat_chp.ml", line 203, characters 27-48
-  Called from Base__List.count_map in file "src/list.ml", line 465, characters 13-17
-  Called from Base__List.map in file "src/list.ml" (inlined), line 493, characters 15-31
-  Called from Exporter__Flat_chp.of_chp.of_chp.of_n in file "lib/exporter/flat_chp.ml", line 202, characters 39-60
-  Called from Exporter__Flat_chp.of_chp.of_chp in file "lib/exporter/flat_chp.ml", line 309, characters 12-18
-  Called from Base__List.count_map in file "src/list.ml", line 462, characters 13-17
-  Called from Base__List.map in file "src/list.ml" (inlined), line 493, characters 15-31
-  Called from Exporter__Program.of_program in file "lib/exporter/program.ml", line 53, characters 4-343
-  Called from Exporter.export_program in file "lib/exporter/exporter.ml", line 5, characters 4-72
-  Called from My_test__Export_test.(fun) in file "test/export_test.ml", line 574, characters 2-72
-  Called from Expect_test_collector.Make.Instance_io.exec in file "collector/expect_test_collector.ml", line 262, characters 12-19 |}]
+
+    defproc main() {
+
+
+    proc_0 proc_0_ ();
+
+    } |}]
 
 module Op : sig
   type t = Add | Mul | And | Or [@@deriving sexp, equal, hash, compare]

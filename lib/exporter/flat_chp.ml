@@ -29,6 +29,10 @@ module Chan = struct
   include Hashable.Make (T)
 end
 
+module Probe = struct
+  type t = Read of Chan.t | Send of Chan.t [@@deriving sexp_of]
+end
+
 module Stmt = struct
   type t =
     | Nop
@@ -43,6 +47,7 @@ module Stmt = struct
       (* This expr is a one-hot vector with List.length branches bits
           indexing into the list of branches *)
     | SelectImm of Var.t Expr.t * t list
+    | Nondeterm_select of (Probe.t * t) list
   [@@deriving sexp_of]
 
   let rec flatten stmt =
@@ -65,6 +70,9 @@ module Stmt = struct
         match ns with [] -> Nop | [ n ] -> n | ls -> Seq ls)
     | SelectImm (guard, branches) ->
         SelectImm (guard, List.map branches ~f:flatten)
+    | Nondeterm_select branches ->
+        Nondeterm_select
+          (List.map branches ~f:(fun (probe, stmt) -> (probe, flatten stmt)))
     | DoWhile (seq, expr) -> DoWhile (flatten seq, expr)
     | Assign (id, expr) -> Assign (id, expr)
     | Send (chan, expr) -> Send (chan, expr)
@@ -301,10 +309,21 @@ let of_chp (proc : Act.Internal_rep.Chp.t) ~new_interproc_chan
                   Send (write_chan, value);
                 ];
             ]
-      | WaitUntilReadReady _ | WaitUntilSendReady _ ->
-          failwith
-            "TODO - flat_program WaitUntilReadReady and WaitUntilSendReady are \
-             unimplemented"
+      | WaitUntilReadReady (_, chan) ->
+          Nondeterm_select [ (Read (of_c chan), Nop) ]
+      | WaitUntilSendReady (_, chan) ->
+          Nondeterm_select [ (Send (of_c chan), Nop) ]
+      | Nondeterm_select (_, branches) ->
+          let branches =
+            List.map branches ~f:(fun (probe, stmt) ->
+                let probe =
+                  match probe with
+                  | Read chan -> Probe.Read (of_c chan)
+                  | Send chan -> Send (of_c chan)
+                in
+                (probe, of_n stmt))
+          in
+          Nondeterm_select branches
     in
     let n = of_n n in
     (* Then add on all the initializers *)
@@ -330,6 +349,7 @@ let of_chp (proc : Act.Internal_rep.Chp.t) ~new_interproc_chan
       match n with
       | Stmt.Nop | Assign _ | Assert _ -> []
       | Seq ls | Par ls | SelectImm (_, ls) -> List.concat_map ls ~f
+      | Nondeterm_select ls -> List.concat_map ls ~f:(fun (_, stmt) -> f stmt)
       | DoWhile (n, _) -> f n
       | Send (c, _) -> ( match dir with `Send -> [ c ] | `Read -> [])
       | ReadThenAssert (c, _, _) -> (
