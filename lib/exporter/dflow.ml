@@ -475,5 +475,78 @@ let optimize_proc proc =
             if Set.mem alive dst then Some (Copy_init (dst, src, init))
             else None)
   in
-  let dflows = eliminate_dead_code proc.Proc.stmt ~oports:proc.oports in
-  { Proc.stmt = dflows; iports = proc.iports; oports = proc.oports }
+
+  let eliminate_repeated_vars dflows ~iports ~oports =
+    let var_ids =
+      [
+        List.concat_map dflows ~f:(fun dflow ->
+            match dflow with
+            | Stmt.Assign (dst, e) -> dst :: Expr.var_ids e
+            | Split (g, v, os) -> g :: v :: List.filter_opt os
+            | Merge (g, ins, v) -> g :: v :: ins
+            | MergeBoolGuard (g, (i1, i2), v) -> [ g; i1; i2; v ]
+            | SplitBoolGuard (g, v, (o1, o2)) ->
+                g :: v :: List.filter_opt [ o1; o2 ]
+            | Copy_init (dst, src, _) -> [ dst; src ]);
+        List.map iports ~f:snd;
+        List.map oports ~f:snd;
+      ]
+      |> List.concat |> Dflow_id.Set.of_list
+      |> Map.of_key_set ~f:Union_find.create
+    in
+
+    List.iter dflows ~f:(fun dflow ->
+        match dflow with
+        | Stmt.Assign (dst, Var src) ->
+            Union_find.union (Map.find_exn var_ids dst)
+              (Map.find_exn var_ids src)
+        | _ -> ());
+
+    (* TODO quadratic :( *)
+    let renames =
+      Map.fold var_ids ~init:Dflow_id.Map.empty
+        ~f:(fun ~key:var_id ~data:var_id_uf renames ->
+          let data =
+            match
+              Map.keys renames
+              |> List.find ~f:(fun old_id ->
+                     Union_find.same_class
+                       (Map.find_exn var_ids old_id)
+                       var_id_uf)
+            with
+            | Some old_id -> Map.find_exn renames old_id
+            | None -> var_id
+          in
+          Map.set renames ~key:var_id ~data)
+    in
+
+    let of_v v = Map.find_exn renames v in
+    let of_vo o = Option.map o ~f:of_v in
+
+    let dflows =
+      List.filter_map dflows ~f:(fun dflow ->
+          match dflow with
+          | Assign (dst, e) ->
+          (let dst = of_v dst in let e = Expr.map_vars e ~f:of_v in 
+                    let assign_ = Stmt.Assign (dst, e) in 
+                    match e with | Var src -> if Dflow_id.equal dst src then None else Some (assign_)
+                    | _ -> 
+                        Some assign_)
+          | Split (g, v, os) -> Some (Split (of_v g, of_v v, List.map os ~f:of_vo))
+          | Merge (g, ins, v) -> Some (Merge (of_v g, List.map ~f:of_v ins, of_v v))
+          | MergeBoolGuard (g, (i1, i2), v) ->
+             Some ( MergeBoolGuard (of_v g, (of_v i1, of_v i2), of_v v))
+          | SplitBoolGuard (g, v, (o1, o2)) ->
+              Some (SplitBoolGuard (of_v g, of_v v, (of_vo o1, of_vo o2)))
+          | Copy_init (dst, src, init) -> Some (Copy_init (of_v dst, of_v src, init)))
+    in
+    let iports = List.map iports ~f:(fun (i, v) -> (i, of_v v)) in
+    let oports = List.map oports ~f:(fun (i, v) -> (i, of_v v)) in
+    (dflows, iports, oports)
+  in
+
+  let dflows, iports, oports = (proc.Proc.stmt, proc.iports, proc.oports) in
+
+  let dflows = eliminate_dead_code dflows ~oports in
+  let dflows, iports, oports = eliminate_repeated_vars dflows ~iports ~oports in
+  { Proc.stmt = dflows; iports; oports }
