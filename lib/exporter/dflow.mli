@@ -8,13 +8,14 @@ module Dflow_id : sig
 end
 
 module Stmt : sig
+  module GK : sig
+    type t = One_hot | Idx [@@deriving sexp_of]
+  end
+
   type t =
     | Assign of Dflow_id.t * Dflow_id.t Expr.t
-    | Split of Dflow_id.t * Dflow_id.t * Dflow_id.t option list
-    | Merge of Dflow_id.t * Dflow_id.t list * Dflow_id.t
-    | MergeBoolGuard of Dflow_id.t * (Dflow_id.t * Dflow_id.t) * Dflow_id.t
-    | SplitBoolGuard of
-        Dflow_id.t * Dflow_id.t * (Dflow_id.t option * Dflow_id.t option)
+    | Split of GK.t * Dflow_id.t * Dflow_id.t * Dflow_id.t option list
+    | Merge of GK.t * Dflow_id.t * Dflow_id.t list * Dflow_id.t
     | Copy_init of (*dst *) Dflow_id.t * (*src*) Dflow_id.t * Act.CInt.t
   [@@deriving sexp_of]
 end

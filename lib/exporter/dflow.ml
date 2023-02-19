@@ -13,13 +13,14 @@ module Dflow_id = struct
 end
 
 module Stmt = struct
+  module GK = struct
+    type t = One_hot | Idx [@@deriving sexp_of]
+  end
+
   type t =
     | Assign of Dflow_id.t * Dflow_id.t Expr.t
-    | Split of Dflow_id.t * Dflow_id.t * Dflow_id.t option list
-    | Merge of Dflow_id.t * Dflow_id.t list * Dflow_id.t
-    | MergeBoolGuard of Dflow_id.t * (Dflow_id.t * Dflow_id.t) * Dflow_id.t
-    | SplitBoolGuard of
-        Dflow_id.t * Dflow_id.t * (Dflow_id.t option * Dflow_id.t option)
+    | Split of GK.t * Dflow_id.t * Dflow_id.t * Dflow_id.t option list
+    | Merge of GK.t * Dflow_id.t * Dflow_id.t list * Dflow_id.t
     | Copy_init of Dflow_id.t * Dflow_id.t * CInt.t
   [@@deriving sexp_of]
 end
@@ -54,6 +55,9 @@ let map_merge_skew_and_accum_list m1 m2 ~combine =
   let m = Map.merge_skewed m1 m2 ~combine in
   (m, Queue.to_list l |> List.concat)
 
+let merge_bool_guard s (b1, b2) v = [ Stmt.Merge (Idx, s, [ b1; b2 ], v) ]
+let split_bool_guard s v (b1, b2) = [ Stmt.Split (Idx, s, v, [ b1; b2 ]) ]
+
 (* control processes from rui's paper (converted into dataflow and adapted a bit). *)
 let rui_ctrl_chan ctrl ~new_chan ~dir:_ =
   let s_ = new_chan 1 in
@@ -70,15 +74,14 @@ let rui_ctrl_seq a b_chan a1 b1 a2 b2 ~new_chan ~dir =
   let s = new_chan 1 in
   (* [ ~s -> b1?v [] s -> b2?v ] *)
   let v = new_chan 1 in
-  let dflow1 = [ Stmt.MergeBoolGuard (s, (b1, b2), v) ] in
+  let dflow1 = merge_bool_guard s (b1, b2) v in
   (* [ ~ (s | v) -> skip  []   (s | v) -> b!v   ] *)
   let dflow2 =
     let g = new_chan 1 in
-    [
-      Stmt.Assign (g, Expr.BitOr (Var s, Var v));
-      SplitBoolGuard (g, v, (None, Some b_chan));
-    ]
+    Stmt.Assign (g, Expr.BitOr (Var s, Var v))
+    :: split_bool_guard g v (None, Some b_chan)
   in
+
   (* EITHER [ ~v -> s := ~s  []   v -> a?x; [ ~s -> a1!x  []   s -> a2!x ] ]
      OR  [    ~v -> s := ~s  []   v -> [ ~s -> a1?x  []   s -> a2?x ] a!x; ] *)
   let s' = new_chan x_width in
@@ -86,17 +89,18 @@ let rui_ctrl_seq a b_chan a1 b1 a2 b2 ~new_chan ~dir =
     let s0 = new_chan 1 in
     let s1 = new_chan 1 in
     let s0' = new_chan 1 in
-    let op_proc =
+    let op_procs =
       match dir with
-      | `Read -> Stmt.SplitBoolGuard (s1, a, (Some a1, Some a2))
-      | `Send -> MergeBoolGuard (s1, (a1, a2), a)
+      | `Read -> split_bool_guard s1 a (Some a1, Some a2)
+      | `Send -> merge_bool_guard s1 (a1, a2) a
     in
     [
-      Stmt.SplitBoolGuard (v, s, (Some s0, Some s1));
-      Assign (s0', Expr.BitXor (Var s0, Const CInt.one));
-      MergeBoolGuard (v, (s0', s1), s');
-      op_proc;
+      split_bool_guard v s (Some s0, Some s1);
+      [ Assign (s0', Expr.BitXor (Var s0, Const CInt.one)) ];
+      merge_bool_guard v (s0', s1) s';
+      op_procs;
     ]
+    |> List.concat
   in
   (* finally, we must wrap `s` back around to the top *)
   let dflow_wrap = [ Stmt.Copy_init (s, s', CInt.zero) ] in
@@ -114,10 +118,8 @@ let rui_ctrl_select a_chan b_chan c ab_list ~new_chan ~dir =
   let g' = new_chan g_width in
   let dflow1 =
     let g1 = new_chan g_width in
-    [
-      Stmt.SplitBoolGuard (v, g, (None, Some g1));
-      MergeBoolGuard (v, (c, g1), g');
-    ]
+    [ split_bool_guard v g (None, Some g1); merge_bool_guard v (c, g1) g' ]
+    |> List.concat
   in
 
   (* [ g{i}=1   ->   B_i?v ]; B!v; *)
@@ -135,7 +137,9 @@ let rui_ctrl_select a_chan b_chan c ab_list ~new_chan ~dir =
       |> List.unzip
     in
     List.concat
-      [ [ Stmt.Merge (g', vi's, v'); Assign (b_chan, Var v') ]; dflows ]
+      [
+        [ Stmt.Merge (One_hot, g', vi's, v'); Assign (b_chan, Var v') ]; dflows;
+      ]
   in
 
   (* [~v -> skip []  v -> [ g{i}=1   ->  A0?x ]; A!x ]; OR *)
@@ -156,12 +160,12 @@ let rui_ctrl_select a_chan b_chan c ab_list ~new_chan ~dir =
                 (dflow, vi'))
             |> List.unzip
           in
-          Stmt.Merge (g1', ais, a_chan) :: dflows
+          Stmt.Merge (One_hot, g1', ais, a_chan) :: dflows
       | `Read ->
           let ais = List.map ab_list ~f:(Option.map ~f:fst) in
-          [ Split (g1', a_chan, ais) ]
+          [ Split (One_hot, g1', a_chan, ais) ]
     in
-    Stmt.SplitBoolGuard (v', g', (None, Some g1')) :: op_procs
+    split_bool_guard v' g' (None, Some g1') @ op_procs
   in
 
   (* finally, we must wrap `v` and `g` back around to the top *)
@@ -181,19 +185,20 @@ let rui_ctrl_dowhile b_chan guard_chan b1 ~new_chan ~dir:_ =
   let dflow1 =
     let g1 = new_chan 1 in
     [
-      Stmt.Assign (v, Var b1);
-      SplitBoolGuard (v, g, (None, Some g1));
-      MergeBoolGuard (v, (guard_chan, g1), g');
+      [ Stmt.Assign (v, Var b1) ];
+      split_bool_guard v g (None, Some g1);
+      merge_bool_guard v (guard_chan, g1) g';
     ]
+    |> List.concat
   in
   (* [ ~(v | ~g)  -> skip  []  (v | ~g) -> B!b ]; *)
   let dflow2 =
     let e = new_chan 1 in
-    [
-      Stmt.Assign (e, BitOr (Var v, BitXor (Var g, Const CInt.one)));
-      SplitBoolGuard (e, v, (None, Some b_chan));
-    ]
+
+    Stmt.Assign (e, BitOr (Var v, BitXor (Var g, Const CInt.one)))
+    :: split_bool_guard e v (None, Some b_chan)
   in
+
   (* finally, we must wrap `g` back around to the top *)
   let dflow_wrap = [ Stmt.Copy_init (g, g', CInt.zero) ] in
   dflow1 @ dflow2 @ dflow_wrap
@@ -216,11 +221,6 @@ let dflow_of_stf proc =
     Hashtbl.find_or_add id_of_var v ~default:(fun () -> new_chan v.bitwidth)
   in
 
-  let id_of_chan = Stf.Chan.Table.create () in
-  let of_c c =
-    Hashtbl.find_or_add id_of_chan c ~default:(fun () -> new_chan c.bitwidth)
-  in
-
   let of_e e = Expr.map_vars e ~f:(fun v -> of_v v) in
   let of_e' (e : Stf.Var.t Expr.t) =
     let bitwidth = Expr.bitwidth e ~bits_of_var:(fun v -> v.bitwidth) in
@@ -234,7 +234,7 @@ let dflow_of_stf proc =
     | Stf.Stmt.Nop -> ([], Chan_end.Map.empty)
     | Assign (v, e) -> ([ Stmt.Assign (of_v v, of_e e) ], Chan_end.Map.empty)
     | Send (c, e) ->
-        let cc = of_c c in
+        let cc = new_chan c.bitwidth in
         let ctrl = new_ctrl () in
         let alias_map = Chan_end.Map.singleton (Chan_end.Send c) (cc, ctrl) in
         let dflow = [ Stmt.Assign (cc, of_e e) ] in
@@ -242,10 +242,10 @@ let dflow_of_stf proc =
         let dflow = List.concat [ dflow; ctrl_procs ] in
         (dflow, alias_map)
     | Read (c, v) ->
-        let cc = of_c c in
+        let cc = new_chan c.bitwidth in
         let ctrl = new_ctrl () in
         let alias_map = Chan_end.Map.singleton (Chan_end.Read c) (cc, ctrl) in
-        let dflow = [ Stmt.Assign (of_v v, Var (of_c c)) ] in
+        let dflow = [ Stmt.Assign (of_v v, Var cc) ] in
         let ctrl_procs = rui_ctrl_read ctrl ~new_chan in
         let dflow = List.concat [ dflow; ctrl_procs ] in
         (dflow, alias_map)
@@ -303,12 +303,12 @@ let dflow_of_stf proc =
         let splits =
           List.map splits ~f:(fun split ->
               let out_vs = List.map split.out_vs ~f:(Option.map ~f:of_v) in
-              Stmt.Split (guard_expr, of_v split.in_v, out_vs))
+              Stmt.Split (One_hot, guard_expr, of_v split.in_v, out_vs))
         in
         let merges =
           List.map merges ~f:(fun merge ->
               let in_vs = List.map merge.in_vs ~f:of_v in
-              Stmt.Merge (guard_expr, in_vs, of_v merge.out_v))
+              Stmt.Merge (One_hot, guard_expr, in_vs, of_v merge.out_v))
         in
         let branches = List.map branches ~f:of_stmt in
         let alias_map, ctrl_procs =
@@ -367,12 +367,13 @@ let dflow_of_stf proc =
               let top =
                 Option.map phi.body_in_v ~f:(fun body_in_v ->
                     let init_v = Option.value_exn phi.init_v |> of_v in
-                    Stmt.Merge (prev_guard, [ init_v; carry ], of_v body_in_v))
+                    Stmt.Merge
+                      (One_hot, prev_guard, [ init_v; carry ], of_v body_in_v))
               in
               let bottom =
                 Option.map phi.body_out_v ~f:(fun body_out_v ->
                     let out_vs = [ Option.map phi.out_v ~f:of_v; Some carry ] in
-                    Stmt.Split (guard, of_v body_out_v, out_vs))
+                    Stmt.Split (One_hot, guard, of_v body_out_v, out_vs))
               in
               let copy_init = Stmt.Copy_init (prev_guard, guard, CInt.zero) in
               List.filter_opt [ top; bottom; Some copy_init ])
@@ -416,15 +417,10 @@ let optimize_proc proc =
           match dflow with
           | Stmt.Assign (dst, e) ->
               Expr.var_ids e |> List.map ~f:(fun src_id -> (dst, src_id))
-          | Split (g, v, os) ->
+          | Split (_, g, v, os) ->
               List.filter_opt os
               |> List.concat_map ~f:(fun o -> [ (o, g); (o, v) ])
-          | Merge (g, ins, v) -> List.map (g :: ins) ~f:(fun i -> (v, i))
-          | MergeBoolGuard (g, (i1, i2), v) ->
-              List.map [ g; i1; i2 ] ~f:(fun i -> (v, i))
-          | SplitBoolGuard (g, v, (o1, o2)) ->
-              List.filter_opt [ o1; o2 ]
-              |> List.concat_map ~f:(fun o -> [ (o, g); (o, v) ])
+          | Merge (_, g, ins, v) -> List.map (g :: ins) ~f:(fun i -> (v, i))
           | Copy_init (dst, src, _) -> [ (dst, src) ])
       |> Dflow_id.Map.of_alist_multi
     in
@@ -445,32 +441,17 @@ let optimize_proc proc =
         match dflow with
         | Assign (dst, e) ->
             if Set.mem alive dst then Some (Stmt.Assign (dst, e)) else None
-        | Split (g, v, os) ->
+        | Split (gk, g, v, os) ->
             let os =
               List.map os
                 ~f:
                   (Option.bind ~f:(fun o ->
                        if Set.mem alive o then Some o else None))
             in
-            if List.exists os ~f:Option.is_some then Some (Split (g, v, os))
+            if List.exists os ~f:Option.is_some then Some (Split (gk, g, v, os))
             else None
-        | Merge (g, ins, v) ->
-            if Set.mem alive v then Some (Merge (g, ins, v)) else None
-        | MergeBoolGuard (g, (i1, i2), v) ->
-            if Set.mem alive v then Some (MergeBoolGuard (g, (i1, i2), v))
-            else None
-        | SplitBoolGuard (g, v, (o1, o2)) ->
-            let o1 =
-              Option.bind o1 ~f:(fun o ->
-                  if Set.mem alive o then Some o else None)
-            in
-            let o2 =
-              Option.bind o2 ~f:(fun o ->
-                  if Set.mem alive o then Some o else None)
-            in
-            if Option.is_some o1 || Option.is_some o2 then
-              Some (SplitBoolGuard (g, v, (o1, o2)))
-            else None
+        | Merge (gk, g, ins, v) ->
+            if Set.mem alive v then Some (Merge (gk, g, ins, v)) else None
         | Copy_init (dst, src, init) ->
             if Set.mem alive dst then Some (Copy_init (dst, src, init))
             else None)
@@ -482,11 +463,8 @@ let optimize_proc proc =
         List.concat_map dflows ~f:(fun dflow ->
             match dflow with
             | Stmt.Assign (dst, e) -> dst :: Expr.var_ids e
-            | Split (g, v, os) -> g :: v :: List.filter_opt os
-            | Merge (g, ins, v) -> g :: v :: ins
-            | MergeBoolGuard (g, (i1, i2), v) -> [ g; i1; i2; v ]
-            | SplitBoolGuard (g, v, (o1, o2)) ->
-                g :: v :: List.filter_opt [ o1; o2 ]
+            | Split (_, g, v, os) -> g :: v :: List.filter_opt os
+            | Merge (_, g, ins, v) -> g :: v :: ins
             | Copy_init (dst, src, _) -> [ dst; src ]);
         List.map iports ~f:snd;
         List.map oports ~f:snd;
@@ -526,19 +504,19 @@ let optimize_proc proc =
     let dflows =
       List.filter_map dflows ~f:(fun dflow ->
           match dflow with
-          | Assign (dst, e) ->
-          (let dst = of_v dst in let e = Expr.map_vars e ~f:of_v in 
-                    let assign_ = Stmt.Assign (dst, e) in 
-                    match e with | Var src -> if Dflow_id.equal dst src then None else Some (assign_)
-                    | _ -> 
-                        Some assign_)
-          | Split (g, v, os) -> Some (Split (of_v g, of_v v, List.map os ~f:of_vo))
-          | Merge (g, ins, v) -> Some (Merge (of_v g, List.map ~f:of_v ins, of_v v))
-          | MergeBoolGuard (g, (i1, i2), v) ->
-             Some ( MergeBoolGuard (of_v g, (of_v i1, of_v i2), of_v v))
-          | SplitBoolGuard (g, v, (o1, o2)) ->
-              Some (SplitBoolGuard (of_v g, of_v v, (of_vo o1, of_vo o2)))
-          | Copy_init (dst, src, init) -> Some (Copy_init (of_v dst, of_v src, init)))
+          | Assign (dst, e) -> (
+              let dst = of_v dst in
+              let e = Expr.map_vars e ~f:of_v in
+              let assign_ = Stmt.Assign (dst, e) in
+              match e with
+              | Var src -> if Dflow_id.equal dst src then None else Some assign_
+              | _ -> Some assign_)
+          | Split (gk, g, v, os) ->
+              Some (Split (gk, of_v g, of_v v, List.map os ~f:of_vo))
+          | Merge (gk, g, ins, v) ->
+              Some (Merge (gk, of_v g, List.map ~f:of_v ins, of_v v))
+          | Copy_init (dst, src, init) ->
+              Some (Copy_init (of_v dst, of_v src, init)))
     in
     let iports = List.map iports ~f:(fun (i, v) -> (i, of_v v)) in
     let oports = List.map oports ~f:(fun (i, v) -> (i, of_v v)) in
@@ -547,6 +525,8 @@ let optimize_proc proc =
 
   let dflows, iports, oports = (proc.Proc.stmt, proc.iports, proc.oports) in
 
+  (* let _eliminate_dead_code = eliminate_dead_code in *)
   let dflows = eliminate_dead_code dflows ~oports in
+  (* let _eliminate_repeated_vars = eliminate_repeated_vars in *)
   let dflows, iports, oports = eliminate_repeated_vars dflows ~iports ~oports in
   { Proc.stmt = dflows; iports; oports }

@@ -177,11 +177,8 @@ module Dflow_exporter = struct
       List.concat_map ns ~f:(fun n ->
           match n with
           | Assign (v, e) -> v :: Expr.var_ids e
-          | Split (g, v, os) -> g :: v :: List.filter_opt os
-          | Merge (g, ins, v) -> g :: v :: ins
-          | MergeBoolGuard (g, (i1, i2), v) -> [ g; i1; i2; v ]
-          | SplitBoolGuard (g, v, (o1, o2)) ->
-              List.filter_opt [ Some g; Some v; o1; o2 ]
+          | Split (_, g, v, os) -> g :: v :: List.filter_opt os
+          | Merge (_, g, ins, v) -> g :: v :: ins
           | Copy_init (i, o, _) -> [ i; o ])
       |> Dflow.Dflow_id.Set.of_list |> Set.to_list
     in
@@ -218,21 +215,17 @@ module Dflow_exporter = struct
       List.map ns ~f:(fun n ->
           match n with
           | Assign (v, e) -> [%string "  v%{v.id#Int} <- %{ee e};"]
-          | Split (g, v, os) ->
+          | Split (_gk, g, v, os) ->
+              (* TODO transform guard into guard format? *)
               let os = List.map os ~f:vvo |> String.concat ~sep:", " in
               [%string "  {v%{g.id#Int}} v%{v.id#Int} -> %{os};"]
-          | Merge (g, ins, v) ->
+          | Merge (_gk, g, ins, v) ->
+              (* TODO transform guard into guard format? *)
               let ins =
                 List.map ins ~f:(fun i -> [%string "v%{i.id#Int}"])
                 |> String.concat ~sep:", "
               in
               [%string "  {v%{g.id#Int}} %{ins} -> v%{v.id#Int};"]
-          | MergeBoolGuard (g, (i1, i2), v) ->
-              [%string
-                "  {v%{g.id#Int}} v%{i1.id#Int}, v%{i2.id#Int} -> v%{v.id#Int};"]
-          | SplitBoolGuard (g, v, (o1, o2)) ->
-              [%string
-                "  {v%{g.id#Int}} v%{v.id#Int} -> v%{vvo  o1}, v%{vvo o2};"]
           | Copy_init (i, o, init) ->
               [%string " v%{i.id#Int} -> [1,%{init#CInt}] v%{o.id#Int};"])
       |> String.concat ~sep:"\n"
@@ -269,10 +262,10 @@ module Dflow_exporter = struct
 
   let export (chp_proc : Flat_chp.Proc.t) ~name =
     assert chp_proc.dflowable;
-    let dflow =
-      Stf.stf_of_dflowable_chp_proc chp_proc
-      |> Stf.optimize_proc |> Dflow.dflow_of_stf |> Dflow.optimize_proc
-    in
+    let stf = Stf.stf_of_dflowable_chp_proc chp_proc |> Stf.optimize_proc in
+    (* print_s [%sexp (stf : Stf.Proc.t)]; *)
+    let dflow = Dflow.dflow_of_stf stf |> Dflow.optimize_proc in
+    (* print_s [%sexp (dflow : Dflow.Proc.t)]; *)
     let io_ports = List.map ~f:fst (dflow.iports @ dflow.oports) in
     let s =
       export_proc dflow.stmt ~name ~iports:dflow.iports ~oports:dflow.oports

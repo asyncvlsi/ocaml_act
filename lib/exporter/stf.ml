@@ -1,4 +1,5 @@
 open! Core
+module CInt = Act.CInt
 
 module Var = struct
   module T = struct
@@ -293,271 +294,599 @@ let stf_of_dflowable_chp_proc proc =
   in
   { Proc.stmt; iports; oports }
 
-let optimize_proc proc =
-  (* flatten the generated code. TODO flatten par blocks *)
-  let rec flatten n =
+let rec flatten n =
+  match n with
+  | Stmt.Nop -> Stmt.Nop
+  | Assign (v, e) -> Assign (v, e)
+  | Send (c, e) -> Send (c, e)
+  | Read (c, v) -> Read (c, v)
+  | Seq stmts -> (
+      let stmts =
+        List.concat_map stmts ~f:(fun stmt ->
+            let stmt = flatten stmt in
+            match stmt with Nop -> [] | Seq stmts -> stmts | _ -> [ stmt ])
+      in
+      match stmts with [] -> Nop | [ stmt ] -> stmt | stmts -> Seq stmts)
+  | Par (splits, stmts, merges) -> (
+      match stmts with
+      | [] ->
+          (* cant write variables if you have no code inside the par block *)
+          assert (List.is_empty merges);
+          Nop
+      | [ stmt ] ->
+          let copy_ins =
+            List.filter_map splits ~f:(fun split ->
+                assert (Int.equal 1 (List.length split.out_vs));
+                List.hd_exn split.out_vs
+                |> Option.map ~f:(fun out_v ->
+                       Stmt.Assign (out_v, Var split.in_v)))
+          in
+          let copy_outs =
+            List.filter_map merges ~f:(fun merge ->
+                assert (Int.equal 1 (List.length merge.in_vs));
+                List.hd_exn merge.in_vs
+                |> Option.map ~f:(fun in_v ->
+                       Stmt.Assign (merge.out_v, Var in_v)))
+          in
+          Seq (copy_ins @ [ stmt ] @ copy_outs)
+      | stmts ->
+          let stmts = List.map stmts ~f:flatten in
+          (* TODO flatten nested par statements *)
+          Par (splits, stmts, merges))
+  | SelectImm (splits, gaurd_var, branches, merges) ->
+      let branches = List.map branches ~f:flatten in
+      SelectImm (splits, gaurd_var, branches, merges)
+  | DoWhile (phis, stmt, guard) ->
+      let stmt = flatten stmt in
+      DoWhile (phis, stmt, guard)
+
+let eliminate_dead_code n =
+  let any l = List.exists l ~f:Fn.id in
+  let iter_any l ~f = List.map l ~f |> any in
+  let map_or_false v ~f = match v with Some v -> f v | None -> false in
+  let table = Var.Table.create () in
+  let is_alive v = Hashtbl.find_or_add table v ~default:(fun () -> false) in
+  let set_alive v = Hashtbl.set table ~key:v ~data:true in
+  let set_alive v ~vl =
+    if vl then (
+      let b = not (is_alive v) in
+      set_alive v;
+      b)
+    else false
+  in
+  let set_e_alive e ~vl =
+    Expr.var_ids e |> iter_any ~f:(fun id -> set_alive id ~vl)
+  in
+
+  let is_alive_o v = map_or_false v ~f:is_alive in
+  let set_alive_o v ~vl = map_or_false v ~f:(set_alive ~vl) in
+
+  let rec stabilize_stmt n =
+    match n with
+    | Stmt.Nop -> false
+    | Assign (dst, e) -> set_e_alive e ~vl:(is_alive dst)
+    | Send (_, e) -> set_e_alive e ~vl:true
+    | Read (_, _) -> false
+    | Seq ns -> List.rev ns |> iter_any ~f:stabilize_stmt
+    | Par (splits, ns, merges) ->
+        let b1 =
+          iter_any merges ~f:(fun merge ->
+              iter_any merge.in_vs ~f:(set_alive_o ~vl:(is_alive merge.out_v)))
+        in
+        let b2 = iter_any ns ~f:stabilize_stmt in
+        let b3 =
+          iter_any splits ~f:(fun split ->
+              let any_alive = List.exists split.out_vs ~f:is_alive_o in
+              set_alive split.in_v ~vl:any_alive)
+        in
+        any [ b1; b2; b3 ]
+    | SelectImm (guard, splits, ns, merges) ->
+        let b1 =
+          iter_any merges ~f:(fun merge ->
+              iter_any merge.in_vs ~f:(set_alive ~vl:(is_alive merge.out_v)))
+        in
+        let b2 = iter_any ns ~f:stabilize_stmt in
+        let b3 =
+          iter_any splits ~f:(fun split ->
+              let any_alive = List.exists split.out_vs ~f:is_alive_o in
+              set_alive split.in_v ~vl:any_alive)
+        in
+        let b4 = set_e_alive guard ~vl:true in
+        any [ b1; b2; b3; b4 ]
+    | DoWhile (phis, ns, guard) ->
+        let changed =
+          let b1 =
+            iter_any phis ~f:(fun phi ->
+                map_or_false phi.out_v ~f:(fun out_v ->
+                    set_alive
+                      (Option.value_exn phi.body_out_v)
+                      ~vl:(is_alive out_v)))
+          in
+          let b2 = set_e_alive guard ~vl:true in
+          ref (any [ b1; b2 ])
+        in
+
+        while
+          let b1 = stabilize_stmt ns in
+          let b2 =
+            iter_any phis ~f:(fun phi ->
+                map_or_false phi.body_in_v ~f:(fun body_in_v ->
+                    iter_any
+                      [ phi.body_out_v; phi.init_v ]
+                      ~f:(set_alive_o ~vl:(is_alive body_in_v))))
+          in
+
+          any [ b1; b2 ]
+        do
+          changed := true
+        done;
+        !changed
+  in
+
+  let (_ : bool) = stabilize_stmt n in
+  let changed = stabilize_stmt n in
+  assert (not changed);
+  let rec of_n n =
     match n with
     | Stmt.Nop -> Stmt.Nop
-    | Assign (v, e) -> Assign (v, e)
-    | Send (c, e) -> Send (c, e)
-    | Read (c, v) -> Read (c, v)
-    | Seq stmts -> (
-        let stmts =
-          List.concat_map stmts ~f:(fun stmt ->
-              let stmt = flatten stmt in
-              match stmt with Nop -> [] | Seq stmts -> stmts | _ -> [ stmt ])
+    | Assign (dst, e) -> if not (is_alive dst) then Nop else Assign (dst, e)
+    | Send (chan, e) -> Send (chan, e)
+    | Read (chan, v) -> Read (chan, v)
+    | Seq ns -> Seq (List.map ns ~f:of_n)
+    | Par (splits, ns, merges) ->
+        let splits =
+          List.filter_map splits ~f:(fun split ->
+              let out_vs =
+                List.map split.out_vs
+                  ~f:
+                    (Option.bind ~f:(fun out ->
+                         if is_alive out then Some out else None))
+              in
+              if List.exists out_vs ~f:Option.is_some then
+                Some { Par_split.in_v = split.in_v; out_vs }
+              else None)
         in
-        match stmts with [] -> Nop | [ stmt ] -> stmt | stmts -> Seq stmts)
-    | Par (splits, stmts, merges) -> (
-        match stmts with
-        | [] ->
-            (* cant write variables if you have no code inside the par block *)
-            assert (List.is_empty merges);
+        let ns = List.map ns ~f:of_n in
+        let merges =
+          List.filter_map merges ~f:(fun merge ->
+              if is_alive merge.out_v then Some merge else None)
+        in
+        Par (splits, ns, merges)
+    | SelectImm (guard, splits, ns, merges) ->
+        let splits =
+          List.filter_map splits ~f:(fun split ->
+              let out_vs =
+                List.map split.out_vs
+                  ~f:
+                    (Option.bind ~f:(fun out ->
+                         if is_alive out then Some out else None))
+              in
+              if List.exists out_vs ~f:Option.is_some then
+                Some { Select_split.in_v = split.in_v; out_vs }
+              else None)
+        in
+        let ns = List.map ns ~f:of_n in
+        let merges =
+          List.filter_map merges ~f:(fun merge ->
+              if is_alive merge.out_v then Some merge else None)
+        in
+        SelectImm (guard, splits, ns, merges)
+    | DoWhile (phis, ns, guard) ->
+        let phis =
+          List.filter_map phis ~f:(fun phi ->
+              let fo v =
+                Option.bind v ~f:(fun v -> if is_alive v then Some v else None)
+              in
+              let init_v = fo phi.init_v in
+              let body_in_v = fo phi.body_in_v in
+              let body_out_v = fo phi.body_out_v in
+              let out_v = fo phi.out_v in
+              match (init_v, body_in_v, body_out_v, out_v) with
+              | None, None, None, None -> None
+              | _, _, _, _ ->
+                  Some { DoWhile_phi.init_v; body_in_v; body_out_v; out_v })
+        in
+        let ns = of_n ns in
+        DoWhile (phis, ns, guard)
+  in
+  of_n n
+
+let eliminate_doubled_vars n =
+  let renames = Var.Table.create () in
+  let rec of_n n =
+    let of_v v = Hashtbl.find renames v |> Option.value ~default:v in
+    match n with
+    | Stmt.Nop -> Stmt.Nop
+    | Assign (dst, e) -> (
+        match e with
+        | Var v ->
+            Hashtbl.set renames ~key:dst ~data:(of_v v);
             Nop
-        | [ stmt ] ->
-            let copy_ins =
-              List.filter_map splits ~f:(fun split ->
-                  assert (Int.equal 1 (List.length split.out_vs));
-                  List.hd_exn split.out_vs
-                  |> Option.map ~f:(fun out_v ->
-                         Stmt.Assign (out_v, Var split.in_v)))
-            in
-            let copy_outs =
-              List.filter_map merges ~f:(fun merge ->
-                  assert (Int.equal 1 (List.length merge.in_vs));
-                  List.hd_exn merge.in_vs
-                  |> Option.map ~f:(fun in_v ->
-                         Stmt.Assign (merge.out_v, Var in_v)))
-            in
-            Seq (copy_ins @ [ stmt ] @ copy_outs)
-        | stmts ->
-            let stmts = List.map stmts ~f:flatten in
-            (* TODO flatten nested par statements *)
-            Par (splits, stmts, merges))
-    | SelectImm (splits, gaurd_var, branches, merges) ->
-        let branches = List.map branches ~f:flatten in
-        SelectImm (splits, gaurd_var, branches, merges)
-    | DoWhile (phis, stmt, guard) ->
-        let stmt = flatten stmt in
-        DoWhile (phis, stmt, guard)
+        | _ -> Assign (dst, Expr.map_vars e ~f:of_v))
+    | Send (chan, e) -> Send (chan, Expr.map_vars e ~f:of_v)
+    | Read (chan, v) -> Read (chan, v)
+    | Seq ns -> Seq (List.map ns ~f:of_n)
+    | Par (splits, ns, merges) ->
+        (* TODO handle repeated splits/merges for same varaible *)
+        let splits =
+          List.map splits ~f:(fun split ->
+              let in_v = of_v split.in_v in
+              { Par_split.in_v; out_vs = split.out_vs })
+        in
+        let ns = List.map ns ~f:of_n in
+        let merges =
+          List.map merges ~f:(fun merge ->
+              let in_vs = List.map merge.in_vs ~f:(Option.map ~f:of_v) in
+              { Par_merge.in_vs; out_v = merge.out_v })
+        in
+        Par (splits, ns, merges)
+    | SelectImm (guard, splits, ns, merges) ->
+        (* TODO handle repeated splits/merges for same varaible *)
+        let guard = Expr.map_vars guard ~f:of_v in
+        let splits =
+          List.map splits ~f:(fun split ->
+              let in_v = of_v split.in_v in
+              { Select_split.in_v; out_vs = split.out_vs })
+        in
+        let ns = List.map ns ~f:of_n in
+        let merges =
+          List.map merges ~f:(fun merge ->
+              let in_vs = List.map merge.in_vs ~f:of_v in
+              { Select_merge.in_vs; out_v = merge.out_v })
+        in
+        SelectImm (guard, splits, ns, merges)
+    | DoWhile (phis, ns, guard) ->
+        let phis =
+          List.map phis ~f:(fun phi ->
+              {
+                DoWhile_phi.init_v = Option.map ~f:of_v phi.init_v;
+                body_in_v = phi.body_in_v;
+                body_out_v = Option.map phi.body_out_v ~f:of_v;
+                out_v = phi.out_v;
+              })
+        in
+        let ns = of_n ns in
+        let guard = Expr.map_vars guard ~f:of_v in
+        DoWhile (phis, ns, guard)
   in
+  of_n n
 
-  let eliminate_dead_code n =
-    let any l = List.exists l ~f:Fn.id in
-    let iter_any l ~f = List.map l ~f |> any in
-    let map_or_false v ~f = match v with Some v -> f v | None -> false in
-    let table = Var.Table.create () in
-    let is_alive v = Hashtbl.find_or_add table v ~default:(fun () -> false) in
-    let set_alive v = Hashtbl.set table ~key:v ~data:true in
-    let set_alive v ~vl =
-      if vl then (
-        let b = not (is_alive v) in
-        set_alive v;
-        b)
-      else false
-    in
-    let set_e_alive e ~vl =
-      Expr.var_ids e |> iter_any ~f:(fun id -> set_alive id ~vl)
-    in
+module Const_lat = struct
+  type t = { (* incl *) min : CInt.t; (* incl *) max : CInt.t }
+  [@@deriving equal]
 
-    let is_alive_o v = map_or_false v ~f:is_alive in
-    let set_alive_o v ~vl = map_or_false v ~f:(set_alive ~vl) in
+  let create_const v = { min = v; max = v }
+  let max_cint_of_width bits = CInt.(sub (pow two (of_int bits)) one)
+  let create_bitwidth bits = { min = CInt.zero; max = max_cint_of_width bits }
 
-    let rec stabilize_stmt n =
-      match n with
-      | Stmt.Nop -> false
-      | Assign (dst, e) -> set_e_alive e ~vl:(is_alive dst)
-      | Send (_, e) -> set_e_alive e ~vl:true
-      | Read (_, _) -> false
-      | Seq ns -> List.rev ns |> iter_any ~f:stabilize_stmt
-      | Par (splits, ns, merges) ->
-          let b1 =
-            iter_any merges ~f:(fun merge ->
-                iter_any merge.in_vs ~f:(set_alive_o ~vl:(is_alive merge.out_v)))
-          in
-          let b2 = iter_any ns ~f:stabilize_stmt in
-          let b3 =
-            iter_any splits ~f:(fun split ->
-                let any_alive = List.exists split.out_vs ~f:is_alive_o in
-                set_alive split.in_v ~vl:any_alive)
-          in
-          any [ b1; b2; b3 ]
-      | SelectImm (guard, splits, ns, merges) ->
-          let b1 =
-            iter_any merges ~f:(fun merge ->
-                iter_any merge.in_vs ~f:(set_alive ~vl:(is_alive merge.out_v)))
-          in
-          let b2 = iter_any ns ~f:stabilize_stmt in
-          let b3 =
-            iter_any splits ~f:(fun split ->
-                let any_alive = List.exists split.out_vs ~f:is_alive_o in
-                set_alive split.in_v ~vl:any_alive)
-          in
-          let b4 = set_e_alive guard ~vl:true in
-          any [ b1; b2; b3; b4 ]
-      | DoWhile (phis, ns, guard) ->
-          let changed =
-            let b1 =
-              iter_any phis ~f:(fun phi ->
-                  map_or_false phi.out_v ~f:(fun out_v ->
-                      set_alive
-                        (Option.value_exn phi.body_out_v)
-                        ~vl:(is_alive out_v)))
+  let union c1 c2 =
+    { min = CInt.min c1.min c2.min; max = CInt.max c1.max c2.max }
+
+  let eval_rewrite_expr e ~lat_of_var =
+    let rec f e =
+      let lat, e =
+        match e with
+        | Expr.Add (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat =
+              { min = CInt.add al.min bl.min; max = CInt.add al.max bl.max }
             in
-            let b2 = set_e_alive guard ~vl:true in
-            ref (any [ b1; b2 ])
-          in
-
-          while
-            let b1 = stabilize_stmt ns in
-            let b2 =
-              iter_any phis ~f:(fun phi ->
-                  map_or_false phi.body_in_v ~f:(fun body_in_v ->
-                      iter_any
-                        [ phi.body_out_v; phi.init_v ]
-                        ~f:(set_alive_o ~vl:(is_alive body_in_v))))
+            (lat, Expr.Add (a, b))
+        | Sub_no_wrap (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat =
+              {
+                min =
+                  (if CInt.(bl.max >= al.min) then CInt.zero
+                  else CInt.sub al.min bl.max);
+                max = CInt.sub al.max bl.min;
+              }
             in
-
-            any [ b1; b2 ]
-          do
-            changed := true
-          done;
-          !changed
-    in
-
-    let (_ : bool) = stabilize_stmt n in
-    let changed = stabilize_stmt n in
-    assert (not changed);
-    let rec of_n n =
-      match n with
-      | Stmt.Nop -> Stmt.Nop
-      | Assign (dst, e) -> if not (is_alive dst) then Nop else Assign (dst, e)
-      | Send (chan, e) -> Send (chan, e)
-      | Read (chan, v) -> Read (chan, v)
-      | Seq ns -> Seq (List.map ns ~f:of_n)
-      | Par (splits, ns, merges) ->
-          let splits =
-            List.filter_map splits ~f:(fun split ->
-                let out_vs =
-                  List.map split.out_vs
-                    ~f:
-                      (Option.bind ~f:(fun out ->
-                           if is_alive out then Some out else None))
-                in
-                if List.exists out_vs ~f:Option.is_some then
-                  Some { Par_split.in_v = split.in_v; out_vs }
-                else None)
-          in
-          let ns = List.map ns ~f:of_n in
-          let merges =
-            List.filter_map merges ~f:(fun merge ->
-                if is_alive merge.out_v then Some merge else None)
-          in
-          Par (splits, ns, merges)
-      | SelectImm (guard, splits, ns, merges) ->
-          let splits =
-            List.filter_map splits ~f:(fun split ->
-                let out_vs =
-                  List.map split.out_vs
-                    ~f:
-                      (Option.bind ~f:(fun out ->
-                           if is_alive out then Some out else None))
-                in
-                if List.exists out_vs ~f:Option.is_some then
-                  Some { Select_split.in_v = split.in_v; out_vs }
-                else None)
-          in
-          let ns = List.map ns ~f:of_n in
-          let merges =
-            List.filter_map merges ~f:(fun merge ->
-                if is_alive merge.out_v then Some merge else None)
-          in
-          SelectImm (guard, splits, ns, merges)
-      | DoWhile (phis, ns, guard) ->
-          let phis =
-            List.filter_map phis ~f:(fun phi ->
-                let fo v =
-                  Option.bind v ~f:(fun v ->
-                      if is_alive v then Some v else None)
-                in
-                let init_v = fo phi.init_v in
-                let body_in_v = fo phi.body_in_v in
-                let body_out_v = fo phi.body_out_v in
-                let out_v = fo phi.out_v in
-                match (init_v, body_in_v, body_out_v, out_v) with
-                | None, None, None, None -> None
-                | _, _, _, _ ->
-                    Some { DoWhile_phi.init_v; body_in_v; body_out_v; out_v })
-          in
-          let ns = of_n ns in
-          DoWhile (phis, ns, guard)
-    in
-    of_n n
-  in
-
-  let eliminate_doubled_vars n =
-    let renames = Var.Table.create () in
-    let rec of_n n =
-      let of_v v = Hashtbl.find renames v |> Option.value ~default:v in
-      match n with
-      | Stmt.Nop -> Stmt.Nop
-      | Assign (dst, e) -> (
-          match e with
-          | Var v ->
-              Hashtbl.set renames ~key:dst ~data:(of_v v);
-              Nop
-          | _ -> Assign (dst, Expr.map_vars e ~f:of_v))
-      | Send (chan, e) -> Send (chan, Expr.map_vars e ~f:of_v)
-      | Read (chan, v) -> Read (chan, v)
-      | Seq ns -> Seq (List.map ns ~f:of_n)
-      | Par (splits, ns, merges) ->
-          (* TODO handle repeated splits/merges for same varaible *)
-          let splits =
-            List.map splits ~f:(fun split ->
-                let in_v = of_v split.in_v in
-                { Par_split.in_v; out_vs = split.out_vs })
-          in
-          let ns = List.map ns ~f:of_n in
-          let merges =
-            List.map merges ~f:(fun merge ->
-                let in_vs = List.map merge.in_vs ~f:(Option.map ~f:of_v) in
-                { Par_merge.in_vs; out_v = merge.out_v })
-          in
-          Par (splits, ns, merges)
-      | SelectImm (guard, splits, ns, merges) ->
-          (* TODO handle repeated splits/merges for same varaible *)
-          let guard = Expr.map_vars guard ~f:of_v in
-          let splits =
-            List.map splits ~f:(fun split ->
-                let in_v = of_v split.in_v in
-                { Select_split.in_v; out_vs = split.out_vs })
-          in
-          let ns = List.map ns ~f:of_n in
-          let merges =
-            List.map merges ~f:(fun merge ->
-                let in_vs = List.map merge.in_vs ~f:of_v in
-                { Select_merge.in_vs; out_v = merge.out_v })
-          in
-          SelectImm (guard, splits, ns, merges)
-      | DoWhile (phis, ns, guard) ->
-          let phis =
-            List.map phis ~f:(fun phi ->
+            (lat, Sub_no_wrap (a, b))
+        | Mul (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat =
+              { min = CInt.mul al.min bl.min; max = CInt.mul al.max bl.max }
+            in
+            (lat, Mul (a, b))
+        | Div (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat =
+              { min = CInt.div al.min bl.max; max = CInt.div al.max bl.min }
+            in
+            (lat, Div (a, b))
+        | Mod (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat = { min = CInt.zero; max = CInt.min al.max bl.max } in
+            (lat, Mod (a, b))
+        | LShift (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat =
+              {
+                min = CInt.left_shift al.min ~amt:bl.min;
+                max = CInt.left_shift al.max ~amt:bl.max;
+              }
+            in
+            (lat, LShift (a, b))
+        | RShift (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat =
+              {
+                min = CInt.right_shift al.min ~amt:bl.max;
+                max = CInt.right_shift al.max ~amt:bl.min;
+              }
+            in
+            (lat, RShift (a, b))
+        | BitAnd (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat = { min = CInt.zero; max = CInt.min al.max bl.max } in
+            (lat, BitAnd (a, b))
+        | BitOr (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat =
+              if CInt.eq al.min al.max && CInt.eq bl.min bl.max then
                 {
-                  DoWhile_phi.init_v = Option.map ~f:of_v phi.init_v;
-                  body_in_v = phi.body_in_v;
-                  body_out_v = Option.map phi.body_out_v ~f:of_v;
-                  out_v = phi.out_v;
-                })
-          in
-          let ns = of_n ns in
-          let guard = Expr.map_vars guard ~f:of_v in
-          DoWhile (phis, ns, guard)
+                  min = CInt.bit_or al.min bl.min;
+                  max = CInt.bit_or al.min bl.min;
+                }
+              else
+                {
+                  min = CInt.min al.min bl.min;
+                  max =
+                    (let bitwidth =
+                       Int.max (CInt.bitwidth al.max) (CInt.bitwidth bl.max)
+                     in
+                     CInt.min (CInt.add al.max bl.max)
+                       (max_cint_of_width bitwidth));
+                }
+            in
+            (lat, BitOr (a, b))
+        | BitXor (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat =
+              {
+                min = CInt.zero;
+                max =
+                  (let bitwidth =
+                     Int.max (CInt.bitwidth al.max) (CInt.bitwidth bl.max)
+                   in
+                   CInt.min (CInt.add al.max bl.max)
+                     (max_cint_of_width bitwidth));
+              }
+            in
+            (lat, BitXor (a, b))
+        | Eq (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat =
+              if
+                CInt.eq al.min al.max && CInt.eq bl.min bl.max
+                && CInt.eq al.min bl.min
+              then { min = CInt.one; max = CInt.one }
+              else if CInt.lt al.max bl.min && CInt.gt al.min bl.max then
+                { min = CInt.zero; max = CInt.zero }
+              else { min = CInt.zero; max = CInt.one }
+            in
+            (lat, Eq (a, b))
+        | Ne (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat =
+              if
+                CInt.eq al.min al.max && CInt.eq bl.min bl.max
+                && CInt.eq al.min bl.min
+              then { min = CInt.zero; max = CInt.zero }
+              else if CInt.lt al.max bl.min && CInt.gt al.min bl.max then
+                { min = CInt.one; max = CInt.one }
+              else { min = CInt.zero; max = CInt.one }
+            in
+            (lat, Ne (a, b))
+        | Lt (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat =
+              if CInt.lt al.max bl.min then { min = CInt.one; max = CInt.one }
+              else if CInt.ge al.min bl.max then
+                { min = CInt.zero; max = CInt.zero }
+              else { min = CInt.zero; max = CInt.one }
+            in
+            (lat, Lt (a, b))
+        | Le (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat =
+              if CInt.le al.max bl.min then { min = CInt.one; max = CInt.one }
+              else if CInt.gt al.min bl.max then
+                { min = CInt.zero; max = CInt.zero }
+              else { min = CInt.zero; max = CInt.one }
+            in
+            (lat, Le (a, b))
+        | Gt (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat =
+              if CInt.gt al.min bl.max then { min = CInt.one; max = CInt.one }
+              else if CInt.le al.max bl.min then
+                { min = CInt.zero; max = CInt.zero }
+              else { min = CInt.zero; max = CInt.one }
+            in
+            (lat, Gt (a, b))
+        | Ge (a, b) ->
+            let (al, a), (bl, b) = (f a, f b) in
+            let lat =
+              if CInt.ge al.min bl.max then { min = CInt.one; max = CInt.one }
+              else if CInt.lt al.max bl.min then
+                { min = CInt.zero; max = CInt.zero }
+              else { min = CInt.zero; max = CInt.one }
+            in
+            (lat, Ge (a, b))
+        | Var v ->
+            let lat = lat_of_var v in
+            (lat, Var v)
+        | Clip (e, bits) ->
+            let el, e = f e in
+            let lat =
+              {
+                min = CInt.zero;
+                max = CInt.min el.max (max_cint_of_width bits);
+              }
+            in
+            (lat, Clip (e, bits))
+        | Const c ->
+            let lat = create_const c in
+            (lat, Const c)
+      in
+      let e = if CInt.eq lat.min lat.max then Expr.Const lat.min else e in
+      (lat, e)
     in
-    of_n n
+    f e
+
+  let eval_expr e ~lat_of_var = eval_rewrite_expr e ~lat_of_var |> fst
+  let rewrite_expr e ~lat_of_var = eval_rewrite_expr e ~lat_of_var |> snd
+end
+
+let propigate_constants n =
+  let any l = List.exists l ~f:Fn.id in
+  let iter_any l ~f = List.map l ~f |> any in
+  let map_or_false v ~f = match v with Some v -> f v | None -> false in
+  let table = Var.Table.create () in
+  let get v = Hashtbl.find_exn table v in
+  let put v new_vl =
+    match Hashtbl.find table v with
+    | Some prev ->
+        let new_vl = Const_lat.union prev new_vl in
+        Hashtbl.set table ~key:v ~data:new_vl;
+        not (Const_lat.equal prev new_vl)
+    | None ->
+        Hashtbl.set table ~key:v ~data:new_vl;
+        true
+  in
+  let expr_val e = Const_lat.eval_expr e ~lat_of_var:get in
+
+  let rec stabilize_stmt n =
+    match n with
+    | Stmt.Nop -> false
+    | Assign (dst, e) -> put dst (expr_val e)
+    | Send (_, _) -> false
+    | Read (_, v) -> put v (Const_lat.create_bitwidth v.bitwidth)
+    | Seq ns -> iter_any ns ~f:stabilize_stmt
+    | Par (splits, ns, merges) ->
+        let b1 =
+          iter_any splits ~f:(fun split ->
+              let in_v_lat = get split.in_v in
+              iter_any split.out_vs
+                ~f:(map_or_false ~f:(fun v -> put v in_v_lat)))
+        in
+        let b2 = iter_any ns ~f:stabilize_stmt in
+        let b3 =
+          iter_any merges ~f:(fun merge ->
+              let out_v_lat =
+                List.filter_opt merge.in_vs
+                |> List.map ~f:get
+                |> List.reduce ~f:Const_lat.union
+                |> Option.value_exn
+              in
+              put merge.out_v out_v_lat)
+        in
+        any [ b1; b2; b3 ]
+    | SelectImm (_, splits, ns, merges) ->
+        let b1 =
+          iter_any splits ~f:(fun split ->
+              let in_v_lat = get split.in_v in
+              iter_any split.out_vs
+                ~f:(map_or_false ~f:(fun v -> put v in_v_lat)))
+        in
+        let b2 = iter_any ns ~f:stabilize_stmt in
+        let b3 =
+          iter_any merges ~f:(fun merge ->
+              let out_v_lat =
+                List.map merge.in_vs ~f:get
+                |> List.reduce ~f:Const_lat.union
+                |> Option.value_exn
+              in
+              put merge.out_v out_v_lat)
+        in
+        any [ b1; b2; b3 ]
+    | DoWhile (phis, ns, _) ->
+        let changed =
+          let b1 =
+            iter_any phis ~f:(fun phi ->
+                map_or_false phi.init_v ~f:(fun init_v ->
+                    put (Option.value_exn phi.body_in_v) (get init_v)))
+          in
+          ref b1
+        in
+
+        while
+          let b1 = stabilize_stmt ns in
+          let b2 =
+            iter_any phis ~f:(fun phi ->
+                map_or_false phi.body_in_v ~f:(fun body_out_v ->
+                    iter_any
+                      [ phi.body_in_v; phi.out_v ]
+                      ~f:(map_or_false ~f:(fun v -> put v (get body_out_v)))))
+          in
+          any [ b1; b2 ]
+        do
+          changed := true
+        done;
+        !changed
   in
 
+  let (_ : bool) = stabilize_stmt n in
+  let changed = stabilize_stmt n in
+  assert (not changed);
+
+  let of_e e = Const_lat.rewrite_expr e ~lat_of_var:get in
+
+  let rec of_n n =
+    match n with
+    | Stmt.Nop -> Stmt.Nop
+    | Assign (dst, e) -> Assign (dst, of_e e)
+    | Send (chan, e) -> Send (chan, of_e e)
+    | Read (chan, v) -> Read (chan, v)
+    | Seq ns -> Seq (List.map ns ~f:of_n)
+    | Par (splits, ns, merges) -> Par (splits, List.map ns ~f:of_n, merges)
+    | SelectImm (guard, splits, ns, merges) ->
+        SelectImm (of_e guard, splits, List.map ns ~f:of_n, merges)
+    | DoWhile (phis, ns, guard) -> DoWhile (phis, of_n ns, of_e guard)
+  in
+  of_n n
+
+let validate n =
+  let assigned_ids = Var.Table.create () in
+  let add id =
+    assert (not (Hashtbl.mem assigned_ids id));
+    Hashtbl.set assigned_ids ~key:id ~data:()
+  in
+  let rec of_n n =
+    match n with
+    | Stmt.Nop -> ()
+    | Assign (dst, _) -> add dst
+    | Send (_, _) -> ()
+    | Read (_, v) -> add v
+    | Seq ns -> List.iter ns ~f:of_n
+    | Par (splits, ns, merges) ->
+        List.iter splits ~f:(fun split ->
+            List.iter split.out_vs ~f:(Option.iter ~f:add));
+
+        List.iter ns ~f:of_n;
+        List.iter merges ~f:(fun merge -> add merge.out_v)
+    | SelectImm (_, splits, ns, merges) ->
+        List.iter splits ~f:(fun split ->
+            List.iter split.out_vs ~f:(Option.iter ~f:add));
+
+        List.iter ns ~f:of_n;
+        List.iter merges ~f:(fun merge -> add merge.out_v)
+    | DoWhile (phis, ns, _) ->
+        List.iter phis ~f:(fun phi ->
+            Option.iter phi.body_in_v ~f:add;
+            Option.iter phi.out_v ~f:add);
+        of_n ns
+  in
+  of_n n
+
+let optimize_proc proc =
   let stmt =
     flatten proc.Proc.stmt |> eliminate_dead_code |> flatten
     |> eliminate_doubled_vars |> flatten |> eliminate_dead_code |> flatten
+    |> propigate_constants |> eliminate_dead_code |> flatten
+    |> eliminate_doubled_vars |> flatten |> eliminate_dead_code |> flatten
   in
+  validate stmt;
   { Proc.stmt; iports = proc.iports; oports = proc.oports }
