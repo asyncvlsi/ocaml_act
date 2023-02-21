@@ -46,7 +46,7 @@ module Stmt = struct
     | DoWhile of t * Var.t Expr.t
       (* This expr is a one-hot vector with List.length branches bits
           indexing into the list of branches *)
-    | SelectImm of Var.t Expr.t * t list
+    | SelectImm of Var.t Expr.t list * t list
     | Nondeterm_select of (Probe.t * t) list
   [@@deriving sexp_of]
 
@@ -68,8 +68,8 @@ module Stmt = struct
                  match n with Seq ns -> ns | _ -> [ n ])
         in
         match ns with [] -> Nop | [ n ] -> n | ls -> Seq ls)
-    | SelectImm (guard, branches) ->
-        SelectImm (guard, List.map branches ~f:flatten)
+    | SelectImm (guards, branches) ->
+        SelectImm (guards, List.map branches ~f:flatten)
     | Nondeterm_select branches ->
         Nondeterm_select
           (List.map branches ~f:(fun (probe, stmt) -> (probe, flatten stmt)))
@@ -248,7 +248,7 @@ let of_chp (proc : Act.Internal_rep.Chp.t) ~new_interproc_chan
                   |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
                   |> Option.value ~default:(Expr.Const CInt.zero)
                 in
-                [ (Expr.BitXor (any_guard_true, Const CInt.one), []) ]
+                [ (Expr.Eq0 any_guard_true, []) ]
             | None -> []
           in
           let guards, guard_asserts = guards @ else_guard |> List.unzip in
@@ -256,21 +256,14 @@ let of_chp (proc : Act.Internal_rep.Chp.t) ~new_interproc_chan
             List.map branches ~f:snd @ Option.to_list else_ |> List.map ~f:of_n
           in
           (* TODO do this better *)
-          let guard_expr =
-            List.mapi guards ~f:(fun i guard ->
-                Expr.LShift (guard, Const (CInt.of_int i)))
-            |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
-            |> Option.value_exn
-          in
-          Seq (List.concat guard_asserts @ [ SelectImm (guard_expr, stmts) ])
+          Seq (List.concat guard_asserts @ [ SelectImm (guards, stmts) ])
       | WhileLoop (_, expr, seq) ->
           let expr, asserts = of_e expr in
-          let guard_expr = Expr.Add (expr, Const CInt.one) in
           Seq
             [
               Seq asserts;
               SelectImm
-                ( guard_expr,
+                ( [ Eq0 expr; expr ],
                   [ Nop; DoWhile (Seq [ of_n seq; Seq asserts ], expr) ] );
             ]
       | ReadUGMem (_, mem, idx, dst) ->

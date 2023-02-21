@@ -49,7 +49,7 @@ module Stmt : sig
     | Seq of t list
     | Par of Par_split.t list * t list * Par_merge.t list
     | SelectImm of
-        Var.t Expr.t * Select_split.t list * t list * Select_merge.t list
+        Var.t Expr.t list * Select_split.t list * t list * Select_merge.t list
     | DoWhile of DoWhile_phi.t list * t * Var.t Expr.t
   [@@deriving sexp]
 end

@@ -8,14 +8,20 @@ module Dflow_id : sig
 end
 
 module Stmt : sig
-  module GK : sig
-    type t = One_hot | Idx [@@deriving sexp_of]
+  module Guard : sig
+    type t =
+      | One_hot of Dflow_id.t
+      | Idx of Dflow_id.t
+      | Bits of Dflow_id.t list
+    [@@deriving sexp_of]
+
+    val ids : t -> Dflow_id.t list
   end
 
   type t =
-    | Assign of Dflow_id.t * Dflow_id.t Expr.t
-    | Split of GK.t * Dflow_id.t * Dflow_id.t * Dflow_id.t option list
-    | Merge of GK.t * Dflow_id.t * Dflow_id.t list * Dflow_id.t
+    | MultiAssign of (Dflow_id.t * Dflow_id.t Expr.t) list
+    | Split of Guard.t * Dflow_id.t * Dflow_id.t option list
+    | Merge of Guard.t * Dflow_id.t list * Dflow_id.t
     | Copy_init of (*dst *) Dflow_id.t * (*src*) Dflow_id.t * Act.CInt.t
   [@@deriving sexp_of]
 end
@@ -28,6 +34,12 @@ module Proc : sig
   }
   [@@deriving sexp_of]
 end
+
+val var_ids :
+  Stmt.t list ->
+  (Interproc_chan.t * Dflow_id.t) list ->
+  (Interproc_chan.t * Dflow_id.t) list ->
+  Dflow_id.Set.t
 
 val dflow_of_stf : Stf.Proc.t -> Proc.t
 val optimize_proc : Proc.t -> Proc.t

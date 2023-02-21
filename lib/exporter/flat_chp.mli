@@ -37,7 +37,7 @@ module Stmt : sig
     | DoWhile of t * Var.t Expr.t
       (* This expr is a one-hot vector with List.length branches bits
           indexing into the list of branches *)
-    | SelectImm of Var.t Expr.t * t list
+    | SelectImm of Var.t Expr.t list * t list
     | Nondeterm_select of (Probe.t * t) list
   [@@deriving sexp_of]
 

@@ -14,6 +14,7 @@ type 'v t =
   | Ge of 'v t * 'v t
   | Lt of 'v t * 'v t
   | Le of 'v t * 'v t
+  | Eq0 of 'v t
   | BitXor of 'v t * 'v t
   | BitOr of 'v t * 'v t
   | BitAnd of 'v t * 'v t
@@ -38,6 +39,7 @@ let map_var_nodes e ~f =
     | Ge (a, b) -> Ge (h a, h b)
     | Lt (a, b) -> Lt (h a, h b)
     | Le (a, b) -> Le (h a, h b)
+    | Eq0 a -> Eq0 (h a)
     | BitXor (a, b) -> BitXor (h a, h b)
     | BitOr (a, b) -> BitOr (h a, h b)
     | BitAnd (a, b) -> BitAnd (h a, h b)
@@ -65,6 +67,7 @@ let var_ids e =
     | Ge (a, b) -> f a @ f b
     | Lt (a, b) -> f a @ f b
     | Le (a, b) -> f a @ f b
+    | Eq0 a -> f a
     | BitXor (a, b) -> f a @ f b
     | BitOr (a, b) -> f a @ f b
     | BitAnd (a, b) -> f a @ f b
@@ -90,6 +93,7 @@ let bitwidth e ~bits_of_var =
     | Ge (_, _) -> 1
     | Lt (_, _) -> 1
     | Le (_, _) -> 1
+    | Eq0 _ -> 1
     | BitXor (a, b) -> Int.max (h a) (h b)
     | BitOr (a, b) -> Int.max (h a) (h b)
     | BitAnd (a, b) -> Int.min (h a) (h b)

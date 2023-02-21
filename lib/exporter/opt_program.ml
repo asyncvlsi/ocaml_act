@@ -16,8 +16,9 @@ module Chp_exporter = struct
         | ReadThenAssert (_, var_id, _) -> [ var_id ]
         | Send (_, expr) -> extract_expr expr
         | DoWhile (n, expr) -> extract_expr expr @ extract_n n
-        | SelectImm (guard, branches) ->
-            extract_expr guard @ List.concat_map branches ~f:extract_n
+        | SelectImm (guards, branches) ->
+            List.concat_map ~f:extract_expr guards
+            @ List.concat_map branches ~f:extract_n
         | Nondeterm_select branches ->
             List.concat_map branches ~f:(fun (_, stmt) -> extract_n stmt)
       in
@@ -105,6 +106,7 @@ module Chp_exporter = struct
         | BitOr (a, b) -> [%string "(%{ee a} | %{ee b})"]
         | BitXor (a, b) -> [%string "(%{ee a} ^ %{ee b})"]
         | Eq (a, b) -> [%string "int(%{ee a} = %{ee b})"]
+        | Eq0 a -> [%string "int(%{ee a} = 0)"]
         | Ne (a, b) -> [%string "int(%{ee a} != %{ee b})"]
         | Lt (a, b) -> [%string "int(%{ee a} < %{ee b})"]
         | Le (a, b) -> [%string "int(%{ee a} <= %{ee b})"]
@@ -131,12 +133,11 @@ module Chp_exporter = struct
             [%string "%{extract_chan chan}!(%{extract_expr expr})"]
         | DoWhile (n, guard) ->
             [%string " *[ %{extract n} <- bool(%{extract_expr guard}) ] "]
-        | SelectImm (guard, branches) ->
+        | SelectImm (guards, branches) ->
             let branches =
-              List.mapi branches ~f:(fun idx n ->
-                  [%string
-                    "%{extract_expr guard} = %{Int.pow 2 idx#Int} -> %{extract \
-                     n}"])
+              List.zip_exn guards branches
+              |> List.map ~f:(fun (g, n) ->
+                     [%string "bool(%{extract_expr g}) -> %{extract n}"])
               |> String.concat ~sep:" [] "
             in
             [%string "[%{branches}]"]
@@ -173,15 +174,7 @@ end
 
 module Dflow_exporter = struct
   let export_proc (ns : Dflow.Stmt.t list) ~iports ~oports ~name =
-    let all_ids =
-      List.concat_map ns ~f:(fun n ->
-          match n with
-          | Assign (v, e) -> v :: Expr.var_ids e
-          | Split (_, g, v, os) -> g :: v :: List.filter_opt os
-          | Merge (_, g, ins, v) -> g :: v :: ins
-          | Copy_init (i, o, _) -> [ i; o ])
-      |> Dflow.Dflow_id.Set.of_list |> Set.to_list
-    in
+    let all_ids = Dflow.var_ids ns iports oports |> Set.to_list in
     let decl_vars =
       List.map all_ids ~f:(fun id ->
           [%string "  chan(int<%{id.bitwidth#Int}>) v%{id.id#Int};"])
@@ -201,6 +194,7 @@ module Dflow_exporter = struct
         | BitOr (a, b) -> [%string "(%{ee a} | %{ee b})"]
         | BitXor (a, b) -> [%string "(%{ee a} ^ %{ee b})"]
         | Eq (a, b) -> [%string "int(%{ee a} = %{ee b})"]
+        | Eq0 a -> [%string "int(%{ee a} = 0)"]
         | Ne (a, b) -> [%string "int(%{ee a} != %{ee b})"]
         | Lt (a, b) -> [%string "int(%{ee a} < %{ee b})"]
         | Le (a, b) -> [%string "int(%{ee a} <= %{ee b})"]
@@ -214,20 +208,42 @@ module Dflow_exporter = struct
       let vvo o = match o with Some v -> vv v | None -> "*" in
       List.map ns ~f:(fun n ->
           match n with
-          | Assign (v, e) -> [%string "  v%{v.id#Int} <- %{ee e};"]
-          | Split (_gk, g, v, os) ->
+          | MultiAssign assigns -> (
+              match assigns with
+              | [] -> ""
+              | [ (dst, e) ] -> [%string "  v%{dst.id#Int} <- %{ee e};"]
+              | assigns ->
+                  let exprs =
+                    List.map assigns ~f:(fun (dst, e) ->
+                        [%string "  v%{dst.id#Int} <- %{ee e};"])
+                    |> String.concat ~sep:"\n  "
+                  in
+                  [%string "  dataflow_cluser {\n  %{exprs}\n  };"])
+          | Split (g, v, os) ->
+              let g =
+                match g with
+                | Idx g -> [%string "v%{g.id#Int}"]
+                | One_hot _ -> failwith "Run Dflow.normalize_proc first"
+                | Bits _ -> failwith "Run Dflow.normalize_proc first"
+              in
               (* TODO transform guard into guard format? *)
               let os = List.map os ~f:vvo |> String.concat ~sep:", " in
-              [%string "  {v%{g.id#Int}} v%{v.id#Int} -> %{os};"]
-          | Merge (_gk, g, ins, v) ->
+              [%string "  { %{g} } v%{v.id#Int} -> %{os};"]
+          | Merge (g, ins, v) ->
+              let g =
+                match g with
+                | Idx g -> [%string "v%{g.id#Int}"]
+                | One_hot _ -> failwith "Run Dflow.normalize_proc first"
+                | Bits _ -> failwith "Run Dflow.normalize_proc first"
+              in
               (* TODO transform guard into guard format? *)
               let ins =
                 List.map ins ~f:(fun i -> [%string "v%{i.id#Int}"])
                 |> String.concat ~sep:", "
               in
-              [%string "  {v%{g.id#Int}} %{ins} -> v%{v.id#Int};"]
-          | Copy_init (i, o, init) ->
-              [%string " v%{i.id#Int} -> [1,%{init#CInt}] v%{o.id#Int};"])
+              [%string "  { %{g} } %{ins} -> v%{v.id#Int};"]
+          | Copy_init (dst, src, init) ->
+              [%string "  v%{src.id#Int} -> [1,%{init#CInt}] v%{dst.id#Int};"])
       |> String.concat ~sep:"\n"
     in
 

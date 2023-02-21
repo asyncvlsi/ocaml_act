@@ -58,7 +58,7 @@ module Stmt = struct
     | Seq of t list
     | Par of Par_split.t list * t list * Par_merge.t list
     | SelectImm of
-        Var.t Expr.t * Select_split.t list * t list * Select_merge.t list
+        Var.t Expr.t list * Select_split.t list * t list * Select_merge.t list
     | DoWhile of DoWhile_phi.t list * t * Var.t Expr.t
   [@@deriving sexp]
 end
@@ -102,29 +102,7 @@ let stf_of_dflowable_chp_proc proc =
     let write_v v = write_v' v ~stf_id_of_id in
 
     let of_e' e ~stf_id_of_id ~stf_id_of_raw_read_id =
-      let rec f e =
-        match e with
-        | Expr.Add (a, b) -> Expr.Add (f a, f b)
-        | Sub_no_wrap (a, b) -> Sub_no_wrap (f a, f b)
-        | Mul (a, b) -> Mul (f a, f b)
-        | Div (a, b) -> Div (f a, f b)
-        | Mod (a, b) -> Mod (f a, f b)
-        | LShift (a, b) -> LShift (f a, f b)
-        | RShift (a, b) -> RShift (f a, f b)
-        | BitAnd (a, b) -> BitAnd (f a, f b)
-        | BitOr (a, b) -> BitOr (f a, f b)
-        | BitXor (a, b) -> BitXor (f a, f b)
-        | Eq (a, b) -> Eq (f a, f b)
-        | Ne (a, b) -> Ne (f a, f b)
-        | Lt (a, b) -> Lt (f a, f b)
-        | Le (a, b) -> Le (f a, f b)
-        | Gt (a, b) -> Gt (f a, f b)
-        | Ge (a, b) -> Ge (f a, f b)
-        | Var v -> Var (of_v' v ~stf_id_of_id ~stf_id_of_raw_read_id)
-        | Clip (e, bits) -> Clip (f e, bits)
-        | Const c -> Const c
-      in
-      f e
+      Expr.map_vars e ~f:(fun v -> of_v' v ~stf_id_of_id ~stf_id_of_raw_read_id)
     in
     let of_e e = of_e' e ~stf_id_of_id ~stf_id_of_raw_read_id in
 
@@ -185,8 +163,8 @@ let stf_of_dflowable_chp_proc proc =
         (* print_s [%sexp (("merges", merges): string * Stmt.Par_merge.t list)]; *)
         Par (splits, stmts, merges)
     | Nondeterm_select _ -> failwith "STF does not support Nondeterm_select"
-    | SelectImm (gaurd_expr, branches) ->
-        let gaurd_expr = of_e gaurd_expr in
+    | SelectImm (gaurds, branches) ->
+        let gaurds = List.map gaurds ~f:of_e in
         let l =
           List.map branches ~f:(fun stmt ->
               let stf_id_of_id = Flat_chp.Var.Table.create () in
@@ -231,7 +209,7 @@ let stf_of_dflowable_chp_proc proc =
               let out_v = write_v write_id in
               { Select_merge.in_vs; out_v })
         in
-        SelectImm (gaurd_expr, splits, branches, merges)
+        SelectImm (gaurds, splits, branches, merges)
     | DoWhile (stmt, guard) ->
         let stf_id_of_id' = Flat_chp.Var.Table.create () in
         let stf_id_of_raw_read_id' = Flat_chp.Var.Table.create () in
@@ -333,9 +311,10 @@ let rec flatten n =
           let stmts = List.map stmts ~f:flatten in
           (* TODO flatten nested par statements *)
           Par (splits, stmts, merges))
-  | SelectImm (splits, gaurd_var, branches, merges) ->
+  | SelectImm (gaurds, splits, branches, merges) ->
       let branches = List.map branches ~f:flatten in
-      SelectImm (splits, gaurd_var, branches, merges)
+      (* TODO flatten out Nop branches *)
+      SelectImm (gaurds, splits, branches, merges)
   | DoWhile (phis, stmt, guard) ->
       let stmt = flatten stmt in
       DoWhile (phis, stmt, guard)
@@ -380,7 +359,7 @@ let eliminate_dead_code n =
               set_alive split.in_v ~vl:any_alive)
         in
         any [ b1; b2; b3 ]
-    | SelectImm (guard, splits, ns, merges) ->
+    | SelectImm (guards, splits, ns, merges) ->
         let b1 =
           iter_any merges ~f:(fun merge ->
               iter_any merge.in_vs ~f:(set_alive ~vl:(is_alive merge.out_v)))
@@ -391,7 +370,7 @@ let eliminate_dead_code n =
               let any_alive = List.exists split.out_vs ~f:is_alive_o in
               set_alive split.in_v ~vl:any_alive)
         in
-        let b4 = set_e_alive guard ~vl:true in
+        let b4 = iter_any guards ~f:(fun guard -> set_e_alive guard ~vl:true) in
         any [ b1; b2; b3; b4 ]
     | DoWhile (phis, ns, guard) ->
         let changed =
@@ -452,7 +431,7 @@ let eliminate_dead_code n =
               if is_alive merge.out_v then Some merge else None)
         in
         Par (splits, ns, merges)
-    | SelectImm (guard, splits, ns, merges) ->
+    | SelectImm (guards, splits, ns, merges) ->
         let splits =
           List.filter_map splits ~f:(fun split ->
               let out_vs =
@@ -470,7 +449,7 @@ let eliminate_dead_code n =
           List.filter_map merges ~f:(fun merge ->
               if is_alive merge.out_v then Some merge else None)
         in
-        SelectImm (guard, splits, ns, merges)
+        SelectImm (guards, splits, ns, merges)
     | DoWhile (phis, ns, guard) ->
         let phis =
           List.filter_map phis ~f:(fun phi ->
@@ -520,9 +499,9 @@ let eliminate_doubled_vars n =
               { Par_merge.in_vs; out_v = merge.out_v })
         in
         Par (splits, ns, merges)
-    | SelectImm (guard, splits, ns, merges) ->
+    | SelectImm (guards, splits, ns, merges) ->
         (* TODO handle repeated splits/merges for same varaible *)
-        let guard = Expr.map_vars guard ~f:of_v in
+        let guards = List.map guards ~f:(Expr.map_vars ~f:of_v) in
         let splits =
           List.map splits ~f:(fun split ->
               let in_v = of_v split.in_v in
@@ -534,7 +513,7 @@ let eliminate_doubled_vars n =
               let in_vs = List.map merge.in_vs ~f:of_v in
               { Select_merge.in_vs; out_v = merge.out_v })
         in
-        SelectImm (guard, splits, ns, merges)
+        SelectImm (guards, splits, ns, merges)
     | DoWhile (phis, ns, guard) ->
         let phis =
           List.map phis ~f:(fun phi ->
@@ -715,6 +694,16 @@ module Const_lat = struct
               else { min = CInt.zero; max = CInt.one }
             in
             (lat, Ge (a, b))
+        | Eq0 a ->
+            let al, a = f a in
+            let lat =
+              if CInt.le al.max CInt.zero then
+                { min = CInt.one; max = CInt.one }
+              else if CInt.gt al.min CInt.zero then
+                { min = CInt.zero; max = CInt.zero }
+              else { min = CInt.zero; max = CInt.one }
+            in
+            (lat, Eq0 a)
         | Var v ->
             let lat = lat_of_var v in
             (lat, Var v)
@@ -842,8 +831,8 @@ let propigate_constants n =
     | Read (chan, v) -> Read (chan, v)
     | Seq ns -> Seq (List.map ns ~f:of_n)
     | Par (splits, ns, merges) -> Par (splits, List.map ns ~f:of_n, merges)
-    | SelectImm (guard, splits, ns, merges) ->
-        SelectImm (of_e guard, splits, List.map ns ~f:of_n, merges)
+    | SelectImm (guards, splits, ns, merges) ->
+        SelectImm (List.map ~f:of_e guards, splits, List.map ns ~f:of_n, merges)
     | DoWhile (phis, ns, guard) -> DoWhile (phis, of_n ns, of_e guard)
   in
   of_n n

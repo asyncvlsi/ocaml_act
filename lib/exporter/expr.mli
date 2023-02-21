@@ -14,6 +14,7 @@ type 'v t =
   | Ge of 'v t * 'v t
   | Lt of 'v t * 'v t
   | Le of 'v t * 'v t
+  | Eq0 of 'v t
   | BitXor of 'v t * 'v t
   | BitOr of 'v t * 'v t
   | BitAnd of 'v t * 'v t
