@@ -287,22 +287,22 @@ let flatten n =
   in
 
   let rec flatten n =
-    let flatten_seqs stmts = 
-        let stmts =
-          List.concat_map stmts ~f:(fun stmt ->
-              match stmt with Stmt.Nop -> [] | Seq stmts -> stmts | _ -> [ stmt ])
-        in
-        match stmts with [] -> Stmt.Nop | [ stmt ] -> stmt | stmts -> Seq stmts
-    in 
+    let flatten_seqs stmts =
+      let stmts =
+        List.concat_map stmts ~f:(fun stmt ->
+            match stmt with
+            | Stmt.Nop -> []
+            | Seq stmts -> stmts
+            | _ -> [ stmt ])
+      in
+      match stmts with [] -> Stmt.Nop | [ stmt ] -> stmt | stmts -> Seq stmts
+    in
     match n with
     | Stmt.Nop -> Stmt.Nop
     | Assign (v, e) -> Assign (v, e)
     | Send (c, e) -> Send (c, e)
     | Read (c, v) -> Read (c, v)
-    | Seq stmts -> (
-          List.map stmts ~f:flatten
-          |> flatten_seqs
-        )
+    | Seq stmts -> List.map stmts ~f:flatten |> flatten_seqs
     | Par (splits, stmts, merges) -> (
         match stmts with
         | [] ->
@@ -336,7 +336,7 @@ let flatten n =
         else
           match branches with
           | [] -> failwith "Undefined behavior in user code"
-          | [ branch ] -> (
+          | [ branch ] ->
               let prolog =
                 List.filter_map splits ~f:(fun split ->
                     match split.out_vs with
@@ -355,7 +355,6 @@ let flatten n =
                     | _ -> failwith "unreachable")
               in
               flatten_seqs (prolog @ [ branch ] @ postlog)
-            )
           | branches ->
               (* TODO flatten out Nop branches *)
               SelectImm (gaurds, splits, branches, merges))
@@ -509,8 +508,13 @@ let eliminate_dead_variables n =
               in
               let body_in_v = fo phi.body_in_v in
               let out_v = fo phi.out_v in
-              let init_v = if Option.is_none body_in_v then None else phi.init_v in
-              let body_out_v = if Option.is_none body_in_v && Option.is_none out_v then None else phi.body_out_v in
+              let init_v =
+                if Option.is_none body_in_v then None else phi.init_v
+              in
+              let body_out_v =
+                if Option.is_none body_in_v && Option.is_none out_v then None
+                else phi.body_out_v
+              in
               match (init_v, body_in_v, body_out_v, out_v) with
               | None, None, None, None -> None
               | _, _, _, _ ->
@@ -766,5 +770,5 @@ let optimize_proc proc =
     |> eliminate_doubled_vars |> flatten |> eliminate_dead_variables |> flatten
   in
   validate stmt;
-  print_s [%sexp (stmt: Stmt.t)];
+  print_s [%sexp (stmt : Stmt.t)];
   { Proc.stmt; iports = proc.iports; oports = proc.oports }
