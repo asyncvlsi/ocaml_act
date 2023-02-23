@@ -148,12 +148,7 @@ let rui_ctrl_select a_chan b_chan guards ab_list ~new_chan ~dir =
   let dflow1 =
     let g1 = new_chan g_width in
     let c = new_chan g_width in
-    let c_expr =
-      List.mapi guards ~f:(fun i e ->
-          Expr.LShift (Var e, Const (CInt.of_int i)))
-      |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
-      |> Option.value_exn
-    in
+    let c_expr = Expr.Concat (List.map guards ~f:(fun e -> (Expr.Var e, 1))) in
     [
       split_bool_guard v g (None, Some g1);
       (* pack guards into c. TODO get around this somehow to expose this to the optimizer better. *)
@@ -234,7 +229,7 @@ let rui_ctrl_dowhile b_chan guard_chan b1 ~new_chan ~dir:_ =
   let dflow2 =
     let e = new_chan 1 in
 
-    assign e (BitOr (Var v, BitXor (Var g, Const CInt.one)))
+    assign e (BitOr (Var v, Eq0 (Var g)))
     :: split_bool_guard e v (None, Some b_chan)
   in
 
@@ -709,29 +704,27 @@ let optimize_proc proc =
           | Split (g, _, _) -> Some g)
       |> Guard.Set.of_list
       |> Guard.Map.of_key_set ~f:(fun g ->
-             let log2_bits bits =
-               List.mapi bits ~f:(fun i bit ->
-                   Expr.(Mul (Const (CInt.of_int i), bit)))
-               |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
-               |> Option.value ~default:(Expr.Const CInt.zero)
-             in
+             (* let log2_bits bits =
+
+                  List.mapi bits ~f:(fun i bit ->
+                      Expr.(Mul (Const (CInt.of_int i), bit)))
+                  |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
+                  |> Option.value ~default:(Expr.Const CInt.zero)
+                in *)
              match g with
              | Idx g -> (Guard.Idx g, None)
              | One_hot g ->
                  let new_g = new_chan (Int.ceil_log2 g.bitwidth) in
                  let expr =
-                   List.init g.bitwidth ~f:(fun i ->
-                       Expr.BitAnd
-                         (Const CInt.one, RShift (Var g, Const (CInt.of_int i))))
-                   |> log2_bits
+                   Expr.Log2OneHot (Var g)
                  in
                  let assign = assign new_g expr in
                  (Idx new_g, Some assign)
              | Bits gs ->
                  let bits = Int.ceil_log2 (List.length gs) in
                  let new_g = new_chan bits in
-                 let gs = List.map ~f:(fun g -> Expr.Var g) gs in
-                 let assign = assign new_g (log2_bits gs) in
+                 let gs = List.map gs ~f:(fun g -> Expr.Var g, 1) in
+                 let assign = assign new_g (Log2OneHot (Concat gs)) in
                  (Idx new_g, Some assign))
     in
     let procs = Map.data guards |> List.filter_map ~f:snd in

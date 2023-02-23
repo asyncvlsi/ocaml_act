@@ -21,6 +21,9 @@ type 'v t =
   | LShift of 'v t * 'v t
   | RShift of 'v t * 'v t
   | Clip of 'v t * int
+  (* clips values that are too long *)
+  | Concat of ('v t * int) list
+  | Log2OneHot of 'v t
 [@@deriving sexp]
 
 val map_vars : 'v t -> f:('v -> 'u) -> 'u t

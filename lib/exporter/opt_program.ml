@@ -115,6 +115,15 @@ module Chp_exporter = struct
         | Var var_id -> [%string "(%{extract_var var_id})"]
         | Clip (e, bits) -> [%string "int(%{ee e}, %{bits#Int})"]
         | Const c -> [%string "%{c#CInt}"]
+        | Concat es ->
+            let s =
+              List.rev es
+              |> List.map ~f:(fun (e, bits) ->
+                     [%string "int(%{ee e}, %{bits#Int})"])
+              |> String.concat ~sep:", "
+            in
+            [%string "{ %{s} }"]
+        | Log2OneHot e -> [%string "( log2_one_hot(%{ee e}) )"]
       in
       let extract_expr e = ee e in
       let rec extract n =
@@ -203,6 +212,15 @@ module Dflow_exporter = struct
         | Var v -> [%string "(v%{v.id#Int})"]
         | Clip (e, bits) -> [%string "int(%{ee e}, %{bits#Int})"]
         | Const c -> [%string "%{c#CInt}"]
+        | Concat es ->
+            let s =
+              List.rev es
+              |> List.map ~f:(fun (e, bits) ->
+                     [%string "int(%{ee e}, %{bits#Int})"])
+              |> String.concat ~sep:", "
+            in
+            [%string "{ %{s} }"]
+        | Log2OneHot e -> [%string "( log2_one_hot(%{ee e}) )"]
       in
       let vv (v : Dflow.Dflow_id.t) = [%string "v%{v.id#Int}"] in
       let vvo o = match o with Some v -> vv v | None -> "*" in

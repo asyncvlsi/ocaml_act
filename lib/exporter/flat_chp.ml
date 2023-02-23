@@ -298,7 +298,9 @@ let of_chp (proc : Act.Internal_rep.Chp.t) ~new_interproc_chan
                 [
                   Send
                     ( cmd_chan,
-                      BitOr (LShift (idx, Const CInt.one), Const CInt.one) );
+                      Concat
+                        [ (Const CInt.one, 1); (idx, Int.ceil_log2 array_len) ]
+                    );
                   Send (write_chan, value);
                 ];
             ]

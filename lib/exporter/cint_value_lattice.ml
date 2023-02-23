@@ -123,6 +123,33 @@ let eval_rewrite_expr e ~of_var =
           let max = CInt.min el.max (max_cint_of_width bits) in
           let nn = Expr.Clip (e, bits) in
           (create ~min ~max, nn)
+      | Concat es ->
+          let lats, es =
+            List.map es ~f:(fun (e, bits) ->
+                let el, e = f e in
+                (* then clip *)
+                let min = CInt.zero in
+                let max = CInt.min el.max (max_cint_of_width bits) in
+                ((create ~min ~max, bits), (e, bits)))
+            |> List.unzip
+          in
+          let _, min, max =
+            List.fold lats ~init:(0, CInt.zero, CInt.zero)
+              ~f:(fun (acc, min_tot, max_tot) ({ min; max }, bits) ->
+                ( acc + bits,
+                  CInt.add min_tot (CInt.left_shift min ~amt:(CInt.of_int acc)),
+                  CInt.add max_tot (CInt.left_shift max ~amt:(CInt.of_int acc))
+                ))
+          in
+
+          let nn = Expr.Concat es in
+          (create ~min ~max, nn)
+      | Log2OneHot e ->
+          let el, e = f e in
+          let min = CInt.div el.min CInt.two |> CInt.bitwidth |> CInt.of_int in
+          let max = CInt.bitwidth el.max |> CInt.of_int in
+          let nn = Expr.Log2OneHot e in
+          (create ~min ~max, nn)
       | Eq (a, b) ->
           let (al, a), (bl, b) = (f a, f b) in
           let lat =

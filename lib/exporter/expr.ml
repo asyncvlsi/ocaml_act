@@ -21,6 +21,8 @@ type 'v t =
   | LShift of 'v t * 'v t
   | RShift of 'v t * 'v t
   | Clip of 'v t * int
+  | Concat of ('v t * int) list
+  | Log2OneHot of 'v t
 [@@deriving sexp]
 
 let map_var_nodes e ~f =
@@ -46,6 +48,8 @@ let map_var_nodes e ~f =
     | LShift (a, b) -> LShift (h a, h b)
     | RShift (a, b) -> RShift (h a, h b)
     | Clip (a, bits) -> Clip (h a, bits)
+    | Concat es -> Concat (List.map es ~f:(fun (e, bits) -> (h e, bits)))
+    | Log2OneHot e -> Log2OneHot (h e)
   in
   h e
 
@@ -74,6 +78,8 @@ let var_ids e =
     | LShift (a, b) -> f a @ f b
     | RShift (a, b) -> f a @ f b
     | Clip (a, _) -> f a
+    | Concat es -> List.concat_map es ~f:(fun (e, _) -> f e)
+    | Log2OneHot e -> f e
   in
   f e
 
@@ -100,5 +106,7 @@ let bitwidth e ~bits_of_var =
     | LShift (a, b) -> h a + Int.pow 2 (h b) - 1
     | RShift (a, _) -> h a
     | Clip (a, bits) -> Int.min (h a) bits
+    | Concat es -> List.sum (module Int) es ~f:snd
+    | Log2OneHot e -> Int.ceil_log2 (h e)
   in
   h e
