@@ -272,54 +272,105 @@ let stf_of_dflowable_chp_proc proc =
   in
   { Proc.stmt; iports; oports }
 
-let rec flatten n =
-  match n with
-  | Stmt.Nop -> Stmt.Nop
-  | Assign (v, e) -> Assign (v, e)
-  | Send (c, e) -> Send (c, e)
-  | Read (c, v) -> Read (c, v)
-  | Seq stmts -> (
-      let stmts =
-        List.concat_map stmts ~f:(fun stmt ->
-            let stmt = flatten stmt in
-            match stmt with Nop -> [] | Seq stmts -> stmts | _ -> [ stmt ])
-      in
-      match stmts with [] -> Nop | [ stmt ] -> stmt | stmts -> Seq stmts)
-  | Par (splits, stmts, merges) -> (
-      match stmts with
-      | [] ->
-          (* cant write variables if you have no code inside the par block *)
-          assert (List.is_empty merges);
-          Nop
-      | [ stmt ] ->
-          let copy_ins =
-            List.filter_map splits ~f:(fun split ->
-                assert (Int.equal 1 (List.length split.out_vs));
-                List.hd_exn split.out_vs
-                |> Option.map ~f:(fun out_v ->
-                       Stmt.Assign (out_v, Var split.in_v)))
-          in
-          let copy_outs =
-            List.filter_map merges ~f:(fun merge ->
-                assert (Int.equal 1 (List.length merge.in_vs));
-                List.hd_exn merge.in_vs
-                |> Option.map ~f:(fun in_v ->
-                       Stmt.Assign (merge.out_v, Var in_v)))
-          in
-          Seq (copy_ins @ [ stmt ] @ copy_outs)
-      | stmts ->
-          let stmts = List.map stmts ~f:flatten in
-          (* TODO flatten nested par statements *)
-          Par (splits, stmts, merges))
-  | SelectImm (gaurds, splits, branches, merges) ->
-      let branches = List.map branches ~f:flatten in
-      (* TODO flatten out Nop branches *)
-      SelectImm (gaurds, splits, branches, merges)
-  | DoWhile (phis, stmt, guard) ->
-      let stmt = flatten stmt in
-      DoWhile (phis, stmt, guard)
+let flatten n =
+  (* TODO combine these functions? *)
+  let rec does_chan_io n =
+    match n with
+    | Stmt.Nop -> false
+    | Assign _ -> false
+    | Send _ -> true
+    | Read _ -> true
+    | Seq stmts -> List.exists stmts ~f:does_chan_io
+    | Par (_, stmts, _) -> List.exists stmts ~f:does_chan_io
+    | SelectImm (_, _, branches, _) -> List.exists branches ~f:does_chan_io
+    | DoWhile (_, stmt, _) -> does_chan_io stmt
+  in
 
-let eliminate_dead_code n =
+  let rec flatten n =
+    let flatten_seqs stmts = 
+        let stmts =
+          List.concat_map stmts ~f:(fun stmt ->
+              match stmt with Stmt.Nop -> [] | Seq stmts -> stmts | _ -> [ stmt ])
+        in
+        match stmts with [] -> Stmt.Nop | [ stmt ] -> stmt | stmts -> Seq stmts
+    in 
+    match n with
+    | Stmt.Nop -> Stmt.Nop
+    | Assign (v, e) -> Assign (v, e)
+    | Send (c, e) -> Send (c, e)
+    | Read (c, v) -> Read (c, v)
+    | Seq stmts -> (
+          List.map stmts ~f:flatten
+          |> flatten_seqs
+        )
+    | Par (splits, stmts, merges) -> (
+        match stmts with
+        | [] ->
+            (* cant write variables if you have no code inside the par block *)
+            assert (List.is_empty merges);
+            Nop
+        | [ stmt ] ->
+            let copy_ins =
+              List.filter_map splits ~f:(fun split ->
+                  assert (Int.equal 1 (List.length split.out_vs));
+                  List.hd_exn split.out_vs
+                  |> Option.map ~f:(fun out_v ->
+                         Stmt.Assign (out_v, Var split.in_v)))
+            in
+            let copy_outs =
+              List.filter_map merges ~f:(fun merge ->
+                  assert (Int.equal 1 (List.length merge.in_vs));
+                  List.hd_exn merge.in_vs
+                  |> Option.map ~f:(fun in_v ->
+                         Stmt.Assign (merge.out_v, Var in_v)))
+            in
+            Seq (copy_ins @ [ stmt ] @ copy_outs)
+        | stmts ->
+            let stmts = List.map stmts ~f:flatten in
+            (* TODO flatten nested par statements *)
+            Par (splits, stmts, merges))
+    | SelectImm (gaurds, splits, branches, merges) -> (
+        let branches = List.map branches ~f:flatten in
+        if List.is_empty merges && not (List.exists ~f:does_chan_io branches)
+        then Nop
+        else
+          match branches with
+          | [] -> failwith "Undefined behavior in user code"
+          | [ branch ] -> (
+              let prolog =
+                List.filter_map splits ~f:(fun split ->
+                    match split.out_vs with
+                    | [ None ] -> None
+                    | [ Some out_v ] ->
+                        (* Let eliminate_doubled_vars take care of these *)
+                        Some (Stmt.Assign (out_v, Var split.in_v))
+                    | _ -> failwith "unreachable")
+              in
+              let postlog =
+                List.map merges ~f:(fun merge ->
+                    match merge.in_vs with
+                    | [ in_v ] ->
+                        (* Let eliminate_doubled_vars take care of these *)
+                        Stmt.Assign (merge.out_v, Var in_v)
+                    | _ -> failwith "unreachable")
+              in
+              flatten_seqs (prolog @ [ branch ] @ postlog)
+            )
+          | branches ->
+              (* TODO flatten out Nop branches *)
+              SelectImm (gaurds, splits, branches, merges))
+    | DoWhile (phis, stmt, guard) ->
+        let stmt = flatten stmt in
+        if
+          (not (List.exists phis ~f:(fun phi -> Option.is_some phi.out_v)))
+          && not (does_chan_io stmt)
+        then Nop
+        else (* TODO flatten out Nop branches *)
+          DoWhile (phis, stmt, guard)
+  in
+  flatten n
+
+let eliminate_dead_variables n =
   let any l = List.exists l ~f:Fn.id in
   let iter_any l ~f = List.map l ~f |> any in
   let map_or_false v ~f = match v with Some v -> f v | None -> false in
@@ -456,10 +507,10 @@ let eliminate_dead_code n =
               let fo v =
                 Option.bind v ~f:(fun v -> if is_alive v then Some v else None)
               in
-              let init_v = fo phi.init_v in
               let body_in_v = fo phi.body_in_v in
-              let body_out_v = fo phi.body_out_v in
               let out_v = fo phi.out_v in
+              let init_v = if Option.is_none body_in_v then None else phi.init_v in
+              let body_out_v = if Option.is_none body_in_v && Option.is_none out_v then None else phi.body_out_v in
               match (init_v, body_in_v, body_out_v, out_v) with
               | None, None, None, None -> None
               | _, _, _, _ ->
@@ -632,7 +683,45 @@ let propigate_constants n =
     | Seq ns -> Seq (List.map ns ~f:of_n)
     | Par (splits, ns, merges) -> Par (splits, List.map ns ~f:of_n, merges)
     | SelectImm (guards, splits, ns, merges) ->
-        SelectImm (List.map ~f:of_e guards, splits, List.map ns ~f:of_n, merges)
+        let ns = List.map ns ~f:of_n in
+        let guards = List.map ~f:of_e guards in
+        let is_true_branch =
+          List.exists guards ~f:(fun e ->
+              match e with Const c -> CInt.eq c CInt.one | _ -> false)
+        in
+        let is_false_branch =
+          List.exists guards ~f:(fun e ->
+              match e with Const c -> CInt.eq c CInt.zero | _ -> false)
+        in
+        let guards, splits, ns, merges =
+          if (is_true_branch && List.length guards > 1) || is_false_branch then
+            let to_drop =
+              List.map guards ~f:(fun g ->
+                  match g with
+                  | Const c -> CInt.eq c CInt.one
+                  | _ -> not is_true_branch)
+            in
+            let drop_l l =
+              List.zip_exn l to_drop |> List.filter ~f:snd |> List.map ~f:fst
+            in
+            let splits =
+              List.map splits ~f:(fun split ->
+                  {
+                    Select_split.in_v = split.in_v;
+                    out_vs = drop_l split.out_vs;
+                  })
+            in
+            let merges =
+              List.map merges ~f:(fun merge ->
+                  {
+                    Select_merge.in_vs = drop_l merge.in_vs;
+                    out_v = merge.out_v;
+                  })
+            in
+            (drop_l guards, splits, drop_l ns, merges)
+          else (guards, splits, ns, merges)
+        in
+        SelectImm (guards, splits, ns, merges)
     | DoWhile (phis, ns, guard) -> DoWhile (phis, of_n ns, of_e guard)
   in
   of_n n
@@ -659,7 +748,6 @@ let validate n =
     | SelectImm (_, splits, ns, merges) ->
         List.iter splits ~f:(fun split ->
             List.iter split.out_vs ~f:(Option.iter ~f:add));
-
         List.iter ns ~f:of_n;
         List.iter merges ~f:(fun merge -> add merge.out_v)
     | DoWhile (phis, ns, _) ->
@@ -672,10 +760,11 @@ let validate n =
 
 let optimize_proc proc =
   let stmt =
-    flatten proc.Proc.stmt |> eliminate_dead_code |> flatten
-    |> eliminate_doubled_vars |> flatten |> eliminate_dead_code |> flatten
-    |> propigate_constants |> eliminate_dead_code |> flatten
-    |> eliminate_doubled_vars |> flatten |> eliminate_dead_code |> flatten
+    flatten proc.Proc.stmt |> eliminate_dead_variables |> flatten
+    |> eliminate_doubled_vars |> flatten |> eliminate_dead_variables |> flatten
+    |> propigate_constants |> eliminate_dead_variables |> flatten
+    |> eliminate_doubled_vars |> flatten |> eliminate_dead_variables |> flatten
   in
   validate stmt;
+  print_s [%sexp (stmt: Stmt.t)];
   { Proc.stmt; iports = proc.iports; oports = proc.oports }

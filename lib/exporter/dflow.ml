@@ -715,15 +715,13 @@ let optimize_proc proc =
              | Idx g -> (Guard.Idx g, None)
              | One_hot g ->
                  let new_g = new_chan (Int.ceil_log2 g.bitwidth) in
-                 let expr =
-                   Expr.Log2OneHot (Var g)
-                 in
+                 let expr = Expr.Log2OneHot (Var g) in
                  let assign = assign new_g expr in
                  (Idx new_g, Some assign)
              | Bits gs ->
                  let bits = Int.ceil_log2 (List.length gs) in
                  let new_g = new_chan bits in
-                 let gs = List.map gs ~f:(fun g -> Expr.Var g, 1) in
+                 let gs = List.map gs ~f:(fun g -> (Expr.Var g, 1)) in
                  let assign = assign new_g (Log2OneHot (Concat gs)) in
                  (Idx new_g, Some assign))
     in

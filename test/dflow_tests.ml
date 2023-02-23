@@ -24,19 +24,27 @@ let%expect_test "expression chains" =
 
   [%expect
     {|
-    defproc proc_0(chan!(int<8>) iport10; chan?(int<8>) oport9) {
-      chan(int<8>) v5;
+    (DoWhile ()
+     (Seq
+      ((Read ((id 0) (bitwidth 8)) ((id 4) (bitwidth 8)))
+       (Assign ((id 5) (bitwidth 8)) (Div (Var ((id 4) (bitwidth 8))) (Const 2)))
+       (Assign ((id 6) (bitwidth 8)) (Div (Var ((id 5) (bitwidth 8))) (Const 2)))
+       (Assign ((id 7) (bitwidth 8)) (Div (Var ((id 6) (bitwidth 8))) (Const 2)))
+       (Send ((id 1) (bitwidth 8)) (Var ((id 7) (bitwidth 8))))))
+     (Const 1))
+    defproc proc_0(chan!(int<8>) iport2; chan?(int<8>) oport8) {
+      chan(int<8>) v2;
+      chan(int<8>) v6;
       chan(int<8>) v7;
-      chan(int<8>) v9;
-      chan(int<8>) v10;
+      chan(int<8>) v8;
     dataflow {
       dataflow_cluser {
-        v7 <- ((v5) / 2);
-        v9 <- ((v7) / 2);
-        v5 <- ((v10) / 2);
+        v6 <- ((v2) / 2);
+        v7 <- ((v6) / 2);
+        v8 <- ((v7) / 2);
       };
-    iport10 -> v10;
-    v9 -> oport9;
+    iport2 -> v2;
+    v8 -> oport8;
     }
     }
 
@@ -73,19 +81,28 @@ let%expect_test "expression branches" =
 
   [%expect
     {|
-    defproc proc_0(chan!(int<8>) iport10; chan?(int<8>) oport9) {
-      chan(int<8>) v5;
+    (DoWhile ()
+     (Seq
+      ((Read ((id 0) (bitwidth 8)) ((id 4) (bitwidth 8)))
+       (Assign ((id 5) (bitwidth 8)) (Div (Var ((id 4) (bitwidth 8))) (Const 2)))
+       (Assign ((id 6) (bitwidth 8)) (Div (Var ((id 4) (bitwidth 8))) (Const 2)))
+       (Assign ((id 7) (bitwidth 8))
+        (Div (Var ((id 5) (bitwidth 8))) (Var ((id 6) (bitwidth 8)))))
+       (Send ((id 1) (bitwidth 8)) (Var ((id 7) (bitwidth 8))))))
+     (Const 1))
+    defproc proc_0(chan!(int<8>) iport2; chan?(int<8>) oport8) {
+      chan(int<8>) v2;
+      chan(int<8>) v6;
       chan(int<8>) v7;
-      chan(int<8>) v9;
-      chan(int<8>) v10;
+      chan(int<8>) v8;
     dataflow {
       dataflow_cluser {
-        v9 <- ((v5) / (v7));
-        v5 <- ((v10) / 2);
-        v7 <- ((v10) / 2);
+        v6 <- ((v2) / 2);
+        v7 <- ((v2) / 2);
+        v8 <- ((v6) / (v7));
       };
-    iport10 -> v10;
-    v9 -> oport9;
+    iport2 -> v2;
+    v8 -> oport8;
     }
     }
 

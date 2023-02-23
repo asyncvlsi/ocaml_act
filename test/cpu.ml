@@ -597,7 +597,378 @@ let%expect_test "fibonacci" =
 
   [%expect
     {|
-    defproc proc_0(chan!(int<8>) iport723; chan!(int<8>) iport734; chan!(int<8>) iport745; chan?(int<13>) oport756; chan?(int<8>) oport769; chan?(int<13>) oport782; chan?(int<8>) oport795) {
+    (Seq
+     ((Assign ((id 2) (bitwidth 12)) (Const 0))
+      (Assign ((id 4) (bitwidth 8)) (Const 0))
+      (Assign ((id 5) (bitwidth 8)) (Const 0))
+      (Assign ((id 6) (bitwidth 8)) (Const 0))
+      (Assign ((id 8) (bitwidth 8)) (Const 0))
+      (Assign ((id 9) (bitwidth 8)) (Const 0))
+      (Assign ((id 10) (bitwidth 8)) (Const 0))
+      (Assign ((id 11) (bitwidth 1)) (Const 0))
+      (DoWhile
+       (((init_v (((id 11) (bitwidth 1)))) (body_in_v (((id 211) (bitwidth 1))))
+         (body_out_v (((id 215) (bitwidth 1)))) (out_v ()))
+        ((init_v (((id 2) (bitwidth 12)))) (body_in_v (((id 39) (bitwidth 12))))
+         (body_out_v (((id 241) (bitwidth 12)))) (out_v ()))
+        ((init_v (((id 4) (bitwidth 8)))) (body_in_v (((id 40) (bitwidth 8))))
+         (body_out_v (((id 42) (bitwidth 8)))) (out_v ()))
+        ((init_v (((id 5) (bitwidth 8)))) (body_in_v (((id 50) (bitwidth 8))))
+         (body_out_v (((id 52) (bitwidth 8)))) (out_v ()))
+        ((init_v (((id 6) (bitwidth 8)))) (body_in_v (((id 60) (bitwidth 8))))
+         (body_out_v (((id 62) (bitwidth 8)))) (out_v ()))
+        ((init_v (((id 8) (bitwidth 8)))) (body_in_v (((id 212) (bitwidth 8))))
+         (body_out_v (((id 218) (bitwidth 8)))) (out_v ()))
+        ((init_v (((id 9) (bitwidth 8)))) (body_in_v (((id 213) (bitwidth 8))))
+         (body_out_v (((id 219) (bitwidth 8)))) (out_v ()))
+        ((init_v (((id 10) (bitwidth 8)))) (body_in_v (((id 214) (bitwidth 8))))
+         (body_out_v (((id 220) (bitwidth 8)))) (out_v ())))
+       (Seq
+        ((Par ()
+          ((Send ((id 2) (bitwidth 13)) (Const 0))
+           (Read ((id 0) (bitwidth 8)) ((id 13) (bitwidth 8))))
+          (((in_vs (() (((id 13) (bitwidth 8))))) (out_v ((id 15) (bitwidth 8))))))
+         (SelectImm
+          ((Eq (Const 0) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 1) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 2) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 3) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 4) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 5) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 6) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 7) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 8) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 9) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 10) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 11) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 12) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 13) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 14) (Var ((id 15) (bitwidth 8)))))
+          ()
+          ((Assign ((id 16) (bitwidth 8)) (Const 0))
+           (Assign ((id 17) (bitwidth 8)) (Const 0))
+           (Assign ((id 18) (bitwidth 8)) (Const 0))
+           (Assign ((id 19) (bitwidth 8)) (Const 1))
+           (Assign ((id 20) (bitwidth 8)) (Const 2))
+           (Assign ((id 21) (bitwidth 8)) (Const 3))
+           (Assign ((id 22) (bitwidth 8)) (Const 2))
+           (Assign ((id 23) (bitwidth 8)) (Const 3))
+           (Assign ((id 24) (bitwidth 8)) (Const 2))
+           (Assign ((id 25) (bitwidth 8)) (Const 2))
+           (Assign ((id 26) (bitwidth 8)) (Const 2))
+           (Assign ((id 27) (bitwidth 8)) (Const 1))
+           (Assign ((id 28) (bitwidth 8)) (Const 0))
+           (Assign ((id 29) (bitwidth 8)) (Const 1))
+           (Assign ((id 30) (bitwidth 8)) (Const 2)))
+          (((in_vs
+             (((id 16) (bitwidth 8)) ((id 17) (bitwidth 8))
+              ((id 18) (bitwidth 8)) ((id 19) (bitwidth 8))
+              ((id 20) (bitwidth 8)) ((id 21) (bitwidth 8))
+              ((id 22) (bitwidth 8)) ((id 23) (bitwidth 8))
+              ((id 24) (bitwidth 8)) ((id 25) (bitwidth 8))
+              ((id 26) (bitwidth 8)) ((id 27) (bitwidth 8))
+              ((id 28) (bitwidth 8)) ((id 29) (bitwidth 8))
+              ((id 30) (bitwidth 8))))
+            (out_v ((id 31) (bitwidth 8))))))
+         (SelectImm
+          ((Ge (Var ((id 31) (bitwidth 8))) (Const 1))
+           (Eq0 (Ge (Var ((id 31) (bitwidth 8))) (Const 1))))
+          (((in_v ((id 39) (bitwidth 12)))
+            (out_vs (() (((id 37) (bitwidth 12))))))
+           ((in_v ((id 40) (bitwidth 8))) (out_vs (() (((id 38) (bitwidth 8)))))))
+          ((Seq
+            ((Assign ((id 33) (bitwidth 12)) (Const 1))
+             (Par ()
+              ((Send ((id 5) (bitwidth 13)) (Const 2))
+               (Read ((id 3) (bitwidth 8)) ((id 35) (bitwidth 8))))
+              (((in_vs (() (((id 35) (bitwidth 8)))))
+                (out_v ((id 36) (bitwidth 8))))))))
+           Nop)
+          (((in_vs (((id 33) (bitwidth 12)) ((id 37) (bitwidth 12))))
+            (out_v ((id 41) (bitwidth 12))))
+           ((in_vs (((id 36) (bitwidth 8)) ((id 38) (bitwidth 8))))
+            (out_v ((id 42) (bitwidth 8))))))
+         (SelectImm
+          ((Ge (Var ((id 31) (bitwidth 8))) (Const 2))
+           (Eq0 (Ge (Var ((id 31) (bitwidth 8))) (Const 2))))
+          (((in_v ((id 41) (bitwidth 12)))
+            (out_vs ((((id 43) (bitwidth 12))) (((id 48) (bitwidth 12))))))
+           ((in_v ((id 50) (bitwidth 8))) (out_vs (() (((id 49) (bitwidth 8)))))))
+          ((Seq
+            ((Assign ((id 44) (bitwidth 12))
+              (Add (Var ((id 43) (bitwidth 12))) (Const 1)))
+             (Par
+              (((in_v ((id 44) (bitwidth 12)))
+                (out_vs ((((id 45) (bitwidth 12))) ()))))
+              ((Send ((id 5) (bitwidth 13))
+                (LShift (Var ((id 45) (bitwidth 12))) (Const 1)))
+               (Read ((id 3) (bitwidth 8)) ((id 46) (bitwidth 8))))
+              (((in_vs (() (((id 46) (bitwidth 8)))))
+                (out_v ((id 47) (bitwidth 8))))))))
+           Nop)
+          (((in_vs (((id 44) (bitwidth 12)) ((id 48) (bitwidth 12))))
+            (out_v ((id 51) (bitwidth 12))))
+           ((in_vs (((id 47) (bitwidth 8)) ((id 49) (bitwidth 8))))
+            (out_v ((id 52) (bitwidth 8))))))
+         (SelectImm
+          ((Ge (Var ((id 31) (bitwidth 8))) (Const 3))
+           (Eq0 (Ge (Var ((id 31) (bitwidth 8))) (Const 3))))
+          (((in_v ((id 51) (bitwidth 12)))
+            (out_vs ((((id 53) (bitwidth 12))) (((id 58) (bitwidth 12))))))
+           ((in_v ((id 60) (bitwidth 8))) (out_vs (() (((id 59) (bitwidth 8)))))))
+          ((Seq
+            ((Assign ((id 54) (bitwidth 12))
+              (Add (Var ((id 53) (bitwidth 12))) (Const 1)))
+             (Par
+              (((in_v ((id 54) (bitwidth 12)))
+                (out_vs ((((id 55) (bitwidth 12))) ()))))
+              ((Send ((id 5) (bitwidth 13))
+                (LShift (Var ((id 55) (bitwidth 12))) (Const 1)))
+               (Read ((id 3) (bitwidth 8)) ((id 56) (bitwidth 8))))
+              (((in_vs (() (((id 56) (bitwidth 8)))))
+                (out_v ((id 57) (bitwidth 8))))))))
+           Nop)
+          (((in_vs (((id 54) (bitwidth 12)) ((id 58) (bitwidth 12))))
+            (out_v ((id 61) (bitwidth 12))))
+           ((in_vs (((id 57) (bitwidth 8)) ((id 59) (bitwidth 8))))
+            (out_v ((id 62) (bitwidth 8))))))
+         (SelectImm
+          ((Eq (Const 0) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 1) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 2) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 3) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 4) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 5) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 6) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 7) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 8) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 9) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 10) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 11) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 12) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 13) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 14) (Var ((id 15) (bitwidth 8)))))
+          ()
+          ((Assign ((id 63) (bitwidth 8)) (Const 0))
+           (Assign ((id 64) (bitwidth 8)) (Const 0))
+           (Assign ((id 65) (bitwidth 8)) (Const 1))
+           (Assign ((id 66) (bitwidth 8)) (Const 2))
+           (Assign ((id 67) (bitwidth 8)) (Const 2))
+           (Assign ((id 68) (bitwidth 8)) (Const 3))
+           (Assign ((id 69) (bitwidth 8)) (Const 0))
+           (Assign ((id 70) (bitwidth 8)) (Const 0))
+           (Assign ((id 71) (bitwidth 8)) (Const 1))
+           (Assign ((id 72) (bitwidth 8)) (Const 1))
+           (Assign ((id 73) (bitwidth 8)) (Const 1))
+           (Assign ((id 74) (bitwidth 8)) (Const 0))
+           (Assign ((id 75) (bitwidth 8)) (Const 1))
+           (Assign ((id 76) (bitwidth 8)) (Const 1))
+           (Assign ((id 77) (bitwidth 8)) (Const 1)))
+          (((in_vs
+             (((id 63) (bitwidth 8)) ((id 64) (bitwidth 8))
+              ((id 65) (bitwidth 8)) ((id 66) (bitwidth 8))
+              ((id 67) (bitwidth 8)) ((id 68) (bitwidth 8))
+              ((id 69) (bitwidth 8)) ((id 70) (bitwidth 8))
+              ((id 71) (bitwidth 8)) ((id 72) (bitwidth 8))
+              ((id 73) (bitwidth 8)) ((id 74) (bitwidth 8))
+              ((id 75) (bitwidth 8)) ((id 76) (bitwidth 8))
+              ((id 77) (bitwidth 8))))
+            (out_v ((id 78) (bitwidth 8))))))
+         (SelectImm
+          ((Eq (Const 0) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 1) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 2) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 3) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 4) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 5) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 6) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 7) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 8) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 9) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 10) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 11) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 12) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 13) (Var ((id 15) (bitwidth 8))))
+           (Eq (Const 14) (Var ((id 15) (bitwidth 8)))))
+          (((in_v ((id 211) (bitwidth 1)))
+            (out_vs
+             (() (((id 151) (bitwidth 1))) (((id 152) (bitwidth 1)))
+              (((id 153) (bitwidth 1))) (((id 154) (bitwidth 1)))
+              (((id 155) (bitwidth 1))) (((id 156) (bitwidth 1)))
+              (((id 157) (bitwidth 1))) (((id 158) (bitwidth 1)))
+              (((id 159) (bitwidth 1))) (((id 160) (bitwidth 1)))
+              (((id 161) (bitwidth 1))) (((id 162) (bitwidth 1)))
+              (((id 163) (bitwidth 1))) (((id 164) (bitwidth 1))))))
+           ((in_v ((id 42) (bitwidth 8)))
+            (out_vs
+             (() () () (((id 89) (bitwidth 8))) (((id 94) (bitwidth 8)))
+              (((id 100) (bitwidth 8))) () () (((id 122) (bitwidth 8)))
+              (((id 127) (bitwidth 8))) (((id 131) (bitwidth 8)))
+              (((id 136) (bitwidth 8))) () (((id 142) (bitwidth 8)))
+              (((id 147) (bitwidth 8))))))
+           ((in_v ((id 52) (bitwidth 8)))
+            (out_vs
+             (() () () () (((id 96) (bitwidth 8))) (((id 104) (bitwidth 8))) ()
+              () (((id 121) (bitwidth 8))) (((id 126) (bitwidth 8)))
+              (((id 132) (bitwidth 8))) () () () (((id 146) (bitwidth 8))))))
+           ((in_v ((id 62) (bitwidth 8)))
+            (out_vs
+             (() () () () () (((id 102) (bitwidth 8))) () () () () () () () ()
+              ())))
+           ((in_v ((id 212) (bitwidth 8)))
+            (out_vs
+             ((((id 180) (bitwidth 8))) (((id 181) (bitwidth 8))) () () () ()
+              (((id 182) (bitwidth 8))) (((id 183) (bitwidth 8))) () () ()
+              (((id 184) (bitwidth 8))) () () ())))
+           ((in_v ((id 213) (bitwidth 8)))
+            (out_vs
+             ((((id 185) (bitwidth 8))) (((id 186) (bitwidth 8)))
+              (((id 187) (bitwidth 8))) () () () (((id 188) (bitwidth 8)))
+              (((id 189) (bitwidth 8))) (((id 190) (bitwidth 8)))
+              (((id 191) (bitwidth 8))) (((id 192) (bitwidth 8)))
+              (((id 193) (bitwidth 8))) (((id 194) (bitwidth 8)))
+              (((id 195) (bitwidth 8))) (((id 196) (bitwidth 8))))))
+           ((in_v ((id 214) (bitwidth 8)))
+            (out_vs
+             ((((id 197) (bitwidth 8))) (((id 198) (bitwidth 8)))
+              (((id 199) (bitwidth 8))) (((id 200) (bitwidth 8)))
+              (((id 201) (bitwidth 8))) () (((id 202) (bitwidth 8)))
+              (((id 203) (bitwidth 8))) (((id 204) (bitwidth 8)))
+              (((id 205) (bitwidth 8))) (((id 206) (bitwidth 8)))
+              (((id 207) (bitwidth 8))) (((id 208) (bitwidth 8)))
+              (((id 209) (bitwidth 8))) (((id 210) (bitwidth 8)))))))
+          ((Assign ((id 79) (bitwidth 1)) (Const 1)) Nop
+           (Par ()
+            ((Send ((id 2) (bitwidth 13)) (Const 2))
+             (Read ((id 0) (bitwidth 8)) ((id 85) (bitwidth 8))))
+            (((in_vs (() (((id 85) (bitwidth 8)))))
+              (out_v ((id 86) (bitwidth 8))))))
+           Nop Nop Nop Nop Nop
+           (Assign ((id 123) (bitwidth 8))
+            (Eq (Var ((id 122) (bitwidth 8))) (Var ((id 121) (bitwidth 8)))))
+           (Assign ((id 128) (bitwidth 8))
+            (Clip
+             (Add (Var ((id 127) (bitwidth 8))) (Var ((id 126) (bitwidth 8)))) 8))
+           (Assign ((id 133) (bitwidth 8))
+            (Clip
+             (Add (BitOr (Clip (Var ((id 132) (bitwidth 8))) 8) (Const 256))
+              (Clip (Var ((id 131) (bitwidth 8))) 8))
+             8))
+           (Send ((id 6) (bitwidth 8)) (Var ((id 136) (bitwidth 8))))
+           (Read ((id 7) (bitwidth 8)) ((id 139) (bitwidth 8)))
+           (Assign ((id 143) (bitwidth 8))
+            (Eq (Const 0) (Var ((id 142) (bitwidth 8)))))
+           (Assign ((id 148) (bitwidth 8))
+            (BitOr (Ne (Const 0) (Var ((id 147) (bitwidth 8))))
+             (Ne (Const 0) (Var ((id 146) (bitwidth 8)))))))
+          (((in_vs
+             (((id 79) (bitwidth 1)) ((id 151) (bitwidth 1))
+              ((id 152) (bitwidth 1)) ((id 153) (bitwidth 1))
+              ((id 154) (bitwidth 1)) ((id 155) (bitwidth 1))
+              ((id 156) (bitwidth 1)) ((id 157) (bitwidth 1))
+              ((id 158) (bitwidth 1)) ((id 159) (bitwidth 1))
+              ((id 160) (bitwidth 1)) ((id 161) (bitwidth 1))
+              ((id 162) (bitwidth 1)) ((id 163) (bitwidth 1))
+              ((id 164) (bitwidth 1))))
+            (out_v ((id 215) (bitwidth 1))))
+           ((in_vs
+             (((id 180) (bitwidth 8)) ((id 181) (bitwidth 8))
+              ((id 86) (bitwidth 8)) ((id 89) (bitwidth 8))
+              ((id 94) (bitwidth 8)) ((id 100) (bitwidth 8))
+              ((id 182) (bitwidth 8)) ((id 183) (bitwidth 8))
+              ((id 123) (bitwidth 8)) ((id 128) (bitwidth 8))
+              ((id 133) (bitwidth 8)) ((id 184) (bitwidth 8))
+              ((id 139) (bitwidth 8)) ((id 143) (bitwidth 8))
+              ((id 148) (bitwidth 8))))
+            (out_v ((id 218) (bitwidth 8))))
+           ((in_vs
+             (((id 185) (bitwidth 8)) ((id 186) (bitwidth 8))
+              ((id 187) (bitwidth 8)) ((id 89) (bitwidth 8))
+              ((id 96) (bitwidth 8)) ((id 102) (bitwidth 8))
+              ((id 188) (bitwidth 8)) ((id 189) (bitwidth 8))
+              ((id 190) (bitwidth 8)) ((id 191) (bitwidth 8))
+              ((id 192) (bitwidth 8)) ((id 193) (bitwidth 8))
+              ((id 194) (bitwidth 8)) ((id 195) (bitwidth 8))
+              ((id 196) (bitwidth 8))))
+            (out_v ((id 219) (bitwidth 8))))
+           ((in_vs
+             (((id 197) (bitwidth 8)) ((id 198) (bitwidth 8))
+              ((id 199) (bitwidth 8)) ((id 200) (bitwidth 8))
+              ((id 201) (bitwidth 8)) ((id 104) (bitwidth 8))
+              ((id 202) (bitwidth 8)) ((id 203) (bitwidth 8))
+              ((id 204) (bitwidth 8)) ((id 205) (bitwidth 8))
+              ((id 206) (bitwidth 8)) ((id 207) (bitwidth 8))
+              ((id 208) (bitwidth 8)) ((id 209) (bitwidth 8))
+              ((id 210) (bitwidth 8))))
+            (out_v ((id 220) (bitwidth 8))))))
+         (SelectImm
+          ((Ge (Var ((id 78) (bitwidth 8))) (Const 1))
+           (Eq0 (Ge (Var ((id 78) (bitwidth 8))) (Const 1))))
+          (((in_v ((id 61) (bitwidth 12)))
+            (out_vs ((((id 223) (bitwidth 12))) (((id 226) (bitwidth 12))))))
+           ((in_v ((id 218) (bitwidth 8)))
+            (out_vs ((((id 224) (bitwidth 8))) ()))))
+          ((Seq
+            ((Par
+              (((in_v ((id 223) (bitwidth 12)))
+                (out_vs ((((id 221) (bitwidth 12))) ())))
+               ((in_v ((id 224) (bitwidth 8)))
+                (out_vs (() (((id 222) (bitwidth 8)))))))
+              ((Send ((id 5) (bitwidth 13))
+                (Concat (((Const 1) 1) ((Var ((id 221) (bitwidth 12))) 12))))
+               (Send ((id 4) (bitwidth 8)) (Var ((id 222) (bitwidth 8)))))
+              ())
+             (Assign ((id 225) (bitwidth 12))
+              (Add (Const 1) (Var ((id 223) (bitwidth 12)))))))
+           Nop)
+          (((in_vs (((id 225) (bitwidth 12)) ((id 226) (bitwidth 12))))
+            (out_v ((id 227) (bitwidth 12))))))
+         (SelectImm
+          ((Ge (Var ((id 78) (bitwidth 8))) (Const 2))
+           (Eq0 (Ge (Var ((id 78) (bitwidth 8))) (Const 2))))
+          (((in_v ((id 227) (bitwidth 12)))
+            (out_vs ((((id 230) (bitwidth 12))) (((id 233) (bitwidth 12))))))
+           ((in_v ((id 219) (bitwidth 8)))
+            (out_vs ((((id 231) (bitwidth 8))) ()))))
+          ((Seq
+            ((Par
+              (((in_v ((id 230) (bitwidth 12)))
+                (out_vs ((((id 228) (bitwidth 12))) ())))
+               ((in_v ((id 231) (bitwidth 8)))
+                (out_vs (() (((id 229) (bitwidth 8)))))))
+              ((Send ((id 5) (bitwidth 13))
+                (Concat (((Const 1) 1) ((Var ((id 228) (bitwidth 12))) 12))))
+               (Send ((id 4) (bitwidth 8)) (Var ((id 229) (bitwidth 8)))))
+              ())
+             (Assign ((id 232) (bitwidth 12))
+              (Add (Const 1) (Var ((id 230) (bitwidth 12)))))))
+           Nop)
+          (((in_vs (((id 232) (bitwidth 12)) ((id 233) (bitwidth 12))))
+            (out_v ((id 234) (bitwidth 12))))))
+         (SelectImm
+          ((Ge (Var ((id 78) (bitwidth 8))) (Const 3))
+           (Eq0 (Ge (Var ((id 78) (bitwidth 8))) (Const 3))))
+          (((in_v ((id 234) (bitwidth 12)))
+            (out_vs ((((id 237) (bitwidth 12))) (((id 240) (bitwidth 12))))))
+           ((in_v ((id 220) (bitwidth 8)))
+            (out_vs ((((id 238) (bitwidth 8))) ()))))
+          ((Seq
+            ((Par
+              (((in_v ((id 237) (bitwidth 12)))
+                (out_vs ((((id 235) (bitwidth 12))) ())))
+               ((in_v ((id 238) (bitwidth 8)))
+                (out_vs (() (((id 236) (bitwidth 8)))))))
+              ((Send ((id 5) (bitwidth 13))
+                (Concat (((Const 1) 1) ((Var ((id 235) (bitwidth 12))) 12))))
+               (Send ((id 4) (bitwidth 8)) (Var ((id 236) (bitwidth 8)))))
+              ())
+             (Assign ((id 239) (bitwidth 12))
+              (Add (Const 1) (Var ((id 237) (bitwidth 12)))))))
+           Nop)
+          (((in_vs (((id 239) (bitwidth 12)) ((id 240) (bitwidth 12))))
+            (out_v ((id 241) (bitwidth 12))))))))
+       (Eq (Var ((id 215) (bitwidth 1))) (Const 0)))))
+    defproc proc_0(chan!(int<8>) iport603; chan!(int<8>) iport585; chan!(int<8>) iport343; chan?(int<13>) oport612; chan?(int<8>) oport648; chan?(int<13>) oport657; chan?(int<8>) oport406) {
       chan(int<12>) v0;
       chan(int<8>) v1;
       chan(int<8>) v2;
@@ -609,202 +980,204 @@ let%expect_test "fibonacci" =
       chan(int<1>) v8;
       chan(int<1>) v9;
       chan(int<1>) v10;
-      chan(int<12>) v11;
-      chan(int<8>) v12;
-      chan(int<8>) v13;
-      chan(int<8>) v14;
-      chan(int<8>) v15;
+      chan(int<1>) v11;
+      chan(int<1>) v12;
+      chan(int<12>) v13;
+      chan(int<12>) v14;
+      chan(int<12>) v15;
       chan(int<8>) v16;
       chan(int<8>) v17;
-      chan(int<1>) v18;
-      chan(int<1>) v19;
-      chan(int<1>) v20;
-      chan(int<1>) v21;
-      chan(int<1>) v22;
+      chan(int<8>) v18;
+      chan(int<8>) v19;
+      chan(int<8>) v20;
+      chan(int<8>) v21;
+      chan(int<8>) v22;
+      chan(int<8>) v23;
       chan(int<8>) v24;
-      chan(int<12>) v25;
-      chan(int<12>) v26;
-      chan(int<12>) v27;
+      chan(int<8>) v25;
+      chan(int<8>) v26;
+      chan(int<8>) v27;
       chan(int<8>) v28;
       chan(int<8>) v29;
       chan(int<8>) v30;
       chan(int<8>) v31;
       chan(int<8>) v32;
       chan(int<8>) v33;
-      chan(int<8>) v34;
-      chan(int<8>) v35;
-      chan(int<8>) v36;
-      chan(int<8>) v38;
+      chan(int<13>) v36;
+      chan(int<1>) v37;
+      chan(int<1>) v38;
       chan(int<8>) v39;
-      chan(int<8>) v40;
-      chan(int<8>) v41;
-      chan(int<8>) v42;
-      chan(int<8>) v43;
-      chan(int<8>) v44;
-      chan(int<8>) v45;
-      chan(int<8>) v46;
-      chan(int<8>) v47;
-      chan(int<13>) v50;
+      chan(int<1>) v40;
+      chan(int<1>) v41;
+      chan(int<1>) v42;
+      chan(int<1>) v43;
+      chan(int<1>) v44;
+      chan(int<1>) v45;
+      chan(int<1>) v46;
+      chan(int<1>) v47;
+      chan(int<1>) v48;
+      chan(int<1>) v49;
+      chan(int<1>) v50;
       chan(int<1>) v51;
       chan(int<1>) v52;
-      chan(int<8>) v53;
+      chan(int<1>) v53;
       chan(int<1>) v54;
       chan(int<1>) v55;
       chan(int<1>) v56;
-      chan(int<1>) v57;
-      chan(int<1>) v58;
-      chan(int<1>) v59;
-      chan(int<1>) v60;
-      chan(int<1>) v61;
-      chan(int<1>) v62;
-      chan(int<1>) v63;
-      chan(int<1>) v64;
-      chan(int<1>) v65;
-      chan(int<1>) v66;
-      chan(int<1>) v67;
-      chan(int<1>) v68;
-      chan(int<1>) v69;
-      chan(int<1>) v70;
+      chan(int<8>) v57;
+      chan(int<8>) v58;
+      chan(int<8>) v59;
+      chan(int<8>) v60;
+      chan(int<8>) v61;
+      chan(int<8>) v62;
+      chan(int<8>) v63;
+      chan(int<8>) v64;
+      chan(int<8>) v65;
+      chan(int<8>) v66;
+      chan(int<8>) v67;
+      chan(int<8>) v68;
+      chan(int<8>) v69;
+      chan(int<8>) v70;
       chan(int<8>) v71;
       chan(int<8>) v72;
-      chan(int<8>) v73;
-      chan(int<8>) v74;
-      chan(int<8>) v75;
+      chan(int<1>) v73;
+      chan(int<1>) v74;
+      chan(int<12>) v75;
       chan(int<8>) v76;
-      chan(int<8>) v77;
-      chan(int<8>) v78;
-      chan(int<8>) v79;
-      chan(int<8>) v80;
-      chan(int<8>) v81;
-      chan(int<8>) v82;
-      chan(int<8>) v83;
+      chan(int<12>) v77;
+      chan(int<12>) v78;
+      chan(int<13>) v81;
+      chan(int<1>) v82;
+      chan(int<1>) v83;
       chan(int<8>) v84;
-      chan(int<8>) v85;
+      chan(int<1>) v85;
       chan(int<1>) v86;
-      chan(int<1>) v87;
-      chan(int<12>) v88;
-      chan(int<8>) v89;
-      chan(int<12>) v90;
-      chan(int<12>) v91;
-      chan(int<13>) v94;
-      chan(int<1>) v95;
+      chan(int<8>) v87;
+      chan(int<1>) v89;
+      chan(int<2>) v90;
+      chan(int<2>) v91;
+      chan(int<2>) v92;
+      chan(int<2>) v93;
+      chan(int<1>) v94;
       chan(int<1>) v96;
-      chan(int<8>) v97;
-      chan(int<1>) v98;
-      chan(int<1>) v99;
-      chan(int<8>) v100;
-      chan(int<1>) v102;
+      chan(int<2>) v97;
+      chan(int<13>) v98;
+      chan(int<1>) v100;
+      chan(int<2>) v101;
+      chan(int<2>) v102;
       chan(int<2>) v103;
       chan(int<2>) v104;
-      chan(int<2>) v105;
-      chan(int<2>) v106;
+      chan(int<1>) v105;
       chan(int<1>) v107;
-      chan(int<1>) v109;
-      chan(int<2>) v110;
-      chan(int<13>) v111;
-      chan(int<1>) v113;
-      chan(int<2>) v114;
-      chan(int<2>) v115;
-      chan(int<2>) v116;
-      chan(int<2>) v117;
-      chan(int<1>) v118;
-      chan(int<1>) v120;
-      chan(int<2>) v121;
+      chan(int<2>) v108;
+      chan(int<1>) v110;
+      chan(int<1>) v111;
+      chan(int<1>) v112;
+      chan(int<12>) v113;
+      chan(int<12>) v114;
+      chan(int<8>) v115;
+      chan(int<12>) v116;
+      chan(int<12>) v117;
+      chan(int<13>) v121;
+      chan(int<1>) v122;
       chan(int<1>) v123;
-      chan(int<1>) v124;
+      chan(int<8>) v124;
       chan(int<1>) v125;
-      chan(int<12>) v126;
-      chan(int<12>) v127;
-      chan(int<8>) v128;
-      chan(int<12>) v129;
-      chan(int<12>) v130;
-      chan(int<13>) v134;
-      chan(int<1>) v135;
+      chan(int<1>) v126;
+      chan(int<8>) v127;
+      chan(int<1>) v129;
+      chan(int<2>) v130;
+      chan(int<2>) v131;
+      chan(int<2>) v132;
+      chan(int<2>) v133;
+      chan(int<1>) v134;
       chan(int<1>) v136;
-      chan(int<8>) v137;
-      chan(int<1>) v138;
-      chan(int<1>) v139;
-      chan(int<8>) v140;
-      chan(int<1>) v142;
+      chan(int<2>) v137;
+      chan(int<13>) v138;
+      chan(int<1>) v140;
+      chan(int<2>) v141;
+      chan(int<2>) v142;
       chan(int<2>) v143;
       chan(int<2>) v144;
-      chan(int<2>) v145;
-      chan(int<2>) v146;
+      chan(int<1>) v145;
       chan(int<1>) v147;
-      chan(int<1>) v149;
-      chan(int<2>) v150;
-      chan(int<13>) v151;
-      chan(int<1>) v153;
-      chan(int<2>) v154;
-      chan(int<2>) v155;
-      chan(int<2>) v156;
-      chan(int<2>) v157;
-      chan(int<1>) v158;
-      chan(int<1>) v160;
-      chan(int<2>) v161;
+      chan(int<2>) v148;
+      chan(int<1>) v150;
+      chan(int<1>) v151;
+      chan(int<1>) v152;
+      chan(int<12>) v153;
+      chan(int<12>) v154;
+      chan(int<8>) v155;
+      chan(int<12>) v156;
+      chan(int<12>) v157;
+      chan(int<13>) v161;
+      chan(int<1>) v162;
       chan(int<1>) v163;
-      chan(int<1>) v164;
+      chan(int<8>) v164;
       chan(int<1>) v165;
-      chan(int<12>) v166;
-      chan(int<12>) v167;
-      chan(int<8>) v168;
-      chan(int<12>) v169;
-      chan(int<12>) v170;
-      chan(int<13>) v174;
-      chan(int<1>) v175;
+      chan(int<1>) v166;
+      chan(int<8>) v167;
+      chan(int<1>) v169;
+      chan(int<2>) v170;
+      chan(int<2>) v171;
+      chan(int<2>) v172;
+      chan(int<2>) v173;
+      chan(int<1>) v174;
       chan(int<1>) v176;
-      chan(int<8>) v177;
-      chan(int<1>) v178;
-      chan(int<1>) v179;
-      chan(int<8>) v180;
-      chan(int<1>) v182;
+      chan(int<2>) v177;
+      chan(int<13>) v178;
+      chan(int<1>) v180;
+      chan(int<2>) v181;
+      chan(int<2>) v182;
       chan(int<2>) v183;
       chan(int<2>) v184;
-      chan(int<2>) v185;
-      chan(int<2>) v186;
+      chan(int<1>) v185;
       chan(int<1>) v187;
-      chan(int<1>) v189;
-      chan(int<2>) v190;
-      chan(int<13>) v191;
+      chan(int<2>) v188;
+      chan(int<1>) v190;
+      chan(int<1>) v191;
+      chan(int<1>) v192;
       chan(int<1>) v193;
-      chan(int<2>) v194;
-      chan(int<2>) v195;
-      chan(int<2>) v196;
-      chan(int<2>) v197;
+      chan(int<1>) v194;
+      chan(int<1>) v195;
+      chan(int<1>) v196;
+      chan(int<1>) v197;
       chan(int<1>) v198;
+      chan(int<1>) v199;
       chan(int<1>) v200;
-      chan(int<2>) v201;
+      chan(int<1>) v201;
+      chan(int<1>) v202;
       chan(int<1>) v203;
       chan(int<1>) v204;
       chan(int<1>) v205;
-      chan(int<1>) v206;
-      chan(int<1>) v207;
-      chan(int<1>) v208;
-      chan(int<1>) v209;
-      chan(int<1>) v210;
-      chan(int<1>) v211;
-      chan(int<1>) v212;
-      chan(int<1>) v213;
-      chan(int<1>) v214;
-      chan(int<1>) v215;
-      chan(int<1>) v216;
-      chan(int<1>) v217;
-      chan(int<1>) v218;
+      chan(int<8>) v206;
+      chan(int<8>) v207;
+      chan(int<8>) v208;
+      chan(int<8>) v209;
+      chan(int<8>) v210;
+      chan(int<8>) v211;
+      chan(int<8>) v212;
+      chan(int<8>) v213;
+      chan(int<8>) v214;
+      chan(int<8>) v215;
+      chan(int<8>) v216;
+      chan(int<8>) v217;
+      chan(int<8>) v218;
       chan(int<8>) v219;
       chan(int<8>) v220;
       chan(int<8>) v221;
-      chan(int<8>) v222;
-      chan(int<8>) v223;
-      chan(int<8>) v224;
-      chan(int<8>) v225;
-      chan(int<8>) v226;
-      chan(int<8>) v227;
-      chan(int<8>) v228;
-      chan(int<8>) v229;
-      chan(int<8>) v230;
-      chan(int<8>) v231;
-      chan(int<8>) v232;
-      chan(int<8>) v233;
+      chan(int<1>) v222;
+      chan(int<1>) v223;
+      chan(int<1>) v224;
+      chan(int<1>) v225;
+      chan(int<1>) v226;
+      chan(int<1>) v227;
+      chan(int<1>) v228;
+      chan(int<1>) v229;
+      chan(int<1>) v230;
+      chan(int<1>) v231;
+      chan(int<1>) v232;
+      chan(int<1>) v233;
       chan(int<1>) v234;
       chan(int<1>) v235;
       chan(int<1>) v236;
@@ -822,18 +1195,18 @@ let%expect_test "fibonacci" =
       chan(int<1>) v248;
       chan(int<1>) v249;
       chan(int<1>) v250;
-      chan(int<1>) v251;
-      chan(int<1>) v252;
-      chan(int<1>) v253;
-      chan(int<1>) v254;
-      chan(int<1>) v255;
-      chan(int<1>) v256;
-      chan(int<1>) v257;
-      chan(int<1>) v258;
-      chan(int<1>) v259;
-      chan(int<1>) v260;
-      chan(int<1>) v261;
-      chan(int<1>) v262;
+      chan(int<8>) v251;
+      chan(int<8>) v252;
+      chan(int<8>) v253;
+      chan(int<8>) v254;
+      chan(int<8>) v255;
+      chan(int<8>) v256;
+      chan(int<8>) v257;
+      chan(int<8>) v258;
+      chan(int<8>) v259;
+      chan(int<8>) v260;
+      chan(int<8>) v261;
+      chan(int<8>) v262;
       chan(int<8>) v263;
       chan(int<8>) v264;
       chan(int<8>) v265;
@@ -850,6 +1223,7 @@ let%expect_test "fibonacci" =
       chan(int<8>) v276;
       chan(int<8>) v277;
       chan(int<8>) v278;
+      chan(int<8>) v279;
       chan(int<8>) v280;
       chan(int<8>) v281;
       chan(int<8>) v282;
@@ -868,50 +1242,51 @@ let%expect_test "fibonacci" =
       chan(int<8>) v295;
       chan(int<8>) v296;
       chan(int<8>) v297;
-      chan(int<8>) v298;
-      chan(int<8>) v299;
+      chan(int<1>) v298;
       chan(int<8>) v300;
       chan(int<8>) v301;
       chan(int<8>) v302;
-      chan(int<8>) v303;
       chan(int<8>) v304;
       chan(int<8>) v305;
-      chan(int<8>) v306;
-      chan(int<8>) v307;
-      chan(int<8>) v308;
-      chan(int<8>) v309;
+      chan(int<13>) v307;
+      chan(int<1>) v308;
+      chan(int<1>) v309;
       chan(int<8>) v310;
       chan(int<1>) v311;
-      chan(int<8>) v313;
-      chan(int<8>) v314;
-      chan(int<8>) v315;
-      chan(int<8>) v317;
-      chan(int<8>) v318;
-      chan(int<13>) v320;
+      chan(int<1>) v312;
+      chan(int<1>) v314;
+      chan(int<1>) v315;
+      chan(int<8>) v316;
+      chan(int<1>) v317;
+      chan(int<1>) v318;
+      chan(int<8>) v319;
       chan(int<1>) v321;
-      chan(int<1>) v322;
-      chan(int<8>) v323;
-      chan(int<1>) v324;
-      chan(int<1>) v325;
-      chan(int<1>) v329;
+      chan(int<15>) v322;
+      chan(int<15>) v323;
+      chan(int<15>) v324;
+      chan(int<15>) v325;
+      chan(int<1>) v326;
+      chan(int<1>) v327;
+      chan(int<1>) v328;
       chan(int<1>) v330;
-      chan(int<8>) v331;
+      chan(int<1>) v331;
       chan(int<1>) v332;
       chan(int<1>) v333;
-      chan(int<8>) v334;
+      chan(int<1>) v334;
+      chan(int<1>) v335;
       chan(int<1>) v336;
-      chan(int<15>) v337;
-      chan(int<15>) v338;
-      chan(int<15>) v339;
-      chan(int<15>) v340;
+      chan(int<1>) v337;
+      chan(int<1>) v338;
+      chan(int<1>) v339;
+      chan(int<1>) v340;
       chan(int<1>) v341;
-      chan(int<1>) v342;
-      chan(int<1>) v343;
+      chan(int<15>) v342;
+      chan(int<8>) v343;
       chan(int<1>) v345;
-      chan(int<1>) v346;
-      chan(int<1>) v347;
-      chan(int<1>) v348;
-      chan(int<1>) v349;
+      chan(int<15>) v346;
+      chan(int<15>) v347;
+      chan(int<15>) v348;
+      chan(int<15>) v349;
       chan(int<1>) v350;
       chan(int<1>) v351;
       chan(int<1>) v352;
@@ -919,39 +1294,39 @@ let%expect_test "fibonacci" =
       chan(int<1>) v354;
       chan(int<1>) v355;
       chan(int<1>) v356;
-      chan(int<15>) v357;
-      chan(int<8>) v358;
+      chan(int<1>) v357;
+      chan(int<1>) v358;
+      chan(int<1>) v359;
       chan(int<1>) v360;
-      chan(int<15>) v361;
-      chan(int<15>) v362;
-      chan(int<15>) v363;
-      chan(int<15>) v364;
+      chan(int<1>) v361;
+      chan(int<1>) v362;
+      chan(int<1>) v364;
       chan(int<1>) v365;
-      chan(int<1>) v366;
-      chan(int<1>) v367;
-      chan(int<1>) v368;
+      chan(int<15>) v366;
+      chan(int<13>) v367;
       chan(int<1>) v369;
-      chan(int<1>) v370;
-      chan(int<1>) v371;
-      chan(int<1>) v372;
-      chan(int<1>) v373;
+      chan(int<15>) v370;
+      chan(int<15>) v371;
+      chan(int<15>) v372;
+      chan(int<15>) v373;
       chan(int<1>) v374;
       chan(int<1>) v375;
       chan(int<1>) v376;
-      chan(int<1>) v377;
+      chan(int<1>) v378;
       chan(int<1>) v379;
       chan(int<1>) v380;
-      chan(int<15>) v381;
-      chan(int<13>) v382;
+      chan(int<1>) v381;
+      chan(int<1>) v382;
+      chan(int<1>) v383;
       chan(int<1>) v384;
-      chan(int<15>) v385;
-      chan(int<15>) v386;
-      chan(int<15>) v387;
-      chan(int<15>) v388;
+      chan(int<1>) v385;
+      chan(int<1>) v386;
+      chan(int<1>) v387;
+      chan(int<1>) v388;
       chan(int<1>) v389;
-      chan(int<1>) v390;
+      chan(int<15>) v390;
       chan(int<1>) v391;
-      chan(int<1>) v393;
+      chan(int<1>) v392;
       chan(int<1>) v394;
       chan(int<1>) v395;
       chan(int<1>) v396;
@@ -963,13 +1338,13 @@ let%expect_test "fibonacci" =
       chan(int<1>) v402;
       chan(int<1>) v403;
       chan(int<1>) v404;
-      chan(int<15>) v405;
-      chan(int<1>) v406;
-      chan(int<1>) v407;
-      chan(int<1>) v409;
-      chan(int<1>) v410;
-      chan(int<1>) v411;
-      chan(int<1>) v412;
+      chan(int<1>) v405;
+      chan(int<8>) v406;
+      chan(int<1>) v408;
+      chan(int<15>) v409;
+      chan(int<15>) v410;
+      chan(int<15>) v411;
+      chan(int<15>) v412;
       chan(int<1>) v413;
       chan(int<1>) v414;
       chan(int<1>) v415;
@@ -978,14 +1353,14 @@ let%expect_test "fibonacci" =
       chan(int<1>) v418;
       chan(int<1>) v419;
       chan(int<1>) v420;
-      chan(int<8>) v421;
+      chan(int<1>) v421;
+      chan(int<1>) v422;
       chan(int<1>) v423;
-      chan(int<15>) v424;
-      chan(int<15>) v425;
-      chan(int<15>) v426;
-      chan(int<15>) v427;
+      chan(int<1>) v424;
+      chan(int<1>) v426;
+      chan(int<1>) v427;
       chan(int<1>) v428;
-      chan(int<1>) v429;
+      chan(int<15>) v429;
       chan(int<1>) v430;
       chan(int<1>) v431;
       chan(int<1>) v432;
@@ -996,376 +1371,235 @@ let%expect_test "fibonacci" =
       chan(int<1>) v437;
       chan(int<1>) v438;
       chan(int<1>) v439;
-      chan(int<1>) v441;
+      chan(int<1>) v440;
       chan(int<1>) v442;
       chan(int<1>) v443;
-      chan(int<15>) v444;
+      chan(int<1>) v444;
       chan(int<1>) v445;
       chan(int<1>) v446;
-      chan(int<1>) v447;
-      chan(int<1>) v448;
-      chan(int<1>) v449;
-      chan(int<1>) v450;
-      chan(int<1>) v451;
-      chan(int<1>) v452;
-      chan(int<1>) v453;
-      chan(int<1>) v454;
+      chan(int<12>) v447;
+      chan(int<12>) v448;
+      chan(int<8>) v449;
+      chan(int<12>) v450;
+      chan(int<12>) v451;
+      chan(int<13>) v454;
       chan(int<1>) v455;
-      chan(int<1>) v457;
+      chan(int<1>) v456;
       chan(int<1>) v458;
       chan(int<1>) v459;
-      chan(int<1>) v460;
-      chan(int<1>) v461;
-      chan(int<12>) v462;
-      chan(int<12>) v463;
-      chan(int<8>) v464;
-      chan(int<12>) v465;
-      chan(int<12>) v466;
-      chan(int<13>) v469;
-      chan(int<1>) v470;
-      chan(int<1>) v471;
-      chan(int<1>) v473;
-      chan(int<1>) v474;
-      chan(int<8>) v475;
-      chan(int<1>) v477;
+      chan(int<8>) v460;
+      chan(int<1>) v462;
+      chan(int<2>) v463;
+      chan(int<2>) v464;
+      chan(int<2>) v465;
+      chan(int<2>) v466;
+      chan(int<1>) v467;
+      chan(int<1>) v469;
+      chan(int<2>) v470;
+      chan(int<1>) v472;
+      chan(int<13>) v473;
+      chan(int<1>) v475;
+      chan(int<2>) v476;
+      chan(int<2>) v477;
       chan(int<2>) v478;
       chan(int<2>) v479;
-      chan(int<2>) v480;
-      chan(int<2>) v481;
+      chan(int<1>) v480;
       chan(int<1>) v482;
-      chan(int<1>) v484;
-      chan(int<2>) v485;
+      chan(int<2>) v483;
+      chan(int<1>) v485;
+      chan(int<1>) v486;
       chan(int<1>) v487;
-      chan(int<13>) v488;
-      chan(int<1>) v490;
-      chan(int<2>) v491;
-      chan(int<2>) v492;
-      chan(int<2>) v493;
-      chan(int<2>) v494;
-      chan(int<1>) v495;
+      chan(int<12>) v488;
+      chan(int<12>) v489;
+      chan(int<8>) v490;
+      chan(int<12>) v491;
+      chan(int<12>) v492;
+      chan(int<13>) v495;
+      chan(int<1>) v496;
       chan(int<1>) v497;
-      chan(int<2>) v498;
+      chan(int<1>) v499;
       chan(int<1>) v500;
-      chan(int<1>) v501;
-      chan(int<1>) v502;
-      chan(int<12>) v503;
-      chan(int<12>) v504;
-      chan(int<8>) v505;
-      chan(int<12>) v506;
-      chan(int<12>) v507;
-      chan(int<13>) v510;
-      chan(int<1>) v511;
-      chan(int<1>) v512;
-      chan(int<1>) v514;
-      chan(int<1>) v515;
-      chan(int<8>) v516;
-      chan(int<1>) v518;
+      chan(int<8>) v501;
+      chan(int<1>) v503;
+      chan(int<2>) v504;
+      chan(int<2>) v505;
+      chan(int<2>) v506;
+      chan(int<2>) v507;
+      chan(int<1>) v508;
+      chan(int<1>) v510;
+      chan(int<2>) v511;
+      chan(int<1>) v513;
+      chan(int<13>) v514;
+      chan(int<1>) v516;
+      chan(int<2>) v517;
+      chan(int<2>) v518;
       chan(int<2>) v519;
       chan(int<2>) v520;
-      chan(int<2>) v521;
-      chan(int<2>) v522;
+      chan(int<1>) v521;
       chan(int<1>) v523;
-      chan(int<1>) v525;
-      chan(int<2>) v526;
+      chan(int<2>) v524;
+      chan(int<1>) v526;
+      chan(int<1>) v527;
       chan(int<1>) v528;
-      chan(int<13>) v529;
-      chan(int<1>) v531;
-      chan(int<2>) v532;
-      chan(int<2>) v533;
-      chan(int<2>) v534;
-      chan(int<2>) v535;
+      chan(int<12>) v529;
+      chan(int<12>) v530;
+      chan(int<8>) v531;
+      chan(int<12>) v532;
+      chan(int<13>) v535;
       chan(int<1>) v536;
-      chan(int<1>) v538;
-      chan(int<2>) v539;
-      chan(int<1>) v541;
-      chan(int<1>) v542;
+      chan(int<1>) v537;
+      chan(int<1>) v539;
+      chan(int<1>) v540;
+      chan(int<8>) v541;
       chan(int<1>) v543;
-      chan(int<12>) v544;
-      chan(int<12>) v545;
-      chan(int<8>) v546;
-      chan(int<12>) v547;
-      chan(int<13>) v550;
-      chan(int<1>) v551;
-      chan(int<1>) v552;
-      chan(int<1>) v554;
-      chan(int<1>) v555;
-      chan(int<8>) v556;
-      chan(int<1>) v558;
+      chan(int<2>) v544;
+      chan(int<2>) v545;
+      chan(int<2>) v546;
+      chan(int<2>) v547;
+      chan(int<1>) v548;
+      chan(int<1>) v550;
+      chan(int<2>) v551;
+      chan(int<1>) v553;
+      chan(int<13>) v554;
+      chan(int<1>) v556;
+      chan(int<2>) v557;
+      chan(int<2>) v558;
       chan(int<2>) v559;
       chan(int<2>) v560;
-      chan(int<2>) v561;
-      chan(int<2>) v562;
+      chan(int<1>) v561;
       chan(int<1>) v563;
-      chan(int<1>) v565;
-      chan(int<2>) v566;
+      chan(int<2>) v564;
+      chan(int<1>) v566;
+      chan(int<8>) v567;
       chan(int<1>) v568;
-      chan(int<13>) v569;
+      chan(int<1>) v569;
+      chan(int<1>) v570;
       chan(int<1>) v571;
-      chan(int<2>) v572;
-      chan(int<2>) v573;
-      chan(int<2>) v574;
-      chan(int<2>) v575;
-      chan(int<1>) v576;
+      chan(int<8>) v572;
+      chan(int<1>) v573;
+      chan(int<1>) v574;
+      chan(int<1>) v575;
+      chan(int<13>) v576;
+      chan(int<1>) v577;
       chan(int<1>) v578;
-      chan(int<2>) v579;
-      chan(int<1>) v581;
-      chan(int<8>) v582;
+      chan(int<1>) v579;
+      chan(int<1>) v580;
+      chan(int<13>) v581;
+      chan(int<1>) v582;
       chan(int<1>) v583;
       chan(int<1>) v584;
-      chan(int<1>) v585;
-      chan(int<1>) v586;
-      chan(int<8>) v587;
+      chan(int<8>) v585;
+      chan(int<1>) v587;
       chan(int<1>) v588;
-      chan(int<1>) v589;
-      chan(int<1>) v590;
-      chan(int<13>) v591;
+      chan(int<8>) v590;
+      chan(int<1>) v591;
       chan(int<1>) v592;
       chan(int<1>) v593;
-      chan(int<1>) v594;
+      chan(int<13>) v594;
       chan(int<1>) v595;
-      chan(int<13>) v596;
+      chan(int<1>) v596;
       chan(int<1>) v597;
       chan(int<1>) v598;
-      chan(int<1>) v599;
-      chan(int<8>) v600;
+      chan(int<13>) v599;
+      chan(int<1>) v600;
       chan(int<1>) v601;
       chan(int<1>) v602;
-      chan(int<1>) v603;
-      chan(int<1>) v604;
-      chan(int<8>) v605;
+      chan(int<8>) v603;
+      chan(int<1>) v605;
       chan(int<1>) v606;
-      chan(int<1>) v607;
-      chan(int<1>) v608;
-      chan(int<13>) v609;
+      chan(int<8>) v608;
+      chan(int<1>) v609;
       chan(int<1>) v610;
       chan(int<1>) v611;
-      chan(int<1>) v612;
-      chan(int<1>) v613;
-      chan(int<13>) v614;
+      chan(int<13>) v612;
+      chan(int<1>) v614;
       chan(int<1>) v615;
-      chan(int<1>) v616;
-      chan(int<1>) v617;
-      chan(int<8>) v618;
+      chan(int<13>) v617;
+      chan(int<1>) v618;
       chan(int<1>) v619;
       chan(int<1>) v620;
-      chan(int<1>) v621;
+      chan(int<13>) v621;
       chan(int<1>) v622;
-      chan(int<8>) v623;
+      chan(int<1>) v623;
       chan(int<1>) v624;
       chan(int<1>) v625;
-      chan(int<1>) v626;
-      chan(int<13>) v627;
+      chan(int<13>) v626;
+      chan(int<1>) v627;
       chan(int<1>) v628;
       chan(int<1>) v629;
-      chan(int<1>) v630;
+      chan(int<8>) v630;
       chan(int<1>) v631;
-      chan(int<13>) v632;
+      chan(int<1>) v632;
       chan(int<1>) v633;
       chan(int<1>) v634;
-      chan(int<1>) v635;
-      chan(int<13>) v636;
+      chan(int<8>) v635;
+      chan(int<1>) v636;
       chan(int<1>) v637;
       chan(int<1>) v638;
-      chan(int<1>) v639;
+      chan(int<13>) v639;
       chan(int<1>) v640;
-      chan(int<13>) v641;
+      chan(int<1>) v641;
       chan(int<1>) v642;
       chan(int<1>) v643;
-      chan(int<1>) v644;
-      chan(int<8>) v645;
+      chan(int<13>) v644;
+      chan(int<1>) v645;
       chan(int<1>) v646;
       chan(int<1>) v647;
-      chan(int<1>) v648;
-      chan(int<1>) v649;
-      chan(int<8>) v650;
+      chan(int<8>) v648;
+      chan(int<1>) v650;
       chan(int<1>) v651;
-      chan(int<1>) v652;
-      chan(int<1>) v653;
-      chan(int<13>) v654;
+      chan(int<8>) v653;
+      chan(int<1>) v654;
       chan(int<1>) v655;
       chan(int<1>) v656;
-      chan(int<1>) v657;
-      chan(int<1>) v658;
-      chan(int<13>) v659;
+      chan(int<13>) v657;
+      chan(int<1>) v659;
       chan(int<1>) v660;
-      chan(int<1>) v661;
-      chan(int<1>) v662;
-      chan(int<8>) v663;
+      chan(int<13>) v662;
+      chan(int<1>) v663;
       chan(int<1>) v664;
       chan(int<1>) v665;
       chan(int<1>) v666;
       chan(int<1>) v667;
-      chan(int<8>) v668;
+      chan(int<1>) v668;
       chan(int<1>) v669;
       chan(int<1>) v670;
       chan(int<1>) v671;
-      chan(int<13>) v672;
+      chan(int<1>) v672;
       chan(int<1>) v673;
       chan(int<1>) v674;
       chan(int<1>) v675;
       chan(int<1>) v676;
-      chan(int<13>) v677;
-      chan(int<1>) v678;
-      chan(int<1>) v679;
-      chan(int<1>) v680;
-      chan(int<1>) v681;
-      chan(int<1>) v683;
-      chan(int<1>) v684;
-      chan(int<1>) v685;
+      chan(int<1>) v677;
+      chan(int<4>) v678;
+      chan(int<4>) v679;
+      chan(int<4>) v680;
+      chan(int<4>) v681;
+      chan(int<4>) v682;
+      chan(int<4>) v683;
+      chan(int<4>) v684;
+      chan(int<4>) v685;
       chan(int<1>) v686;
       chan(int<1>) v687;
+      chan(int<1>) v688;
       chan(int<1>) v689;
       chan(int<1>) v690;
       chan(int<1>) v691;
       chan(int<1>) v692;
       chan(int<1>) v693;
+      chan(int<1>) v694;
       chan(int<1>) v695;
       chan(int<1>) v696;
       chan(int<1>) v697;
-      chan(int<1>) v698;
+      chan(int<4>) v698;
       chan(int<1>) v699;
+      chan(int<1>) v700;
       chan(int<1>) v701;
-      chan(int<1>) v702;
-      chan(int<1>) v703;
+      chan(int<4>) v702;
+      chan(int<4>) v703;
       chan(int<1>) v704;
       chan(int<1>) v705;
-      chan(int<1>) v707;
-      chan(int<1>) v708;
-      chan(int<1>) v709;
-      chan(int<1>) v710;
-      chan(int<1>) v711;
-      chan(int<1>) v713;
-      chan(int<1>) v714;
-      chan(int<1>) v715;
-      chan(int<1>) v716;
-      chan(int<1>) v717;
-      chan(int<1>) v719;
-      chan(int<1>) v720;
-      chan(int<1>) v721;
-      chan(int<1>) v722;
-      chan(int<8>) v723;
-      chan(int<1>) v725;
-      chan(int<2>) v726;
-      chan(int<2>) v727;
-      chan(int<2>) v728;
-      chan(int<2>) v729;
-      chan(int<1>) v730;
-      chan(int<1>) v731;
-      chan(int<2>) v733;
-      chan(int<8>) v734;
-      chan(int<1>) v736;
-      chan(int<2>) v737;
-      chan(int<2>) v738;
-      chan(int<2>) v739;
-      chan(int<2>) v740;
-      chan(int<1>) v741;
-      chan(int<1>) v742;
-      chan(int<2>) v744;
-      chan(int<8>) v745;
-      chan(int<1>) v747;
-      chan(int<2>) v748;
-      chan(int<2>) v749;
-      chan(int<2>) v750;
-      chan(int<2>) v751;
-      chan(int<1>) v752;
-      chan(int<1>) v753;
-      chan(int<2>) v755;
-      chan(int<13>) v756;
-      chan(int<1>) v758;
-      chan(int<2>) v759;
-      chan(int<2>) v760;
-      chan(int<2>) v761;
-      chan(int<2>) v762;
-      chan(int<1>) v763;
-      chan(int<1>) v764;
-      chan(int<2>) v766;
-      chan(int<1>) v767;
-      chan(int<8>) v769;
-      chan(int<1>) v771;
-      chan(int<2>) v772;
-      chan(int<2>) v773;
-      chan(int<2>) v774;
-      chan(int<2>) v775;
-      chan(int<1>) v776;
-      chan(int<1>) v777;
-      chan(int<2>) v779;
-      chan(int<1>) v780;
-      chan(int<13>) v782;
-      chan(int<1>) v784;
-      chan(int<2>) v785;
-      chan(int<2>) v786;
-      chan(int<2>) v787;
-      chan(int<2>) v788;
-      chan(int<1>) v789;
-      chan(int<1>) v790;
-      chan(int<2>) v792;
-      chan(int<1>) v793;
-      chan(int<8>) v795;
-      chan(int<1>) v797;
-      chan(int<2>) v798;
-      chan(int<2>) v799;
-      chan(int<2>) v800;
-      chan(int<2>) v801;
-      chan(int<1>) v802;
-      chan(int<1>) v803;
-      chan(int<2>) v805;
-      chan(int<1>) v806;
-      chan(int<1>) v807;
-      chan(int<1>) v808;
-      chan(int<1>) v809;
-      chan(int<1>) v810;
-      chan(int<1>) v811;
-      chan(int<1>) v812;
-      chan(int<1>) v813;
-      chan(int<1>) v814;
-      chan(int<1>) v815;
-      chan(int<1>) v816;
-      chan(int<1>) v817;
-      chan(int<1>) v818;
-      chan(int<4>) v819;
-      chan(int<4>) v820;
-      chan(int<4>) v821;
-      chan(int<4>) v822;
-      chan(int<4>) v823;
-      chan(int<4>) v824;
-      chan(int<4>) v825;
-      chan(int<4>) v826;
-      chan(int<1>) v827;
-      chan(int<1>) v828;
-      chan(int<1>) v829;
-      chan(int<1>) v830;
-      chan(int<1>) v831;
-      chan(int<1>) v832;
-      chan(int<1>) v833;
-      chan(int<1>) v834;
-      chan(int<1>) v835;
-      chan(int<1>) v836;
-      chan(int<1>) v837;
-      chan(int<1>) v838;
-      chan(int<1>) v839;
-      chan(int<1>) v840;
-      chan(int<1>) v841;
-      chan(int<1>) v842;
-      chan(int<1>) v843;
-      chan(int<1>) v844;
-      chan(int<1>) v845;
-      chan(int<1>) v846;
-      chan(int<1>) v847;
-      chan(int<1>) v848;
-      chan(int<1>) v849;
-      chan(int<1>) v850;
-      chan(int<1>) v851;
-      chan(int<1>) v852;
-      chan(int<1>) v853;
-      chan(int<4>) v854;
-      chan(int<1>) v855;
-      chan(int<1>) v856;
-      chan(int<1>) v857;
-      chan(int<4>) v858;
-      chan(int<4>) v859;
-      chan(int<1>) v860;
-      chan(int<1>) v861;
-      chan(int<1>) v862;
+      chan(int<1>) v706;
     dataflow {
       v0 <- 0;
       v1 <- 0;
@@ -1375,83 +1609,94 @@ let%expect_test "fibonacci" =
       v5 <- 0;
       v6 <- 0;
       v7 <- 0;
-      v8 <- 0;
-      v9 <- 1;
-      v50 <- 0;
-      v71 <- 0;
-      v72 <- 0;
-      v73 <- 0;
-      v74 <- 1;
-      v75 <- 2;
-      v76 <- 3;
-      v77 <- 2;
-      v78 <- 3;
-      v79 <- 2;
-      v80 <- 2;
+      v36 <- 0;
+      v57 <- 0;
+      v58 <- 0;
+      v59 <- 0;
+      v60 <- 1;
+      v61 <- 2;
+      v62 <- 3;
+      v63 <- 2;
+      v64 <- 3;
+      v65 <- 2;
+      v66 <- 2;
+      v67 <- 2;
+      v68 <- 1;
+      v69 <- 0;
+      v70 <- 1;
+      v71 <- 2;
+      v77 <- 1;
       v81 <- 2;
-      v82 <- 1;
-      v83 <- 0;
-      v84 <- 1;
-      v85 <- 2;
-      v90 <- 1;
-      v94 <- 2;
-      v109 <- 0;
-      v120 <- 0;
-      v123 <- 0;
-      v149 <- 0;
-      v160 <- 0;
-      v163 <- 0;
-      v189 <- 0;
-      v200 <- 0;
-      v203 <- 0;
-      v219 <- 0;
-      v220 <- 0;
-      v221 <- 1;
-      v222 <- 2;
-      v223 <- 2;
-      v224 <- 3;
-      v225 <- 0;
-      v226 <- 0;
-      v227 <- 1;
-      v228 <- 1;
-      v229 <- 1;
-      v230 <- 0;
-      v231 <- 1;
-      v232 <- 1;
-      v233 <- 1;
-      v311 <- 1;
-      v320 <- 2;
-      v342 <- 0;
-      v343 <- 0;
-      v345 <- 0;
-      v346 <- 0;
-      v347 <- 0;
-      v348 <- 0;
-      v349 <- 0;
-      v350 <- 0;
+      v96 <- 0;
+      v107 <- 0;
+      v110 <- 0;
+      v136 <- 0;
+      v147 <- 0;
+      v150 <- 0;
+      v176 <- 0;
+      v187 <- 0;
+      v190 <- 0;
+      v206 <- 0;
+      v207 <- 0;
+      v208 <- 1;
+      v209 <- 2;
+      v210 <- 2;
+      v211 <- 3;
+      v212 <- 0;
+      v213 <- 0;
+      v214 <- 1;
+      v215 <- 1;
+      v216 <- 1;
+      v217 <- 0;
+      v218 <- 1;
+      v219 <- 1;
+      v220 <- 1;
+      v298 <- 1;
+      v307 <- 2;
+      v327 <- 0;
+      v328 <- 0;
+      v330 <- 0;
+      v331 <- 0;
+      v332 <- 0;
+      v333 <- 0;
+      v334 <- 0;
+      v335 <- 0;
+      v336 <- 0;
+      v337 <- 0;
+      v338 <- 0;
+      v339 <- 0;
+      v340 <- 0;
+      v341 <- 0;
       v351 <- 0;
       v352 <- 0;
       v353 <- 0;
       v354 <- 0;
       v355 <- 0;
       v356 <- 0;
-      v366 <- 0;
-      v367 <- 0;
-      v368 <- 0;
-      v369 <- 0;
-      v370 <- 0;
-      v371 <- 0;
-      v372 <- 0;
-      v373 <- 0;
-      v374 <- 0;
+      v357 <- 0;
+      v358 <- 0;
+      v359 <- 0;
+      v360 <- 0;
+      v361 <- 0;
+      v362 <- 0;
+      v364 <- 0;
+      v365 <- 0;
       v375 <- 0;
       v376 <- 0;
-      v377 <- 0;
+      v378 <- 0;
       v379 <- 0;
       v380 <- 0;
-      v390 <- 0;
+      v381 <- 0;
+      v382 <- 0;
+      v383 <- 0;
+      v384 <- 0;
+      v385 <- 0;
+      v386 <- 0;
+      v387 <- 0;
+      v388 <- 0;
+      v389 <- 0;
       v391 <- 0;
-      v393 <- 0;
+      v392 <- 0;
       v394 <- 0;
       v395 <- 0;
       v396 <- 0;
@@ -1463,13 +1708,7 @@ let%expect_test "fibonacci" =
       v402 <- 0;
       v403 <- 0;
       v404 <- 0;
-      v406 <- 0;
-      v407 <- 0;
-      v409 <- 0;
-      v410 <- 0;
-      v411 <- 0;
-      v412 <- 0;
-      v413 <- 0;
+      v405 <- 0;
       v414 <- 0;
       v415 <- 0;
       v416 <- 0;
@@ -1477,7 +1716,13 @@ let%expect_test "fibonacci" =
       v418 <- 0;
       v419 <- 0;
       v420 <- 0;
-      v429 <- 0;
+      v421 <- 0;
+      v422 <- 0;
+      v423 <- 0;
+      v424 <- 0;
+      v426 <- 0;
+      v427 <- 0;
+      v428 <- 0;
       v430 <- 0;
       v431 <- 0;
       v432 <- 0;
@@ -1488,621 +1733,469 @@ let%expect_test "fibonacci" =
       v437 <- 0;
       v438 <- 0;
       v439 <- 0;
-      v441 <- 0;
+      v440 <- 0;
       v442 <- 0;
       v443 <- 0;
-      v445 <- 0;
-      v446 <- 0;
-      v447 <- 0;
-      v448 <- 0;
-      v449 <- 0;
-      v450 <- 0;
-      v451 <- 0;
-      v452 <- 0;
-      v453 <- 0;
-      v454 <- 0;
-      v455 <- 0;
-      v457 <- 0;
-      v458 <- 0;
-      v459 <- 0;
-      v484 <- 0;
-      v487 <- 0;
-      v497 <- 0;
-      v500 <- 0;
-      v525 <- 0;
-      v528 <- 0;
-      v538 <- 0;
-      v541 <- 0;
-      v565 <- 0;
-      v568 <- 0;
-      v578 <- 0;
-      v581 <- 0;
-      v731 <- 0;
-      v742 <- 0;
-      v753 <- 0;
-      v764 <- 0;
-      v767 <- 0;
-      v777 <- 0;
-      v780 <- 0;
-      v790 <- 0;
-      v793 <- 0;
-      v803 <- 0;
-      v806 <- 0;
+      v444 <- 0;
+      v469 <- 0;
+      v472 <- 0;
+      v482 <- 0;
+      v485 <- 0;
+      v510 <- 0;
+      v513 <- 0;
+      v523 <- 0;
+      v526 <- 0;
+      v550 <- 0;
+      v553 <- 0;
+      v563 <- 0;
+      v566 <- 0;
+      v8 <- int((v9) = 0);
+      v38 <- (1 ^ (v37));
       dataflow_cluser {
-        v729 <- { int((v9), 1), int((v8), 1) };
-        v740 <- { int((v9), 1), int((v8), 1) };
-        v751 <- { int((v9), 1), int((v8), 1) };
-        v762 <- { int((v9), 1), int((v8), 1) };
-        v775 <- { int((v9), 1), int((v8), 1) };
-        v788 <- { int((v9), 1), int((v8), 1) };
-        v801 <- { int((v9), 1), int((v8), 1) };
-        v853 <- ( log2_one_hot({ int((v9), 1), int((v8), 1) }) );
+        v42 <- int(0 = (v39));
+        v43 <- int(1 = (v39));
+        v44 <- int(2 = (v39));
+        v45 <- int(3 = (v39));
+        v46 <- int(4 = (v39));
+        v47 <- int(5 = (v39));
+        v48 <- int(6 = (v39));
+        v49 <- int(7 = (v39));
+        v50 <- int(8 = (v39));
+        v51 <- int(9 = (v39));
+        v52 <- int(10 = (v39));
+        v53 <- int(11 = (v39));
+        v54 <- int(12 = (v39));
+        v55 <- int(13 = (v39));
+        v56 <- int(14 = (v39));
+        v191 <- int(0 = (v39));
+        v192 <- int(1 = (v39));
+        v193 <- int(2 = (v39));
+        v194 <- int(3 = (v39));
+        v195 <- int(4 = (v39));
+        v196 <- int(5 = (v39));
+        v197 <- int(6 = (v39));
+        v198 <- int(7 = (v39));
+        v199 <- int(8 = (v39));
+        v200 <- int(9 = (v39));
+        v201 <- int(10 = (v39));
+        v202 <- int(11 = (v39));
+        v203 <- int(12 = (v39));
+        v204 <- int(13 = (v39));
+        v205 <- int(14 = (v39));
+        v222 <- int(0 = (v39));
+        v223 <- int(1 = (v39));
+        v224 <- int(2 = (v39));
+        v225 <- int(3 = (v39));
+        v226 <- int(4 = (v39));
+        v227 <- int(5 = (v39));
+        v228 <- int(6 = (v39));
+        v229 <- int(7 = (v39));
+        v230 <- int(8 = (v39));
+        v231 <- int(9 = (v39));
+        v232 <- int(10 = (v39));
+        v233 <- int(11 = (v39));
+        v234 <- int(12 = (v39));
+        v235 <- int(13 = (v39));
+        v236 <- int(14 = (v39));
       };
-      v18 <- int((v19) = 0);
+      v41 <- (1 ^ (v40));
+      v698 <- ( log2_one_hot({ int((v56), 1), int((v55), 1), int((v54), 1), int((v53), 1), int((v52), 1), int((v51), 1), int((v50), 1), int((v49), 1), int((v48), 1), int((v47), 1), int((v46), 1), int((v45), 1), int((v44), 1), int((v43), 1), int((v42), 1) }) );
       dataflow_cluser {
-        v86 <- int((v24) >= 1);
-        v87 <- int(int((v24) >= 1) = 0);
-        v124 <- int((v24) >= 2);
-        v125 <- int(int((v24) >= 2) = 0);
-        v164 <- int((v24) >= 3);
-        v165 <- int(int((v24) >= 3) = 0);
-      };
-      dataflow_cluser {
-        v460 <- int((v38) >= 1);
-        v461 <- int(int((v38) >= 1) = 0);
-        v501 <- int((v38) >= 2);
-        v502 <- int(int((v38) >= 2) = 0);
-        v542 <- int((v38) >= 3);
-        v543 <- int(int((v38) >= 3) = 0);
-      };
-      v52 <- (1 ^ (v51));
-      dataflow_cluser {
-        v56 <- int(0 = (v53));
-        v57 <- int(1 = (v53));
-        v58 <- int(2 = (v53));
-        v59 <- int(3 = (v53));
-        v60 <- int(4 = (v53));
-        v61 <- int(5 = (v53));
-        v62 <- int(6 = (v53));
-        v63 <- int(7 = (v53));
-        v64 <- int(8 = (v53));
-        v65 <- int(9 = (v53));
-        v66 <- int(10 = (v53));
-        v67 <- int(11 = (v53));
-        v68 <- int(12 = (v53));
-        v69 <- int(13 = (v53));
-        v70 <- int(14 = (v53));
-        v204 <- int(0 = (v53));
-        v205 <- int(1 = (v53));
-        v206 <- int(2 = (v53));
-        v207 <- int(3 = (v53));
-        v208 <- int(4 = (v53));
-        v209 <- int(5 = (v53));
-        v210 <- int(6 = (v53));
-        v211 <- int(7 = (v53));
-        v212 <- int(8 = (v53));
-        v213 <- int(9 = (v53));
-        v214 <- int(10 = (v53));
-        v215 <- int(11 = (v53));
-        v216 <- int(12 = (v53));
-        v217 <- int(13 = (v53));
-        v218 <- int(14 = (v53));
-        v234 <- int(0 = (v53));
-        v235 <- int(1 = (v53));
-        v236 <- int(2 = (v53));
-        v237 <- int(3 = (v53));
-        v238 <- int(4 = (v53));
-        v239 <- int(5 = (v53));
-        v240 <- int(6 = (v53));
-        v241 <- int(7 = (v53));
-        v242 <- int(8 = (v53));
-        v243 <- int(9 = (v53));
-        v244 <- int(10 = (v53));
-        v245 <- int(11 = (v53));
-        v246 <- int(12 = (v53));
-        v247 <- int(13 = (v53));
-        v248 <- int(14 = (v53));
-      };
-      v55 <- (1 ^ (v54));
-      v854 <- ( log2_one_hot({ int((v70), 1), int((v69), 1), int((v68), 1), int((v67), 1), int((v66), 1), int((v65), 1), int((v64), 1), int((v63), 1), int((v62), 1), int((v61), 1), int((v60), 1), int((v59), 1), int((v58), 1), int((v57), 1), int((v56), 1) }) );
-      dataflow_cluser {
-        v106 <- { int((v87), 1), int((v86), 1) };
-        v117 <- { int((v87), 1), int((v86), 1) };
-        v855 <- ( log2_one_hot({ int((v87), 1), int((v86), 1) }) );
-      };
-      v96 <- (1 ^ (v95));
-      v99 <- (1 ^ (v98));
-      v807 <- ( log2_one_hot((v104)) );
-      v808 <- ( log2_one_hot((v110)) );
-      v809 <- ( log2_one_hot((v115)) );
-      v810 <- ( log2_one_hot((v121)) );
-      dataflow_cluser {
-        v146 <- { int((v125), 1), int((v124), 1) };
-        v157 <- { int((v125), 1), int((v124), 1) };
-        v856 <- ( log2_one_hot({ int((v125), 1), int((v124), 1) }) );
-      };
-      v129 <- ((v126) + 1);
-      v134 <- ((v129) << 1);
-      v136 <- (1 ^ (v135));
-      v139 <- (1 ^ (v138));
-      v811 <- ( log2_one_hot((v144)) );
-      v812 <- ( log2_one_hot((v150)) );
-      v813 <- ( log2_one_hot((v155)) );
-      v814 <- ( log2_one_hot((v161)) );
-      dataflow_cluser {
-        v186 <- { int((v165), 1), int((v164), 1) };
-        v197 <- { int((v165), 1), int((v164), 1) };
-        v857 <- ( log2_one_hot({ int((v165), 1), int((v164), 1) }) );
-      };
-      v169 <- ((v166) + 1);
-      v174 <- ((v169) << 1);
-      v176 <- (1 ^ (v175));
-      v179 <- (1 ^ (v178));
-      v815 <- ( log2_one_hot((v184)) );
-      v816 <- ( log2_one_hot((v190)) );
-      v817 <- ( log2_one_hot((v195)) );
-      v818 <- ( log2_one_hot((v201)) );
-      v858 <- ( log2_one_hot({ int((v218), 1), int((v217), 1), int((v216), 1), int((v215), 1), int((v214), 1), int((v213), 1), int((v212), 1), int((v211), 1), int((v210), 1), int((v209), 1), int((v208), 1), int((v207), 1), int((v206), 1), int((v205), 1), int((v204), 1) }) );
-      dataflow_cluser {
-        v340 <- { int((v248), 1), int((v247), 1), int((v246), 1), int((v245), 1), int((v244), 1), int((v243), 1), int((v242), 1), int((v241), 1), int((v240), 1), int((v239), 1), int((v238), 1), int((v237), 1), int((v236), 1), int((v235), 1), int((v234), 1) };
-        v364 <- { int((v248), 1), int((v247), 1), int((v246), 1), int((v245), 1), int((v244), 1), int((v243), 1), int((v242), 1), int((v241), 1), int((v240), 1), int((v239), 1), int((v238), 1), int((v237), 1), int((v236), 1), int((v235), 1), int((v234), 1) };
-        v388 <- { int((v248), 1), int((v247), 1), int((v246), 1), int((v245), 1), int((v244), 1), int((v243), 1), int((v242), 1), int((v241), 1), int((v240), 1), int((v239), 1), int((v238), 1), int((v237), 1), int((v236), 1), int((v235), 1), int((v234), 1) };
-        v427 <- { int((v248), 1), int((v247), 1), int((v246), 1), int((v245), 1), int((v244), 1), int((v243), 1), int((v242), 1), int((v241), 1), int((v240), 1), int((v239), 1), int((v238), 1), int((v237), 1), int((v236), 1), int((v235), 1), int((v234), 1) };
-        v859 <- ( log2_one_hot({ int((v248), 1), int((v247), 1), int((v246), 1), int((v245), 1), int((v244), 1), int((v243), 1), int((v242), 1), int((v241), 1), int((v240), 1), int((v239), 1), int((v238), 1), int((v237), 1), int((v236), 1), int((v235), 1), int((v234), 1) }) );
-      };
-      v313 <- int((v266) = (v274));
-      v314 <- int(((v267) + (v275)), 8);
-      v315 <- int(((int((v276), 8) | 256) + int((v268), 8)), 8);
-      v317 <- int(0 = (v270));
-      v318 <- (int(0 != (v271)) | int(0 != (v277)));
-      v322 <- (1 ^ (v321));
-      v325 <- (1 ^ (v324));
-      v330 <- (1 ^ (v329));
-      v333 <- (1 ^ (v332));
-      v819 <- ( log2_one_hot((v338)) );
-      v820 <- ( log2_one_hot((v357)) );
-      v821 <- ( log2_one_hot((v362)) );
-      v698 <- ((v365) | int((v695) = 0));
-      v822 <- ( log2_one_hot((v381)) );
-      v823 <- ( log2_one_hot((v386)) );
-      v824 <- ( log2_one_hot((v405)) );
-      v825 <- ( log2_one_hot((v425)) );
-      v722 <- ((v428) | int((v719) = 0));
-      v826 <- ( log2_one_hot((v444)) );
-      dataflow_cluser {
-        v481 <- { int((v461), 1), int((v460), 1) };
-        v494 <- { int((v461), 1), int((v460), 1) };
-        v860 <- ( log2_one_hot({ int((v461), 1), int((v460), 1) }) );
+        v73 <- int((v72) >= 1);
+        v74 <- int(int((v72) >= 1) = 0);
+        v111 <- int((v72) >= 2);
+        v112 <- int(int((v72) >= 2) = 0);
+        v151 <- int((v72) >= 3);
+        v152 <- int(int((v72) >= 3) = 0);
       };
       dataflow_cluser {
-        v469 <- { int((v462), 12), int(1, 1) };
-        v465 <- (1 + (v462));
+        v93 <- { int((v74), 1), int((v73), 1) };
+        v104 <- { int((v74), 1), int((v73), 1) };
+        v699 <- ( log2_one_hot({ int((v74), 1), int((v73), 1) }) );
       };
-      v471 <- (1 ^ (v470));
-      v474 <- (1 ^ (v473));
-      v827 <- ( log2_one_hot((v479)) );
-      v828 <- ( log2_one_hot((v485)) );
-      v829 <- ( log2_one_hot((v492)) );
-      v830 <- ( log2_one_hot((v498)) );
+      v83 <- (1 ^ (v82));
+      v86 <- (1 ^ (v85));
+      v666 <- ( log2_one_hot((v91)) );
+      v667 <- ( log2_one_hot((v97)) );
+      v668 <- ( log2_one_hot((v102)) );
+      v669 <- ( log2_one_hot((v108)) );
       dataflow_cluser {
-        v522 <- { int((v502), 1), int((v501), 1) };
-        v535 <- { int((v502), 1), int((v501), 1) };
-        v861 <- ( log2_one_hot({ int((v502), 1), int((v501), 1) }) );
+        v133 <- { int((v112), 1), int((v111), 1) };
+        v144 <- { int((v112), 1), int((v111), 1) };
+        v700 <- ( log2_one_hot({ int((v112), 1), int((v111), 1) }) );
+      };
+      v116 <- ((v113) + 1);
+      v121 <- ((v116) << 1);
+      v123 <- (1 ^ (v122));
+      v126 <- (1 ^ (v125));
+      v670 <- ( log2_one_hot((v131)) );
+      v671 <- ( log2_one_hot((v137)) );
+      v672 <- ( log2_one_hot((v142)) );
+      v673 <- ( log2_one_hot((v148)) );
+      dataflow_cluser {
+        v173 <- { int((v152), 1), int((v151), 1) };
+        v184 <- { int((v152), 1), int((v151), 1) };
+        v701 <- ( log2_one_hot({ int((v152), 1), int((v151), 1) }) );
+      };
+      v156 <- ((v153) + 1);
+      v161 <- ((v156) << 1);
+      v163 <- (1 ^ (v162));
+      v166 <- (1 ^ (v165));
+      v674 <- ( log2_one_hot((v171)) );
+      v675 <- ( log2_one_hot((v177)) );
+      v676 <- ( log2_one_hot((v182)) );
+      v677 <- ( log2_one_hot((v188)) );
+      v702 <- ( log2_one_hot({ int((v205), 1), int((v204), 1), int((v203), 1), int((v202), 1), int((v201), 1), int((v200), 1), int((v199), 1), int((v198), 1), int((v197), 1), int((v196), 1), int((v195), 1), int((v194), 1), int((v193), 1), int((v192), 1), int((v191), 1) }) );
+      dataflow_cluser {
+        v445 <- int((v221) >= 1);
+        v446 <- int(int((v221) >= 1) = 0);
+        v486 <- int((v221) >= 2);
+        v487 <- int(int((v221) >= 2) = 0);
+        v527 <- int((v221) >= 3);
+        v528 <- int(int((v221) >= 3) = 0);
       };
       dataflow_cluser {
-        v510 <- { int((v503), 12), int(1, 1) };
-        v506 <- (1 + (v503));
+        v325 <- { int((v236), 1), int((v235), 1), int((v234), 1), int((v233), 1), int((v232), 1), int((v231), 1), int((v230), 1), int((v229), 1), int((v228), 1), int((v227), 1), int((v226), 1), int((v225), 1), int((v224), 1), int((v223), 1), int((v222), 1) };
+        v349 <- { int((v236), 1), int((v235), 1), int((v234), 1), int((v233), 1), int((v232), 1), int((v231), 1), int((v230), 1), int((v229), 1), int((v228), 1), int((v227), 1), int((v226), 1), int((v225), 1), int((v224), 1), int((v223), 1), int((v222), 1) };
+        v373 <- { int((v236), 1), int((v235), 1), int((v234), 1), int((v233), 1), int((v232), 1), int((v231), 1), int((v230), 1), int((v229), 1), int((v228), 1), int((v227), 1), int((v226), 1), int((v225), 1), int((v224), 1), int((v223), 1), int((v222), 1) };
+        v412 <- { int((v236), 1), int((v235), 1), int((v234), 1), int((v233), 1), int((v232), 1), int((v231), 1), int((v230), 1), int((v229), 1), int((v228), 1), int((v227), 1), int((v226), 1), int((v225), 1), int((v224), 1), int((v223), 1), int((v222), 1) };
+        v703 <- ( log2_one_hot({ int((v236), 1), int((v235), 1), int((v234), 1), int((v233), 1), int((v232), 1), int((v231), 1), int((v230), 1), int((v229), 1), int((v228), 1), int((v227), 1), int((v226), 1), int((v225), 1), int((v224), 1), int((v223), 1), int((v222), 1) }) );
       };
-      v512 <- (1 ^ (v511));
-      v515 <- (1 ^ (v514));
-      v831 <- ( log2_one_hot((v520)) );
-      v832 <- ( log2_one_hot((v526)) );
-      v833 <- ( log2_one_hot((v533)) );
-      v834 <- ( log2_one_hot((v539)) );
+      v300 <- int((v254) = (v262));
+      v301 <- int(((v255) + (v263)), 8);
+      v302 <- int(((int((v264), 8) | 256) + int((v256), 8)), 8);
+      v304 <- int(0 = (v258));
+      v305 <- (int(0 != (v259)) | int(0 != (v265)));
+      v309 <- (1 ^ (v308));
+      v312 <- (1 ^ (v311));
+      v315 <- (1 ^ (v314));
+      v318 <- (1 ^ (v317));
+      v678 <- ( log2_one_hot((v323)) );
+      v679 <- ( log2_one_hot((v342)) );
+      v680 <- ( log2_one_hot((v347)) );
+      v681 <- ( log2_one_hot((v366)) );
+      v682 <- ( log2_one_hot((v371)) );
+      v683 <- ( log2_one_hot((v390)) );
+      v684 <- ( log2_one_hot((v410)) );
+      v685 <- ( log2_one_hot((v429)) );
       dataflow_cluser {
-        v562 <- { int((v543), 1), int((v542), 1) };
-        v575 <- { int((v543), 1), int((v542), 1) };
-        v862 <- ( log2_one_hot({ int((v543), 1), int((v542), 1) }) );
+        v466 <- { int((v446), 1), int((v445), 1) };
+        v479 <- { int((v446), 1), int((v445), 1) };
+        v704 <- ( log2_one_hot({ int((v446), 1), int((v445), 1) }) );
       };
       dataflow_cluser {
-        v550 <- { int((v544), 12), int(1, 1) };
-        v547 <- (1 + (v544));
+        v454 <- { int((v447), 12), int(1, 1) };
+        v450 <- (1 + (v447));
       };
-      v552 <- (1 ^ (v551));
-      v555 <- (1 ^ (v554));
-      v835 <- ( log2_one_hot((v560)) );
-      v836 <- ( log2_one_hot((v566)) );
-      v837 <- ( log2_one_hot((v573)) );
-      v838 <- ( log2_one_hot((v579)) );
-      v586 <- ((v584) | (v585));
-      v590 <- ((v588) ^ 1);
-      v595 <- ((v593) | (v594));
-      v599 <- ((v597) ^ 1);
-      v692 <- ((v601) | int((v689) = 0));
-      v604 <- ((v602) | (v603));
-      v608 <- ((v606) ^ 1);
-      v613 <- ((v611) | (v612));
-      v617 <- ((v615) ^ 1);
-      v686 <- ((v619) | int((v683) = 0));
-      v622 <- ((v620) | (v621));
-      v626 <- ((v624) ^ 1);
-      v704 <- ((v628) | int((v701) = 0));
-      v631 <- ((v629) | (v630));
-      v635 <- ((v633) ^ 1);
-      v640 <- ((v638) | (v639));
-      v644 <- ((v642) ^ 1);
-      v649 <- ((v647) | (v648));
-      v653 <- ((v651) ^ 1);
-      v658 <- ((v656) | (v657));
-      v662 <- ((v660) ^ 1);
-      v710 <- ((v664) | int((v707) = 0));
-      v667 <- ((v665) | (v666));
-      v671 <- ((v669) ^ 1);
-      v716 <- ((v673) | int((v713) = 0));
-      v676 <- ((v674) | (v675));
-      v680 <- ((v678) ^ 1);
-      v839 <- ( log2_one_hot((v727)) );
-      v840 <- ( log2_one_hot((v733)) );
-      v841 <- ( log2_one_hot((v738)) );
-      v842 <- ( log2_one_hot((v744)) );
-      v843 <- ( log2_one_hot((v749)) );
-      v844 <- ( log2_one_hot((v755)) );
-      v845 <- ( log2_one_hot((v760)) );
-      v846 <- ( log2_one_hot((v766)) );
-      v847 <- ( log2_one_hot((v773)) );
-      v848 <- ( log2_one_hot((v779)) );
-      v849 <- ( log2_one_hot((v786)) );
-      v850 <- ( log2_one_hot((v792)) );
-      v851 <- ( log2_one_hot((v799)) );
-      v852 <- ( log2_one_hot((v805)) );
-      { v853 } v7 -> *, v10;
-      { v853 } v0 -> *, v11;
-      { v853 } v1 -> *, v12;
-      { v853 } v2 -> *, v13;
-      { v853 } v3 -> *, v14;
-      { v853 } v4 -> *, v15;
-      { v853 } v5 -> *, v16;
-      { v853 } v6 -> *, v17;
-      { v20 } v10, v21 -> v22;
-      { v18 } v19 -> *, v21;
-      v18 -> [1,0] v20;
-      v18 -> [1,0] v20;
-      { v20 } v11, v25 -> v26;
-      { v18 } v27 -> *, v25;
-      v18 -> [1,0] v20;
-      { v20 } v12, v28 -> v29;
-      { v18 } v30 -> *, v28;
-      v18 -> [1,0] v20;
-      { v20 } v13, v31 -> v32;
-      { v18 } v33 -> *, v31;
-      v18 -> [1,0] v20;
-      { v20 } v14, v34 -> v35;
-      { v18 } v36 -> *, v34;
-      v18 -> [1,0] v20;
-      v18 -> [1,0] v20;
-      { v20 } v15, v39 -> v40;
-      { v18 } v41 -> *, v39;
-      v18 -> [1,0] v20;
-      { v20 } v16, v42 -> v43;
-      { v18 } v44 -> *, v42;
-      v18 -> [1,0] v20;
-      { v20 } v17, v45 -> v46;
-      { v18 } v47 -> *, v45;
-      v18 -> [1,0] v20;
-      v52 -> [1,0] v51;
-      v55 -> [1,0] v54;
-      { v854 } v71, v72, v73, v74, v75, v76, v77, v78, v79, v80, v81, v82, v83, v84, v85 -> v24;
-      { v855 } v26 -> *, v88;
-      { v855 } v29 -> *, v89;
-      { v855 } v90, v88 -> v91;
-      { v855 } v97, v89 -> v30;
-      v96 -> [1,0] v95;
-      v99 -> [1,0] v98;
-      { v102 } v103 -> *, v105;
-      { v102 } v106, v105 -> v104;
-      { v807 } v98, v109 -> v107;
-      { v107 } v104 -> *, v110;
-      { v808 } v100 -> v97, *;
-      v107 -> [1,0] v102;
-      v104 -> [1,1] v103;
-      { v113 } v114 -> *, v116;
-      { v113 } v117, v116 -> v115;
-      { v809 } v95, v120 -> v118;
-      { v118 } v115 -> *, v121;
-      { v810 } v94, v123 -> v111;
-      v118 -> [1,0] v113;
-      v115 -> [1,1] v114;
-      { v856 } v91 -> v126, v127;
-      { v856 } v32 -> *, v128;
-      { v856 } v129, v127 -> v130;
-      { v856 } v137, v128 -> v33;
-      v136 -> [1,0] v135;
-      v139 -> [1,0] v138;
-      { v142 } v143 -> *, v145;
-      { v142 } v146, v145 -> v144;
-      { v811 } v138, v149 -> v147;
-      { v147 } v144 -> *, v150;
-      { v812 } v140 -> v137, *;
-      v147 -> [1,0] v142;
-      v144 -> [1,1] v143;
-      { v153 } v154 -> *, v156;
-      { v153 } v157, v156 -> v155;
-      { v813 } v135, v160 -> v158;
-      { v158 } v155 -> *, v161;
-      { v814 } v134, v163 -> v151;
-      v158 -> [1,0] v153;
-      v155 -> [1,1] v154;
-      { v584 } v107, v147 -> v585;
-      { v586 } v585 -> *, v583;
-      { v585 } v584 -> v588, v589;
-      { v585 } v590, v589 -> v587;
-      { v589 } v582 -> v100, v140;
-      v587 -> [1,0] v584;
-      { v593 } v118, v158 -> v594;
-      { v595 } v594 -> *, v592;
-      { v594 } v593 -> v597, v598;
-      { v594 } v599, v598 -> v596;
-      { v598 } v111, v151 -> v591;
-      v596 -> [1,0] v593;
-      { v857 } v130 -> v166, v167;
-      { v857 } v35 -> *, v168;
-      { v857 } v169, v167 -> v170;
-      { v857 } v177, v168 -> v36;
-      v176 -> [1,0] v175;
-      v179 -> [1,0] v178;
-      { v182 } v183 -> *, v185;
-      { v182 } v186, v185 -> v184;
-      { v815 } v178, v189 -> v187;
-      { v187 } v184 -> *, v190;
-      { v816 } v180 -> v177, *;
-      v187 -> [1,0] v182;
-      v184 -> [1,1] v183;
-      { v193 } v194 -> *, v196;
-      { v193 } v197, v196 -> v195;
-      { v817 } v175, v200 -> v198;
-      { v198 } v195 -> *, v201;
-      { v818 } v174, v203 -> v191;
-      v198 -> [1,0] v193;
-      v195 -> [1,1] v194;
-      { v602 } v583, v187 -> v603;
-      { v604 } v603 -> *, v601;
-      { v603 } v602 -> v606, v607;
-      { v603 } v608, v607 -> v605;
-      { v607 } v600 -> v582, v180;
-      v605 -> [1,0] v602;
-      { v611 } v592, v198 -> v612;
-      { v613 } v612 -> *, v610;
-      { v612 } v611 -> v615, v616;
-      { v612 } v617, v616 -> v614;
-      { v616 } v591, v191 -> v609;
-      v614 -> [1,0] v611;
-      { v858 } v219, v220, v221, v222, v223, v224, v225, v226, v227, v228, v229, v230, v231, v232, v233 -> v38;
-      { v859 } v22 -> *, v249, v250, v251, v252, v253, v254, v255, v256, v257, v258, v259, v260, v261, v262;
-      { v859 } v30 -> *, *, *, v263, v264, v265, *, *, v266, v267, v268, v269, *, v270, v271;
-      { v859 } v33 -> *, *, *, *, v272, v273, *, *, v274, v275, v276, *, *, *, v277;
-      { v859 } v36 -> *, *, *, *, *, v278, *, *, *, *, *, *, *, *, *;
-      { v859 } v40 -> v280, v281, *, *, *, *, v282, v283, *, *, *, v284, *, *, *;
-      { v859 } v43 -> v285, v286, v287, *, *, *, v288, v289, v290, v291, v292, v293, v294, v295, v296;
-      { v859 } v46 -> v297, v298, v299, v300, v301, *, v302, v303, v304, v305, v306, v307, v308, v309, v310;
-      { v859 } v311, v249, v250, v251, v252, v253, v254, v255, v256, v257, v258, v259, v260, v261, v262 -> v19;
-      { v859 } v280, v281, v323, v263, v264, v265, v282, v283, v313, v314, v315, v284, v331, v317, v318 -> v41;
-      { v859 } v285, v286, v287, v263, v272, v278, v288, v289, v290, v291, v292, v293, v294, v295, v296 -> v44;
-      { v859 } v297, v298, v299, v300, v301, v273, v302, v303, v304, v305, v306, v307, v308, v309, v310 -> v47;
-      v322 -> [1,0] v321;
-      v325 -> [1,0] v324;
-      v330 -> [1,0] v329;
-      v333 -> [1,0] v332;
-      { v336 } v337 -> *, v339;
-      { v336 } v340, v339 -> v338;
-      { v819 } v342, v343, v324, v345, v346, v347, v348, v349, v350, v351, v352, v353, v354, v355, v356 -> v341;
-      { v341 } v338 -> *, v357;
-      { v820 } v334 -> *, *, v323, *, *, *, *, *, *, *, *, *, *, *, *;
-      v341 -> [1,0] v336;
-      v338 -> [1,1] v337;
-      { v360 } v361 -> *, v363;
-      { v360 } v364, v363 -> v362;
-      { v821 } v366, v367, v368, v369, v370, v371, v372, v373, v374, v375, v376, v377, v332, v379, v380 -> v365;
-      { v365 } v362 -> *, v381;
-      { v822 } v358 -> *, *, *, *, *, *, *, *, *, *, *, *, v331, *, *;
-      v365 -> [1,0] v360;
-      v362 -> [1,1] v361;
-      { v384 } v385 -> *, v387;
-      { v384 } v388, v387 -> v386;
-      { v823 } v390, v391, v321, v393, v394, v395, v396, v397, v398, v399, v400, v401, v402, v403, v404 -> v389;
-      { v389 } v386 -> *, v405;
-      { v824 } v406, v407, v320, v409, v410, v411, v412, v413, v414, v415, v416, v417, v418, v419, v420 -> v382;
-      v389 -> [1,0] v384;
-      v386 -> [1,1] v385;
-      { v423 } v424 -> *, v426;
-      { v423 } v427, v426 -> v425;
-      { v825 } v429, v430, v431, v432, v433, v434, v435, v436, v437, v438, v439, v329, v441, v442, v443 -> v428;
-      { v428 } v425 -> *, v444;
-      { v826 } v445, v446, v447, v448, v449, v450, v451, v452, v453, v454, v455, v269, v457, v458, v459 -> v421;
-      v428 -> [1,0] v423;
-      v425 -> [1,1] v424;
-      { v620 } v54, v341 -> v621;
-      { v622 } v621 -> *, v619;
-      { v621 } v620 -> v624, v625;
-      { v621 } v626, v625 -> v623;
-      { v625 } v618 -> v53, v334;
-      v623 -> [1,0] v620;
-      { v629 } v51, v389 -> v630;
-      { v631 } v630 -> *, v628;
-      { v630 } v629 -> v633, v634;
-      { v630 } v635, v634 -> v632;
-      { v634 } v50, v382 -> v627;
-      v632 -> [1,0] v629;
-      { v860 } v170 -> v462, v463;
-      { v860 } v41 -> v464, *;
-      { v860 } v465, v463 -> v466;
-      v471 -> [1,0] v470;
-      v474 -> [1,0] v473;
-      { v477 } v478 -> *, v480;
-      { v477 } v481, v480 -> v479;
-      { v827 } v473, v484 -> v482;
-      { v482 } v479 -> *, v485;
-      { v828 } v464, v487 -> v475;
-      v482 -> [1,0] v477;
-      v479 -> [1,1] v478;
-      { v490 } v491 -> *, v493;
-      { v490 } v494, v493 -> v492;
-      { v829 } v470, v497 -> v495;
-      { v495 } v492 -> *, v498;
-      { v830 } v469, v500 -> v488;
-      v495 -> [1,0] v490;
-      v492 -> [1,1] v491;
-      { v638 } v610, v495 -> v639;
-      { v640 } v639 -> *, v637;
-      { v639 } v638 -> v642, v643;
-      { v639 } v644, v643 -> v641;
-      { v643 } v609, v488 -> v636;
-      v641 -> [1,0] v638;
-      { v861 } v466 -> v503, v504;
-      { v861 } v44 -> v505, *;
-      { v861 } v506, v504 -> v507;
-      v512 -> [1,0] v511;
-      v515 -> [1,0] v514;
-      { v518 } v519 -> *, v521;
-      { v518 } v522, v521 -> v520;
-      { v831 } v514, v525 -> v523;
-      { v523 } v520 -> *, v526;
-      { v832 } v505, v528 -> v516;
-      v523 -> [1,0] v518;
-      v520 -> [1,1] v519;
-      { v531 } v532 -> *, v534;
-      { v531 } v535, v534 -> v533;
-      { v833 } v511, v538 -> v536;
-      { v536 } v533 -> *, v539;
-      { v834 } v510, v541 -> v529;
-      v536 -> [1,0] v531;
-      v533 -> [1,1] v532;
-      { v647 } v482, v523 -> v648;
-      { v649 } v648 -> *, v646;
-      { v648 } v647 -> v651, v652;
-      { v648 } v653, v652 -> v650;
-      { v652 } v475, v516 -> v645;
-      v650 -> [1,0] v647;
-      { v656 } v637, v536 -> v657;
-      { v658 } v657 -> *, v655;
-      { v657 } v656 -> v660, v661;
-      { v657 } v662, v661 -> v659;
-      { v661 } v636, v529 -> v654;
-      v659 -> [1,0] v656;
-      { v862 } v507 -> v544, v545;
-      { v862 } v47 -> v546, *;
-      { v862 } v547, v545 -> v27;
-      v552 -> [1,0] v551;
-      v555 -> [1,0] v554;
-      { v558 } v559 -> *, v561;
-      { v558 } v562, v561 -> v560;
-      { v835 } v554, v565 -> v563;
-      { v563 } v560 -> *, v566;
-      { v836 } v546, v568 -> v556;
-      v563 -> [1,0] v558;
-      v560 -> [1,1] v559;
-      { v571 } v572 -> *, v574;
-      { v571 } v575, v574 -> v573;
-      { v837 } v551, v578 -> v576;
-      { v576 } v573 -> *, v579;
-      { v838 } v550, v581 -> v569;
-      v576 -> [1,0] v571;
-      v573 -> [1,1] v572;
-      { v665 } v646, v563 -> v666;
-      { v667 } v666 -> *, v664;
-      { v666 } v665 -> v669, v670;
-      { v666 } v671, v670 -> v668;
-      { v670 } v645, v556 -> v663;
-      v668 -> [1,0] v665;
-      { v674 } v655, v576 -> v675;
-      { v676 } v675 -> *, v673;
-      { v675 } v674 -> v678, v679;
-      { v675 } v680, v679 -> v677;
-      { v679 } v654, v569 -> v672;
-      v677 -> [1,0] v674;
-      { v619 } v683 -> *, v685;
-      { v619 } v18, v685 -> v684;
-      { v686 } v619 -> *, v681;
-      v684 -> [1,0] v683;
-      { v601 } v689 -> *, v691;
-      { v601 } v18, v691 -> v690;
-      { v692 } v601 -> *, v687;
-      v690 -> [1,0] v689;
-      { v365 } v695 -> *, v697;
-      { v365 } v18, v697 -> v696;
-      { v698 } v365 -> *, v693;
-      v696 -> [1,0] v695;
-      { v628 } v701 -> *, v703;
-      { v628 } v18, v703 -> v702;
-      { v704 } v628 -> *, v699;
-      v702 -> [1,0] v701;
-      { v664 } v707 -> *, v709;
-      { v664 } v18, v709 -> v708;
-      { v710 } v664 -> *, v705;
-      v708 -> [1,0] v707;
-      { v673 } v713 -> *, v715;
-      { v673 } v18, v715 -> v714;
-      { v716 } v673 -> *, v711;
-      v714 -> [1,0] v713;
-      { v428 } v719 -> *, v721;
-      { v428 } v18, v721 -> v720;
-      { v722 } v428 -> *, v717;
-      v720 -> [1,0] v719;
-      { v725 } v726 -> *, v728;
-      { v725 } v729, v728 -> v727;
-      { v839 } v731, v681 -> v730;
-      { v730 } v727 -> *, v733;
-      { v840 } v723 -> *, v618;
-      v730 -> [1,0] v725;
-      v727 -> [1,1] v726;
-      { v736 } v737 -> *, v739;
-      { v736 } v740, v739 -> v738;
-      { v841 } v742, v687 -> v741;
-      { v741 } v738 -> *, v744;
-      { v842 } v734 -> *, v600;
-      v741 -> [1,0] v736;
-      v738 -> [1,1] v737;
-      { v747 } v748 -> *, v750;
-      { v747 } v751, v750 -> v749;
-      { v843 } v753, v693 -> v752;
-      { v752 } v749 -> *, v755;
-      { v844 } v745 -> *, v358;
-      v752 -> [1,0] v747;
-      v749 -> [1,1] v748;
-      { v758 } v759 -> *, v761;
-      { v758 } v762, v761 -> v760;
-      { v845 } v764, v699 -> v763;
-      { v763 } v760 -> *, v766;
-      { v846 } v767, v627 -> v756;
-      v763 -> [1,0] v758;
-      v760 -> [1,1] v759;
-      { v771 } v772 -> *, v774;
-      { v771 } v775, v774 -> v773;
-      { v847 } v777, v705 -> v776;
-      { v776 } v773 -> *, v779;
-      { v848 } v780, v663 -> v769;
-      v776 -> [1,0] v771;
-      v773 -> [1,1] v772;
-      { v784 } v785 -> *, v787;
-      { v784 } v788, v787 -> v786;
-      { v849 } v790, v711 -> v789;
-      { v789 } v786 -> *, v792;
-      { v850 } v793, v672 -> v782;
-      v789 -> [1,0] v784;
-      v786 -> [1,1] v785;
-      { v797 } v798 -> *, v800;
-      { v797 } v801, v800 -> v799;
-      { v851 } v803, v717 -> v802;
-      { v802 } v799 -> *, v805;
-      { v852 } v806, v421 -> v795;
-      v802 -> [1,0] v797;
-      v799 -> [1,1] v798;
-    iport723 -> v723;
-    iport734 -> v734;
-    iport745 -> v745;
-    v756 -> oport756;
-    v769 -> oport769;
-    v782 -> oport782;
-    v795 -> oport795;
+      v456 <- (1 ^ (v455));
+      v459 <- (1 ^ (v458));
+      v686 <- ( log2_one_hot((v464)) );
+      v687 <- ( log2_one_hot((v470)) );
+      v688 <- ( log2_one_hot((v477)) );
+      v689 <- ( log2_one_hot((v483)) );
+      dataflow_cluser {
+        v507 <- { int((v487), 1), int((v486), 1) };
+        v520 <- { int((v487), 1), int((v486), 1) };
+        v705 <- ( log2_one_hot({ int((v487), 1), int((v486), 1) }) );
+      };
+      dataflow_cluser {
+        v495 <- { int((v488), 12), int(1, 1) };
+        v491 <- (1 + (v488));
+      };
+      v497 <- (1 ^ (v496));
+      v500 <- (1 ^ (v499));
+      v690 <- ( log2_one_hot((v505)) );
+      v691 <- ( log2_one_hot((v511)) );
+      v692 <- ( log2_one_hot((v518)) );
+      v693 <- ( log2_one_hot((v524)) );
+      dataflow_cluser {
+        v547 <- { int((v528), 1), int((v527), 1) };
+        v560 <- { int((v528), 1), int((v527), 1) };
+        v706 <- ( log2_one_hot({ int((v528), 1), int((v527), 1) }) );
+      };
+      dataflow_cluser {
+        v535 <- { int((v529), 12), int(1, 1) };
+        v532 <- (1 + (v529));
+      };
+      v537 <- (1 ^ (v536));
+      v540 <- (1 ^ (v539));
+      v694 <- ( log2_one_hot((v545)) );
+      v695 <- ( log2_one_hot((v551)) );
+      v696 <- ( log2_one_hot((v558)) );
+      v697 <- ( log2_one_hot((v564)) );
+      v571 <- ((v569) | (v570));
+      v575 <- ((v573) ^ 1);
+      v580 <- ((v578) | (v579));
+      v584 <- ((v582) ^ 1);
+      v593 <- ((v591) ^ 1);
+      v598 <- ((v596) | (v597));
+      v602 <- ((v600) ^ 1);
+      v611 <- ((v609) ^ 1);
+      v620 <- ((v618) ^ 1);
+      v625 <- ((v623) | (v624));
+      v629 <- ((v627) ^ 1);
+      v634 <- ((v632) | (v633));
+      v638 <- ((v636) ^ 1);
+      v643 <- ((v641) | (v642));
+      v647 <- ((v645) ^ 1);
+      v656 <- ((v654) ^ 1);
+      v665 <- ((v663) ^ 1);
+      { v10 } v7, v11 -> v12;
+      { v8 } v9 -> *, v11;
+      v8 -> [1,0] v10;
+      { v10 } v0, v13 -> v14;
+      { v8 } v15 -> *, v13;
+      v8 -> [1,0] v10;
+      { v10 } v1, v16 -> v17;
+      { v8 } v18 -> *, v16;
+      v8 -> [1,0] v10;
+      { v10 } v2, v19 -> v20;
+      { v8 } v21 -> *, v19;
+      v8 -> [1,0] v10;
+      { v10 } v3, v22 -> v23;
+      { v8 } v24 -> *, v22;
+      v8 -> [1,0] v10;
+      { v10 } v4, v25 -> v26;
+      { v8 } v27 -> *, v25;
+      v8 -> [1,0] v10;
+      { v10 } v5, v28 -> v29;
+      { v8 } v30 -> *, v28;
+      v8 -> [1,0] v10;
+      { v10 } v6, v31 -> v32;
+      { v8 } v33 -> *, v31;
+      v8 -> [1,0] v10;
+      v38 -> [1,0] v37;
+      v41 -> [1,0] v40;
+      { v698 } v57, v58, v59, v60, v61, v62, v63, v64, v65, v66, v67, v68, v69, v70, v71 -> v72;
+      { v699 } v14 -> *, v75;
+      { v699 } v17 -> *, v76;
+      { v699 } v77, v75 -> v78;
+      { v699 } v84, v76 -> v18;
+      v83 -> [1,0] v82;
+      v86 -> [1,0] v85;
+      { v89 } v90 -> *, v92;
+      { v89 } v93, v92 -> v91;
+      { v666 } v85, v96 -> v94;
+      { v94 } v91 -> *, v97;
+      { v667 } v87 -> v84, *;
+      v94 -> [1,0] v89;
+      v91 -> [1,1] v90;
+      { v100 } v101 -> *, v103;
+      { v100 } v104, v103 -> v102;
+      { v668 } v82, v107 -> v105;
+      { v105 } v102 -> *, v108;
+      { v669 } v81, v110 -> v98;
+      v105 -> [1,0] v100;
+      v102 -> [1,1] v101;
+      { v700 } v78 -> v113, v114;
+      { v700 } v20 -> *, v115;
+      { v700 } v116, v114 -> v117;
+      { v700 } v124, v115 -> v21;
+      v123 -> [1,0] v122;
+      v126 -> [1,0] v125;
+      { v129 } v130 -> *, v132;
+      { v129 } v133, v132 -> v131;
+      { v670 } v125, v136 -> v134;
+      { v134 } v131 -> *, v137;
+      { v671 } v127 -> v124, *;
+      v134 -> [1,0] v129;
+      v131 -> [1,1] v130;
+      { v140 } v141 -> *, v143;
+      { v140 } v144, v143 -> v142;
+      { v672 } v122, v147 -> v145;
+      { v145 } v142 -> *, v148;
+      { v673 } v121, v150 -> v138;
+      v145 -> [1,0] v140;
+      v142 -> [1,1] v141;
+      { v569 } v94, v134 -> v570;
+      { v571 } v570 -> *, v568;
+      { v570 } v569 -> v573, v574;
+      { v570 } v575, v574 -> v572;
+      { v574 } v567 -> v87, v127;
+      v572 -> [1,0] v569;
+      { v578 } v105, v145 -> v579;
+      { v580 } v579 -> *, v577;
+      { v579 } v578 -> v582, v583;
+      { v579 } v584, v583 -> v581;
+      { v583 } v98, v138 -> v576;
+      v581 -> [1,0] v578;
+      { v701 } v117 -> v153, v154;
+      { v701 } v23 -> *, v155;
+      { v701 } v156, v154 -> v157;
+      { v701 } v164, v155 -> v24;
+      v163 -> [1,0] v162;
+      v166 -> [1,0] v165;
+      { v169 } v170 -> *, v172;
+      { v169 } v173, v172 -> v171;
+      { v674 } v165, v176 -> v174;
+      { v174 } v171 -> *, v177;
+      { v675 } v167 -> v164, *;
+      v174 -> [1,0] v169;
+      v171 -> [1,1] v170;
+      { v180 } v181 -> *, v183;
+      { v180 } v184, v183 -> v182;
+      { v676 } v162, v187 -> v185;
+      { v185 } v182 -> *, v188;
+      { v677 } v161, v190 -> v178;
+      v185 -> [1,0] v180;
+      v182 -> [1,1] v181;
+      { v587 } v568, v174 -> v588;
+      { v588 } v587 -> v591, v592;
+      { v588 } v593, v592 -> v590;
+      { v592 } v585 -> v567, v167;
+      v590 -> [1,0] v587;
+      { v596 } v577, v185 -> v597;
+      { v598 } v597 -> *, v595;
+      { v597 } v596 -> v600, v601;
+      { v597 } v602, v601 -> v599;
+      { v601 } v576, v178 -> v594;
+      v599 -> [1,0] v596;
+      { v702 } v206, v207, v208, v209, v210, v211, v212, v213, v214, v215, v216, v217, v218, v219, v220 -> v221;
+      { v703 } v12 -> *, v237, v238, v239, v240, v241, v242, v243, v244, v245, v246, v247, v248, v249, v250;
+      { v703 } v18 -> *, *, *, v251, v252, v253, *, *, v254, v255, v256, v257, *, v258, v259;
+      { v703 } v21 -> *, *, *, *, v260, v261, *, *, v262, v263, v264, *, *, *, v265;
+      { v703 } v24 -> *, *, *, *, *, v266, *, *, *, *, *, *, *, *, *;
+      { v703 } v26 -> v267, v268, *, *, *, *, v269, v270, *, *, *, v271, *, *, *;
+      { v703 } v29 -> v272, v273, v274, *, *, *, v275, v276, v277, v278, v279, v280, v281, v282, v283;
+      { v703 } v32 -> v284, v285, v286, v287, v288, *, v289, v290, v291, v292, v293, v294, v295, v296, v297;
+      { v703 } v298, v237, v238, v239, v240, v241, v242, v243, v244, v245, v246, v247, v248, v249, v250 -> v9;
+      { v703 } v267, v268, v310, v251, v252, v253, v269, v270, v300, v301, v302, v271, v316, v304, v305 -> v27;
+      { v703 } v272, v273, v274, v251, v260, v266, v275, v276, v277, v278, v279, v280, v281, v282, v283 -> v30;
+      { v703 } v284, v285, v286, v287, v288, v261, v289, v290, v291, v292, v293, v294, v295, v296, v297 -> v33;
+      v309 -> [1,0] v308;
+      v312 -> [1,0] v311;
+      v315 -> [1,0] v314;
+      v318 -> [1,0] v317;
+      { v321 } v322 -> *, v324;
+      { v321 } v325, v324 -> v323;
+      { v678 } v327, v328, v311, v330, v331, v332, v333, v334, v335, v336, v337, v338, v339, v340, v341 -> v326;
+      { v326 } v323 -> *, v342;
+      { v679 } v319 -> *, *, v310, *, *, *, *, *, *, *, *, *, *, *, *;
+      v326 -> [1,0] v321;
+      v323 -> [1,1] v322;
+      { v345 } v346 -> *, v348;
+      { v345 } v349, v348 -> v347;
+      { v680 } v351, v352, v353, v354, v355, v356, v357, v358, v359, v360, v361, v362, v317, v364, v365 -> v350;
+      { v350 } v347 -> *, v366;
+      { v681 } v343 -> *, *, *, *, *, *, *, *, *, *, *, *, v316, *, *;
+      v350 -> [1,0] v345;
+      v347 -> [1,1] v346;
+      { v369 } v370 -> *, v372;
+      { v369 } v373, v372 -> v371;
+      { v682 } v375, v376, v308, v378, v379, v380, v381, v382, v383, v384, v385, v386, v387, v388, v389 -> v374;
+      { v374 } v371 -> *, v390;
+      { v683 } v391, v392, v307, v394, v395, v396, v397, v398, v399, v400, v401, v402, v403, v404, v405 -> v367;
+      v374 -> [1,0] v369;
+      v371 -> [1,1] v370;
+      { v408 } v409 -> *, v411;
+      { v408 } v412, v411 -> v410;
+      { v684 } v414, v415, v416, v417, v418, v419, v420, v421, v422, v423, v424, v314, v426, v427, v428 -> v413;
+      { v413 } v410 -> *, v429;
+      { v685 } v430, v431, v432, v433, v434, v435, v436, v437, v438, v439, v440, v257, v442, v443, v444 -> v406;
+      v413 -> [1,0] v408;
+      v410 -> [1,1] v409;
+      { v605 } v40, v326 -> v606;
+      { v606 } v605 -> v609, v610;
+      { v606 } v611, v610 -> v608;
+      { v610 } v603 -> v39, v319;
+      v608 -> [1,0] v605;
+      { v614 } v37, v374 -> v615;
+      { v615 } v614 -> v618, v619;
+      { v615 } v620, v619 -> v617;
+      { v619 } v36, v367 -> v612;
+      v617 -> [1,0] v614;
+      { v704 } v157 -> v447, v448;
+      { v704 } v27 -> v449, *;
+      { v704 } v450, v448 -> v451;
+      v456 -> [1,0] v455;
+      v459 -> [1,0] v458;
+      { v462 } v463 -> *, v465;
+      { v462 } v466, v465 -> v464;
+      { v686 } v458, v469 -> v467;
+      { v467 } v464 -> *, v470;
+      { v687 } v449, v472 -> v460;
+      v467 -> [1,0] v462;
+      v464 -> [1,1] v463;
+      { v475 } v476 -> *, v478;
+      { v475 } v479, v478 -> v477;
+      { v688 } v455, v482 -> v480;
+      { v480 } v477 -> *, v483;
+      { v689 } v454, v485 -> v473;
+      v480 -> [1,0] v475;
+      v477 -> [1,1] v476;
+      { v623 } v595, v480 -> v624;
+      { v625 } v624 -> *, v622;
+      { v624 } v623 -> v627, v628;
+      { v624 } v629, v628 -> v626;
+      { v628 } v594, v473 -> v621;
+      v626 -> [1,0] v623;
+      { v705 } v451 -> v488, v489;
+      { v705 } v30 -> v490, *;
+      { v705 } v491, v489 -> v492;
+      v497 -> [1,0] v496;
+      v500 -> [1,0] v499;
+      { v503 } v504 -> *, v506;
+      { v503 } v507, v506 -> v505;
+      { v690 } v499, v510 -> v508;
+      { v508 } v505 -> *, v511;
+      { v691 } v490, v513 -> v501;
+      v508 -> [1,0] v503;
+      v505 -> [1,1] v504;
+      { v516 } v517 -> *, v519;
+      { v516 } v520, v519 -> v518;
+      { v692 } v496, v523 -> v521;
+      { v521 } v518 -> *, v524;
+      { v693 } v495, v526 -> v514;
+      v521 -> [1,0] v516;
+      v518 -> [1,1] v517;
+      { v632 } v467, v508 -> v633;
+      { v634 } v633 -> *, v631;
+      { v633 } v632 -> v636, v637;
+      { v633 } v638, v637 -> v635;
+      { v637 } v460, v501 -> v630;
+      v635 -> [1,0] v632;
+      { v641 } v622, v521 -> v642;
+      { v643 } v642 -> *, v640;
+      { v642 } v641 -> v645, v646;
+      { v642 } v647, v646 -> v644;
+      { v646 } v621, v514 -> v639;
+      v644 -> [1,0] v641;
+      { v706 } v492 -> v529, v530;
+      { v706 } v33 -> v531, *;
+      { v706 } v532, v530 -> v15;
+      v537 -> [1,0] v536;
+      v540 -> [1,0] v539;
+      { v543 } v544 -> *, v546;
+      { v543 } v547, v546 -> v545;
+      { v694 } v539, v550 -> v548;
+      { v548 } v545 -> *, v551;
+      { v695 } v531, v553 -> v541;
+      v548 -> [1,0] v543;
+      v545 -> [1,1] v544;
+      { v556 } v557 -> *, v559;
+      { v556 } v560, v559 -> v558;
+      { v696 } v536, v563 -> v561;
+      { v561 } v558 -> *, v564;
+      { v697 } v535, v566 -> v554;
+      v561 -> [1,0] v556;
+      v558 -> [1,1] v557;
+      { v650 } v631, v548 -> v651;
+      { v651 } v650 -> v654, v655;
+      { v651 } v656, v655 -> v653;
+      { v655 } v630, v541 -> v648;
+      v653 -> [1,0] v650;
+      { v659 } v640, v561 -> v660;
+      { v660 } v659 -> v663, v664;
+      { v660 } v665, v664 -> v662;
+      { v664 } v639, v554 -> v657;
+      v662 -> [1,0] v659;
+    iport603 -> v603;
+    iport585 -> v585;
+    iport343 -> v343;
+    v612 -> oport612;
+    v648 -> oport648;
+    v657 -> oport657;
+    v406 -> oport406;
     }
     }
 
