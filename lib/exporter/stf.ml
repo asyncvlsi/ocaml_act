@@ -530,206 +530,8 @@ let eliminate_doubled_vars n =
   in
   of_n n
 
-module Const_lat = struct
-  type t = { (* incl *) min : CInt.t; (* incl *) max : CInt.t }
-  [@@deriving equal]
-
-  let create_const v = { min = v; max = v }
-  let max_cint_of_width bits = CInt.(sub (pow two (of_int bits)) one)
-  let create_bitwidth bits = { min = CInt.zero; max = max_cint_of_width bits }
-
-  let union c1 c2 =
-    { min = CInt.min c1.min c2.min; max = CInt.max c1.max c2.max }
-
-  let eval_rewrite_expr e ~lat_of_var =
-    let rec f e =
-      let lat, e =
-        match e with
-        | Expr.Add (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat =
-              { min = CInt.add al.min bl.min; max = CInt.add al.max bl.max }
-            in
-            (lat, Expr.Add (a, b))
-        | Sub_no_wrap (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat =
-              {
-                min =
-                  (if CInt.(bl.max >= al.min) then CInt.zero
-                  else CInt.sub al.min bl.max);
-                max = CInt.sub al.max bl.min;
-              }
-            in
-            (lat, Sub_no_wrap (a, b))
-        | Mul (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat =
-              { min = CInt.mul al.min bl.min; max = CInt.mul al.max bl.max }
-            in
-            (lat, Mul (a, b))
-        | Div (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat =
-              { min = CInt.div al.min bl.max; max = CInt.div al.max bl.min }
-            in
-            (lat, Div (a, b))
-        | Mod (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat = { min = CInt.zero; max = CInt.min al.max bl.max } in
-            (lat, Mod (a, b))
-        | LShift (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat =
-              {
-                min = CInt.left_shift al.min ~amt:bl.min;
-                max = CInt.left_shift al.max ~amt:bl.max;
-              }
-            in
-            (lat, LShift (a, b))
-        | RShift (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat =
-              {
-                min = CInt.right_shift al.min ~amt:bl.max;
-                max = CInt.right_shift al.max ~amt:bl.min;
-              }
-            in
-            (lat, RShift (a, b))
-        | BitAnd (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat = { min = CInt.zero; max = CInt.min al.max bl.max } in
-            (lat, BitAnd (a, b))
-        | BitOr (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat =
-              if CInt.eq al.min al.max && CInt.eq bl.min bl.max then
-                {
-                  min = CInt.bit_or al.min bl.min;
-                  max = CInt.bit_or al.min bl.min;
-                }
-              else
-                {
-                  min = CInt.min al.min bl.min;
-                  max =
-                    (let bitwidth =
-                       Int.max (CInt.bitwidth al.max) (CInt.bitwidth bl.max)
-                     in
-                     CInt.min (CInt.add al.max bl.max)
-                       (max_cint_of_width bitwidth));
-                }
-            in
-            (lat, BitOr (a, b))
-        | BitXor (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat =
-              {
-                min = CInt.zero;
-                max =
-                  (let bitwidth =
-                     Int.max (CInt.bitwidth al.max) (CInt.bitwidth bl.max)
-                   in
-                   CInt.min (CInt.add al.max bl.max)
-                     (max_cint_of_width bitwidth));
-              }
-            in
-            (lat, BitXor (a, b))
-        | Eq (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat =
-              if
-                CInt.eq al.min al.max && CInt.eq bl.min bl.max
-                && CInt.eq al.min bl.min
-              then { min = CInt.one; max = CInt.one }
-              else if CInt.lt al.max bl.min && CInt.gt al.min bl.max then
-                { min = CInt.zero; max = CInt.zero }
-              else { min = CInt.zero; max = CInt.one }
-            in
-            (lat, Eq (a, b))
-        | Ne (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat =
-              if
-                CInt.eq al.min al.max && CInt.eq bl.min bl.max
-                && CInt.eq al.min bl.min
-              then { min = CInt.zero; max = CInt.zero }
-              else if CInt.lt al.max bl.min && CInt.gt al.min bl.max then
-                { min = CInt.one; max = CInt.one }
-              else { min = CInt.zero; max = CInt.one }
-            in
-            (lat, Ne (a, b))
-        | Lt (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat =
-              if CInt.lt al.max bl.min then { min = CInt.one; max = CInt.one }
-              else if CInt.ge al.min bl.max then
-                { min = CInt.zero; max = CInt.zero }
-              else { min = CInt.zero; max = CInt.one }
-            in
-            (lat, Lt (a, b))
-        | Le (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat =
-              if CInt.le al.max bl.min then { min = CInt.one; max = CInt.one }
-              else if CInt.gt al.min bl.max then
-                { min = CInt.zero; max = CInt.zero }
-              else { min = CInt.zero; max = CInt.one }
-            in
-            (lat, Le (a, b))
-        | Gt (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat =
-              if CInt.gt al.min bl.max then { min = CInt.one; max = CInt.one }
-              else if CInt.le al.max bl.min then
-                { min = CInt.zero; max = CInt.zero }
-              else { min = CInt.zero; max = CInt.one }
-            in
-            (lat, Gt (a, b))
-        | Ge (a, b) ->
-            let (al, a), (bl, b) = (f a, f b) in
-            let lat =
-              if CInt.ge al.min bl.max then { min = CInt.one; max = CInt.one }
-              else if CInt.lt al.max bl.min then
-                { min = CInt.zero; max = CInt.zero }
-              else { min = CInt.zero; max = CInt.one }
-            in
-            (lat, Ge (a, b))
-        | Eq0 a ->
-            let al, a = f a in
-            let lat =
-              if CInt.le al.max CInt.zero then
-                { min = CInt.one; max = CInt.one }
-              else if CInt.gt al.min CInt.zero then
-                { min = CInt.zero; max = CInt.zero }
-              else { min = CInt.zero; max = CInt.one }
-            in
-            (lat, Eq0 a)
-        | Var v ->
-            let lat = lat_of_var v in
-            (lat, Var v)
-        | Clip (e, bits) ->
-            let el, e = f e in
-            let lat =
-              {
-                min = CInt.zero;
-                max = CInt.min el.max (max_cint_of_width bits);
-              }
-            in
-            (lat, Clip (e, bits))
-        | Const c ->
-            let lat = create_const c in
-            (lat, Const c)
-      in
-      let e = if CInt.eq lat.min lat.max then Expr.Const lat.min else e in
-      (lat, e)
-    in
-    f e
-
-  let eval_expr e ~lat_of_var = eval_rewrite_expr e ~lat_of_var |> fst
-  let rewrite_expr e ~lat_of_var = eval_rewrite_expr e ~lat_of_var |> snd
-end
-
 let propigate_constants n =
+  let module Lat = Cint_value_lattice in
   let any l = List.exists l ~f:Fn.id in
   let iter_any l ~f = List.map l ~f |> any in
   let map_or_false v ~f = match v with Some v -> f v | None -> false in
@@ -738,21 +540,21 @@ let propigate_constants n =
   let put v new_vl =
     match Hashtbl.find table v with
     | Some prev ->
-        let new_vl = Const_lat.union prev new_vl in
+        let new_vl = Lat.union prev new_vl in
         Hashtbl.set table ~key:v ~data:new_vl;
-        not (Const_lat.equal prev new_vl)
+        not (Lat.equal prev new_vl)
     | None ->
         Hashtbl.set table ~key:v ~data:new_vl;
         true
   in
-  let expr_val e = Const_lat.eval_expr e ~lat_of_var:get in
+  let expr_val e = Lat.eval_expr e ~of_var:get in
 
   let rec stabilize_stmt n =
     match n with
     | Stmt.Nop -> false
     | Assign (dst, e) -> put dst (expr_val e)
     | Send (_, _) -> false
-    | Read (_, v) -> put v (Const_lat.create_bitwidth v.bitwidth)
+    | Read (_, v) -> put v (Lat.create_bitwidth v.bitwidth)
     | Seq ns -> iter_any ns ~f:stabilize_stmt
     | Par (splits, ns, merges) ->
         let b1 =
@@ -766,8 +568,7 @@ let propigate_constants n =
           iter_any merges ~f:(fun merge ->
               let out_v_lat =
                 List.filter_opt merge.in_vs
-                |> List.map ~f:get
-                |> List.reduce ~f:Const_lat.union
+                |> List.map ~f:get |> List.reduce ~f:Lat.union
                 |> Option.value_exn
               in
               put merge.out_v out_v_lat)
@@ -785,8 +586,7 @@ let propigate_constants n =
           iter_any merges ~f:(fun merge ->
               let out_v_lat =
                 List.map merge.in_vs ~f:get
-                |> List.reduce ~f:Const_lat.union
-                |> Option.value_exn
+                |> List.reduce ~f:Lat.union |> Option.value_exn
               in
               put merge.out_v out_v_lat)
         in
@@ -821,7 +621,7 @@ let propigate_constants n =
   let changed = stabilize_stmt n in
   assert (not changed);
 
-  let of_e e = Const_lat.rewrite_expr e ~lat_of_var:get in
+  let of_e e = Lat.rewrite_expr e ~of_var:get in
 
   let rec of_n n =
     match n with

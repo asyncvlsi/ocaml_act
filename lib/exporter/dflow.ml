@@ -604,7 +604,7 @@ let optimize_proc proc =
 
     { Proc.stmt = multi_assigns @ non_assigns; oports; iports }
   in
-(* 
+
   (* Transofmation #2 *)
   let cluster_fuse_chains { Proc.stmt = dflows; iports; oports } =
     let dflows = List.mapi dflows ~f:(fun id dflow -> (id, dflow)) in
@@ -630,7 +630,7 @@ let optimize_proc proc =
       List.map dflows ~f:(fun (_, dflow) ->
           (match dflow with
           | MultiAssign assigns ->
-              List.concat_map assigns ~f:(fun (dst, e) -> dst :: Expr.var_ids e)
+              List.concat_map assigns ~f:(fun (_, e) -> Expr.var_ids e)
           | Split (g, v, os) -> (v :: Guard.ids g) @ List.filter_opt os
           | Merge (g, ins, v) -> (v :: Guard.ids g) @ ins
           | Copy_init (dst, src, _) -> [ dst; src ])
@@ -644,15 +644,15 @@ let optimize_proc proc =
     let consumer_of_producer =
       List.concat_map multi_assigns ~f:(fun (id_i, _) ->
           List.filter_map multi_assigns ~f:(fun (id_o, multi_assign) ->
-              let id_o_reads =
-                List.concat_map multi_assign ~f:(fun (dst, e) ->
-                    dst :: Expr.var_ids e)
+              let reads_of_id_o =
+                List.concat_map multi_assign ~f:(fun (_, e) -> Expr.var_ids e)
                 |> List.filter_map ~f:(Map.find cluster_of_output)
                 |> Int.Set.of_list
               in
               if
-                Int.equal 1 (Map.find_exn read_ct_of_cluster id_i)
-                && Set.mem id_o_reads id_i
+                Int.equal 1
+                  (Map.find read_ct_of_cluster id_i |> Option.value ~default:0)
+                && Set.mem reads_of_id_o id_i
               then Some (id_i, id_o)
               else None))
       |> Int.Map.of_alist_exn
@@ -682,8 +682,7 @@ let optimize_proc proc =
       |> List.map ~f:(fun multi_assign -> MultiAssign multi_assign)
     in
     { Proc.stmt = multi_assigns @ non_assigns; oports; iports }
-  in *)
-
+  in
   let normalize_guards (proc : Proc.t) =
     let next_id =
       let biggest_id =
@@ -750,6 +749,6 @@ let optimize_proc proc =
   in
 
   eliminate_dead_code proc |> eliminate_repeated_vars |> eliminate_dead_code
+  |> cluster_same_reads |> cluster_fuse_chains |> cluster_same_reads
+  |> eliminate_repeated_vars |> eliminate_dead_code |> normalize_guards
   |> cluster_same_reads |> eliminate_repeated_vars |> eliminate_dead_code
-  |> normalize_guards |> cluster_same_reads |> eliminate_repeated_vars
-  |> eliminate_dead_code
