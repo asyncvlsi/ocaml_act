@@ -26,6 +26,8 @@ val div : Cint0.t t -> Cint0.t t -> Cint0.t t
 val mod_ : Cint0.t t -> Cint0.t t -> Cint0.t t
 val left_shift : Cint0.t t -> amt:Cint0.t t -> Cint0.t t
 val right_shift : Cint0.t t -> amt:Cint0.t t -> Cint0.t t
+val left_shift' : Cint0.t t -> amt:int -> Cint0.t t
+val right_shift' : Cint0.t t -> amt:int -> Cint0.t t
 val bit_and : Cint0.t t -> Cint0.t t -> Cint0.t t
 val bit_or : Cint0.t t -> Cint0.t t -> Cint0.t t
 val bit_xor : Cint0.t t -> Cint0.t t -> Cint0.t t

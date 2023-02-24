@@ -169,7 +169,7 @@ let%expect_test "test4" =
   [%expect
     {|
     send 1
-    (Error "Assertion failed: in lib/act/chp.ml on line 170.") |}]
+    (Error "Assertion failed: in test/ir_test.ml on line 150.") |}]
 
 let%expect_test "test5" =
   let var1 = Var.create CInt.dtype_32 in
@@ -346,7 +346,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Mem access out of bounds: in lib/act/chp.ml on line 140, idx is 4, size of mem is 4.") |}]
+     "Mem access out of bounds: in test/ir_test.ml on line 340, idx is 4, size of mem is 4.") |}]
 
 let%expect_test "mem" =
   let mem =
@@ -375,7 +375,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Simulatnious accesses of a memory/rom: statement 1 in lib/act/chp.ml on line 140, statement 2 in lib/act/chp.ml on line 140.") |}]
+     "Simulatnious accesses of a memory/rom: statement 1 in test/ir_test.ml on line 368, statement 2 in test/ir_test.ml on line 363.") |}]
 
 let%expect_test "test probes" =
   let var = Var.create CInt.dtype_32 in

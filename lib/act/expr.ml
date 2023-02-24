@@ -61,6 +61,11 @@ module Ir = struct
   let true_ = of_bool true
   let false_ = of_bool false
 
+  let clip e ~bits =
+    assert (Tag.equal cint_tag e.tag);
+    let bits = Int.max bits 0 in
+    { k = Clip (e.k, bits); tag = cint_tag; max_bits = bits }
+
   let not_ b =
     assert (Tag.equal cbool_tag b.tag);
     { k = Eq (b.k, Const Cint0.zero); tag = cbool_tag; max_bits = 1 }
@@ -136,6 +141,12 @@ module Ir = struct
     assert (Tag.equal cint_tag amt.tag);
     { k = LogicalRShift (a.k, amt.k); tag = cint_tag; max_bits = a.max_bits }
 
+  let left_shift' a ~amt =
+    left_shift a ~amt:(of_int amt) |> clip ~bits:(a.max_bits + amt)
+
+  let right_shift' a ~amt =
+    right_shift a ~amt:(of_int amt) |> clip ~bits:(a.max_bits - amt)
+
   let bit_and a b =
     assert (Tag.equal cint_tag a.tag);
     assert (Tag.equal cint_tag b.tag);
@@ -192,10 +203,6 @@ module Ir = struct
     assert (Tag.equal cint_tag a.tag);
     assert (Tag.equal cint_tag b.tag);
     { k = Ge (a.k, b.k); tag = cint_tag; max_bits = 1 } |> bool_of_int
-
-  let clip e ~bits =
-    assert (Tag.equal cint_tag e.tag);
-    { k = Clip (e.k, bits); tag = cint_tag; max_bits = bits }
 
   let add_wrap a b ~bits = add a b |> clip ~bits
 

@@ -9,6 +9,7 @@ let dtype ~bits =
     ~of_cint_assert_expr_fn:(Expr0.Const Cint0.one) ~layout:(Bits_fixed bits)
     ~expr_tag:Expr.Ir.cint_tag
 
+let dtype_4 = dtype ~bits:4
 let dtype_8 = dtype ~bits:8
 let dtype_16 = dtype ~bits:16
 let dtype_32 = dtype ~bits:32

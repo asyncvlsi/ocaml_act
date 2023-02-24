@@ -37,6 +37,7 @@ val four : t
 val five : t
 
 (* dtypes *)
+val dtype_4 : t Dtype.t
 val dtype_8 : t Dtype.t
 val dtype_16 : t Dtype.t
 val dtype_32 : t Dtype.t
