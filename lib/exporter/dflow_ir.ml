@@ -1,7 +1,7 @@
 open! Core
 module CInt = Act.CInt
 
-module Dflow_id = struct
+module Var = struct
   module T = struct
     type t = { id : int; bitwidth : int }
     [@@deriving sexp, hash, equal, compare]
@@ -12,9 +12,9 @@ module Dflow_id = struct
   include Hashable.Make (T)
 end
 
-module Dflow_id_set = struct
+module Var_set = struct
   module T = struct
-    type t = Dflow_id.Set.t [@@deriving compare, equal, sexp]
+    type t = Var.Set.t [@@deriving compare, equal, sexp]
   end
 
   include T
@@ -24,10 +24,7 @@ end
 module Stmt = struct
   module Guard = struct
     module T = struct
-      type t =
-        | One_hot of Dflow_id.t
-        | Idx of Dflow_id.t
-        | Bits of Dflow_id.t list
+      type t = One_hot of Var.t | Idx of Var.t | Bits of Var.t list
       [@@deriving sexp, compare, equal]
     end
 
@@ -44,10 +41,10 @@ module Stmt = struct
   end
 
   type t =
-    | MultiAssign of (Dflow_id.t * Dflow_id.t Expr.t) list
-    | Split of Guard.t * Dflow_id.t * Dflow_id.t option list
-    | Merge of Guard.t * Dflow_id.t list * Dflow_id.t
-    | Copy_init of (*dst *) Dflow_id.t * (*src*) Dflow_id.t * Act.CInt.t
+    | MultiAssign of (Var.t * Var.t Expr.t) list
+    | Split of Guard.t * Var.t * Var.t option list
+    | Merge of Guard.t * Var.t list * Var.t
+    | Copy_init of (*dst *) Var.t * (*src*) Var.t * Act.CInt.t
   [@@deriving sexp_of]
 end
 
@@ -56,11 +53,58 @@ include Stmt
 module Proc = struct
   type t = {
     stmt : Stmt.t list;
-    iports : (Interproc_chan.t * Dflow_id.t) list;
-    oports : (Interproc_chan.t * Dflow_id.t) list;
+    iports : (Interproc_chan.t * Var.t) list;
+    oports : (Interproc_chan.t * Var.t) list;
   }
   [@@deriving sexp_of]
 end
+
+let validate proc =
+  let { Proc.stmt = dflows; iports; oports } = proc in
+  (* Check that each id is written at most one time, and that each read id is written at least once *)
+  let reads =
+    [
+      List.concat_map dflows ~f:(fun dflow ->
+          match dflow with
+          | MultiAssign assigns ->
+              List.concat_map assigns ~f:(fun (_, e) -> Expr.var_ids e)
+          | Split (g, v, _) -> v :: Guard.ids g
+          | Merge (g, ins, _) -> Guard.ids g @ ins
+          | Copy_init (_, src, _) -> [ src ]);
+      List.map oports ~f:snd;
+    ]
+    |> List.concat |> Var.Set.of_list
+  in
+
+  let writes =
+    [
+      List.concat_map dflows ~f:(fun dflow ->
+          match dflow with
+          | MultiAssign assigns -> List.map assigns ~f:fst
+          | Split (_, _, os) -> List.filter_opt os
+          | Merge (_, _, v) -> [ v ]
+          | Copy_init (dst, _, _) -> [ dst ]);
+      List.map iports ~f:snd;
+    ]
+    |> List.concat
+  in
+  let repeated_write_cts =
+    List.map writes ~f:(fun w -> (w, ()))
+    |> Var.Map.of_alist_multi |> Map.map ~f:List.length
+    |> Map.filter ~f:(fun ln -> ln >= 2)
+    |> Map.to_alist
+  in
+  (match repeated_write_cts with
+  | [] -> ()
+  | repeated_write_cts ->
+      print_s [%sexp ("error" : string)];
+      print_s [%sexp (proc : Proc.t)];
+      print_s [%sexp (repeated_write_cts : (Var.t * int) list)];
+
+      failwith "Some variable is written more than once");
+  let writes = Var.Set.of_list writes in
+  assert (Set.diff reads writes |> Set.is_empty);
+  ()
 
 module Chan_end = struct
   module T = struct
@@ -99,7 +143,7 @@ let rui_ctrl_send = rui_ctrl_chan ~dir:`Send
 let rui_ctrl_read = rui_ctrl_chan ~dir:`Read
 
 let rui_ctrl_seq a b_chan a1 b1 a2 b2 ~new_chan ~dir =
-  let x_width = a.Dflow_id.bitwidth in
+  let x_width = a.Var.bitwidth in
   let s = new_chan 1 in
   (* [ ~s -> b1?v [] s -> b2?v ] *)
   let v = new_chan 1 in
@@ -245,9 +289,9 @@ let dflow_of_stf proc =
   let new_chan bitwidth =
     let id = !next_id in
     incr next_id;
-    { Dflow_id.id; bitwidth }
+    { Var.id; bitwidth }
   in
-  let new_alias (a : Dflow_id.t) = new_chan a.bitwidth in
+  let new_alias (a : Var.t) = new_chan a.bitwidth in
   let new_ctrl () = new_chan 1 in
 
   let id_of_var = Stf.Var.Table.create () in
@@ -388,6 +432,7 @@ let dflow_of_stf proc =
     | DoWhile (phis, stmt, guard) ->
         let guard_proc, guard = of_e' guard in
         let prev_guard = new_alias guard in
+        let copy_init = Copy_init (prev_guard, guard, CInt.zero) in
         let phis =
           List.concat_map phis ~f:(fun phi ->
               let bitwidth =
@@ -408,8 +453,7 @@ let dflow_of_stf proc =
                     let out_vs = [ Option.map phi.out_v ~f:of_v; Some carry ] in
                     Split (Idx guard, of_v body_out_v, out_vs))
               in
-              let copy_init = Copy_init (prev_guard, guard, CInt.zero) in
-              List.filter_opt [ top; bottom; Some copy_init ])
+              List.filter_opt [ top; bottom ])
         in
         let stmts, alias_map = of_stmt stmt in
         let alias_map, ctrl_procs =
@@ -427,7 +471,7 @@ let dflow_of_stf proc =
           let m = Map.map m ~f:fst in
           (m, l)
         in
-        let dflow = (guard_proc :: phis) @ stmts @ ctrl_procs in
+        let dflow = guard_proc :: copy_init :: (phis @ stmts @ ctrl_procs) in
         (dflow, alias_map)
   in
   let dflow, alias_map = of_stmt proc.Stf.Proc.stmt in
@@ -441,7 +485,9 @@ let dflow_of_stf proc =
         let chan, _ = Map.find_exn alias_map (Send chan) in
         (interproc, chan))
   in
-  { Proc.stmt = dflow; iports; oports }
+  let proc = { Proc.stmt = dflow; iports; oports } in
+  validate proc;
+  proc
 
 let var_ids dflows iports oports =
   [
@@ -455,7 +501,7 @@ let var_ids dflows iports oports =
     List.map iports ~f:snd;
     List.map oports ~f:snd;
   ]
-  |> List.concat |> Dflow_id.Set.of_list
+  |> List.concat |> Var.Set.of_list
 
 let eliminate_dead_code proc =
   let { Proc.stmt = dflows; iports; oports } = proc in
@@ -471,9 +517,9 @@ let eliminate_dead_code proc =
                    (o, v) :: List.map (Guard.ids g) ~f:(fun g -> (o, g)))
         | Merge (g, ins, v) -> List.map (Guard.ids g @ ins) ~f:(fun i -> (v, i))
         | Copy_init (dst, src, _) -> [ (dst, src) ])
-    |> Dflow_id.Map.of_alist_multi
+    |> Var.Map.of_alist_multi
   in
-  let alive = Dflow_id.Table.create () in
+  let alive = Var.Table.create () in
   let queue = Queue.create () in
   List.iter oports ~f:(fun (_, port) ->
       Hashtbl.find_or_add alive port ~default:(fun () ->
@@ -484,7 +530,7 @@ let eliminate_dead_code proc =
     List.iter deps ~f:(fun id ->
         Hashtbl.find_or_add alive id ~default:(fun () -> Queue.enqueue queue id))
   done;
-  let alive = Hashtbl.keys alive |> Dflow_id.Set.of_list in
+  let alive = Hashtbl.keys alive |> Var.Set.of_list in
   let dflows =
     List.filter_map dflows ~f:(fun dflow ->
         match dflow with
@@ -516,13 +562,13 @@ let eliminate_repeated_vars proc =
         match dflow with
         | MultiAssign [ (dst, Var src) ] -> Some (dst, src)
         | _ -> None)
-    |> Dflow_id.Map.of_alist_exn
+    |> Var.Map.of_alist_exn
   in
 
   (* This is probably way slower than needed *)
   let true_src ~dst ~src =
     let rec h x =
-      if Dflow_id.equal x dst then None
+      if Var.equal x dst then None
       else
         let pred = Map.find src_of_dst x in
         match pred with None -> Some x | Some pred -> h pred
@@ -581,10 +627,10 @@ let cluster_same_reads { Proc.stmt = dflows; iports; oports } =
     List.map multi_assigns ~f:(fun multi_assign ->
         let reads =
           List.concat_map multi_assign ~f:(fun (_, e) -> Expr.var_ids e)
-          |> Dflow_id.Set.of_list
+          |> Var.Set.of_list
         in
         (reads, multi_assign))
-    |> Dflow_id_set.Map.of_alist_multi |> Map.to_alist
+    |> Var_set.Map.of_alist_multi |> Map.to_alist
     |> List.concat_map ~f:(fun (reads, multi_assigns) ->
            if Set.is_empty reads then
              List.map multi_assigns ~f:(fun multi_assign ->
@@ -607,9 +653,9 @@ let cluster_fuse_chains { Proc.stmt = dflows; iports; oports } =
   let cluster_of_output =
     List.concat_map multi_assigns ~f:(fun (cluster_id, multi_assign) ->
         List.map multi_assign ~f:fst
-        |> Dflow_id.Set.of_list |> Set.to_list
+        |> Var.Set.of_list |> Set.to_list
         |> List.map ~f:(fun dflow_id -> (dflow_id, cluster_id)))
-    |> Dflow_id.Map.of_alist_exn
+    |> Var.Map.of_alist_exn
   in
   (* let read_cluster_of_id = Map.map multi_assigns ~f:(fun multi_assign -> List.concat_map multi_assign ~f:(fun (_, e) -> Expr.var_ids)
      |> List.filter_map ~f:(Map.find id_of_output)
@@ -686,7 +732,7 @@ let normalize_guards (proc : Proc.t) =
   let new_chan bitwidth =
     let id = !next_id in
     incr next_id;
-    { Dflow_id.id; bitwidth }
+    { Var.id; bitwidth }
   in
   let dflows = proc.stmt in
   let guards =
@@ -791,7 +837,7 @@ let push_consts_throguh_split_merge { Proc.stmt = dflows; iports; oports } =
   let new_chan bitwidth =
     let id = !next_id in
     incr next_id;
-    { Dflow_id.id; bitwidth }
+    { Var.id; bitwidth }
   in
 
   let const_vars =
@@ -804,7 +850,7 @@ let push_consts_throguh_split_merge { Proc.stmt = dflows; iports; oports } =
             then l
             else []
         | _ -> [])
-    |> Dflow_id.Map.of_alist_exn
+    |> Var.Map.of_alist_exn
   in
   let dflows =
     map_parallel_split_merges dflows ~fuse:(fun in_v split_vars merge_vars ->
@@ -817,7 +863,7 @@ let push_consts_throguh_split_merge { Proc.stmt = dflows; iports; oports } =
             |> List.map ~f:(fun (split_var, merge_var) ->
                    if
                      Option.is_some split_var
-                     && Option.value_exn split_var |> Dflow_id.equal merge_var
+                     && Option.value_exn split_var |> Var.equal merge_var
                    then
                      let new_v = new_chan in_v.bitwidth in
                      let new_proc = [ MultiAssign [ (new_v, in_e) ] ] in
@@ -830,8 +876,12 @@ let push_consts_throguh_split_merge { Proc.stmt = dflows; iports; oports } =
   { Proc.stmt = dflows; iports; oports }
 
 let optimize_proc proc =
-  eliminate_dead_code proc |> eliminate_repeated_vars |> eliminate_dead_code
-  |> cluster_same_reads |> cluster_fuse_chains |> cluster_same_reads
-  |> push_consts_throguh_split_merge |> eliminate_repeated_vars
-  |> eliminate_dead_code |> normalize_guards |> cluster_same_reads
-  |> eliminate_repeated_vars |> eliminate_dead_code
+  let proc =
+    eliminate_dead_code proc |> eliminate_repeated_vars |> eliminate_dead_code
+    |> cluster_same_reads |> cluster_fuse_chains |> cluster_same_reads
+    |> push_consts_throguh_split_merge |> eliminate_repeated_vars
+    |> eliminate_dead_code |> normalize_guards |> cluster_same_reads
+    |> eliminate_repeated_vars |> eliminate_dead_code
+  in
+  validate proc;
+  proc

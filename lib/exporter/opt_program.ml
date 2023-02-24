@@ -182,15 +182,16 @@ module Chp_exporter = struct
 end
 
 module Dflow_exporter = struct
-  let export_proc (ns : Dflow.Stmt.t list) ~iports ~oports ~name =
-    let all_ids = Dflow.var_ids ns iports oports |> Set.to_list in
+  let export_proc proc ~name =
+    let { Flat_dflow.Proc.stmt = ns; iports; oports } = proc in
+    let all_ids = Flat_dflow.var_ids proc |> Set.to_list in
     let decl_vars =
       List.map all_ids ~f:(fun id ->
           [%string "  chan(int<%{id.bitwidth#Int}>) v%{id.id#Int};"])
       |> String.concat ~sep:"\n"
     in
     let stmts =
-      let rec ee (e : Dflow.Dflow_id.t Expr.t) =
+      let rec ee (e : Flat_dflow.Var.t Expr.t) =
         match e with
         | Expr.Add (a, b) -> [%string "(%{ee a} + %{ee b})"]
         | Sub_no_wrap (a, b) -> [%string "(%{ee a} - %{ee b})"]
@@ -222,7 +223,7 @@ module Dflow_exporter = struct
             [%string "{ %{s} }"]
         | Log2OneHot e -> [%string "( log2_one_hot(%{ee e}) )"]
       in
-      let vv (v : Dflow.Dflow_id.t) = [%string "v%{v.id#Int}"] in
+      let vv (v : Flat_dflow.Var.t) = [%string "v%{v.id#Int}"] in
       let vvo o = match o with Some v -> vv v | None -> "*" in
       List.map ns ~f:(fun n ->
           match n with
@@ -238,28 +239,22 @@ module Dflow_exporter = struct
                   in
                   [%string "  dataflow_cluser {\n  %{exprs}\n  };"])
           | Split (g, v, os) ->
-              let g =
-                match g with
-                | Idx g -> [%string "v%{g.id#Int}"]
-                | One_hot _ -> failwith "Run Dflow.normalize_proc first"
-                | Bits _ -> failwith "Run Dflow.normalize_proc first"
-              in
-              (* TODO transform guard into guard format? *)
               let os = List.map os ~f:vvo |> String.concat ~sep:", " in
-              [%string "  { %{g} } v%{v.id#Int} -> %{os};"]
+              [%string "  { v%{g.id#Int} } v%{v.id#Int} -> %{os};"]
           | Merge (g, ins, v) ->
-              let g =
-                match g with
-                | Idx g -> [%string "v%{g.id#Int}"]
-                | One_hot _ -> failwith "Run Dflow.normalize_proc first"
-                | Bits _ -> failwith "Run Dflow.normalize_proc first"
-              in
-              (* TODO transform guard into guard format? *)
               let ins =
                 List.map ins ~f:(fun i -> [%string "v%{i.id#Int}"])
                 |> String.concat ~sep:", "
               in
-              [%string "  { %{g} } %{ins} -> v%{v.id#Int};"]
+              [%string "  { v%{g.id#Int} } %{ins} -> v%{v.id#Int};"]
+          | Clone (src, dsts) ->
+              (* TODO is this right? *)
+              List.map dsts ~f:(fun dst ->
+                  [%string "  v%{dst.id#Int} <- v%{src.id#Int};"])
+              |> String.concat ~sep:"   "
+          | Sink _ ->
+              (* TODO is this right? *)
+              ""
           | Copy_init (dst, src, init) ->
               [%string "  v%{src.id#Int} -> [1,%{init#CInt}] v%{dst.id#Int};"])
       |> String.concat ~sep:"\n"
@@ -268,13 +263,13 @@ module Dflow_exporter = struct
     let decl_iports =
       iports |> List.map ~f:snd
       |> List.map ~f:(fun port ->
-             let bitwidth = port.Dflow.Dflow_id.bitwidth in
+             let bitwidth = port.bitwidth in
              [%string "chan!(int<%{bitwidth#Int}>) iport%{port.id#Int}"])
     in
     let decl_oports =
       oports |> List.map ~f:snd
       |> List.map ~f:(fun port ->
-             let bitwidth = port.Dflow.Dflow_id.bitwidth in
+             let bitwidth = port.bitwidth in
              [%string "chan?(int<%{bitwidth#Int}>) oport%{port.id#Int}"])
     in
     let decl_io_ports = decl_iports @ decl_oports |> String.concat ~sep:"; " in
@@ -295,15 +290,9 @@ module Dflow_exporter = struct
        }"]
 
   let export (chp_proc : Flat_chp.Proc.t) ~name =
-    assert chp_proc.dflowable;
-    let stf = Stf.stf_of_dflowable_chp_proc chp_proc |> Stf.optimize_proc in
-    (* print_s [%sexp (stf : Stf.Proc.t)]; *)
-    let dflow = Dflow.dflow_of_stf stf |> Dflow.optimize_proc in
-    (* print_s [%sexp (dflow : Dflow.Proc.t)]; *)
+    let dflow = Flat_dflow.of_chp chp_proc in
+    let s = export_proc dflow ~name in
     let io_ports = List.map ~f:fst (dflow.iports @ dflow.oports) in
-    let s =
-      export_proc dflow.stmt ~name ~iports:dflow.iports ~oports:dflow.oports
-    in
     (s, (name, io_ports))
 end
 
