@@ -24,7 +24,7 @@ type 'v t =
   (* clips values that are too long *)
   | Concat of ('v t * int) list
   | Log2OneHot of 'v t
-[@@deriving sexp]
+[@@deriving sexp, compare, equal, hash]
 
 val map_vars : 'v t -> f:('v -> 'u) -> 'u t
 val var_ids : 'v t -> 'v list

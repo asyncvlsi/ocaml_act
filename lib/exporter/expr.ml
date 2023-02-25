@@ -23,7 +23,7 @@ type 'v t =
   | Clip of 'v t * int
   | Concat of ('v t * int) list
   | Log2OneHot of 'v t
-[@@deriving sexp]
+[@@deriving sexp, compare, equal, hash]
 
 let map_var_nodes e ~f =
   let rec h e =

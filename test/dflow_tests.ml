@@ -90,19 +90,17 @@ let%expect_test "expression branches" =
         (Div (Var ((id 5) (bitwidth 8))) (Var ((id 6) (bitwidth 8)))))
        (Send ((id 1) (bitwidth 8)) (Var ((id 7) (bitwidth 8))))))
      (Const 1))
-    defproc proc_0(chan!(int<8>) iport6; chan?(int<8>) oport5) {
+    defproc proc_0(chan!(int<8>) iport4; chan?(int<8>) oport3) {
+      chan(int<8>) v2;
       chan(int<8>) v3;
       chan(int<8>) v4;
-      chan(int<8>) v5;
-      chan(int<8>) v6;
     dataflow {
       dataflow_cluser {
-        v3 <- ((v6) / 2);
-        v4 <- ((v6) / 2);
-        v5 <- ((v3) / (v4));
+        v2 <- ((v4) / 2);
+        v3 <- ((v2) / (v2));
       };
-    iport6 -> v6;
-    v5 -> oport5;
+    iport4 -> v4;
+    v3 -> oport3;
     }
     }
 

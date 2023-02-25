@@ -407,6 +407,34 @@ let dflow_of_stf proc =
                   |> List.all_equal ~equal:Int.equal
                   |> Option.value_exn
                 in
+
+                (* OPTIMIZATION: cut out all the branches which dont have aliases, and create a new pile of guards that support that. *)
+                let (aliases, guards), ctrl_proc =
+                  let somes, nones =
+                    List.zip_exn aliases guards
+                    |> List.partition_tf ~f:(fun (alias, _) ->
+                           Option.is_some alias)
+                  in
+                  let nones, ctrl_proc =
+                    match nones with
+                    | [] -> ([], [])
+                    | [ (None, none_guard) ] -> ([ (None, none_guard) ], [])
+                    | nones ->
+                        let none_guard_var = new_chan 1 in
+                        let none_guard_ctrl_proc =
+                          let none_guard_expr =
+                            List.map nones ~f:snd
+                            |> List.map ~f:(fun v -> Expr.Var v)
+                            |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
+                            |> Option.value_exn
+                          in
+                          MultiAssign [ (none_guard_var, none_guard_expr) ]
+                        in
+                        ([ (None, none_guard_var) ], [ none_guard_ctrl_proc ])
+                  in
+                  (List.unzip (somes @ nones), ctrl_proc)
+                in
+
                 (* rewrite the gaurd expression to be an index into a list. This removes the need for an "else" case. *)
                 let a_chan = new_chan alias_bitwidth in
                 let b_chan = new_ctrl () in
@@ -419,7 +447,7 @@ let dflow_of_stf proc =
                       rui_ctrl_select_read a_chan b_chan guards aliases
                         ~new_chan
                 in
-                ((k, (a_chan, b_chan)), ctrl_procs))
+                ((k, (a_chan, b_chan)), ctrl_proc @ ctrl_procs))
           in
           let alias_list, ctrl_procs = List.unzip l in
           (Chan_end.Map.of_alist_exn alias_list, List.concat ctrl_procs)
@@ -535,8 +563,28 @@ let eliminate_dead_code proc =
     List.filter_map dflows ~f:(fun dflow ->
         match dflow with
         | MultiAssign assigns ->
+            (* we cant just eliminate unread variables because that might change the dependencies of the MultiAssign block *)
+            (* TODO the better way to do this is to have an explicit list of dependencies for the multiassign block *)
             if List.exists assigns ~f:(fun (dst, _) -> Set.mem alive dst) then
-              Some (MultiAssign assigns)
+              let keep, maybe_remove =
+                List.partition_tf assigns ~f:(fun (dst, _) -> Set.mem alive dst)
+              in
+              let reads_of_l l =
+                List.concat_map l ~f:(fun (_, e) -> Expr.var_ids e)
+                |> Var.Set.of_list
+              in
+              let keep =
+                List.fold maybe_remove ~init:keep ~f:(fun keep (dst, e) ->
+                    if
+                      Set.diff
+                        (Expr.var_ids e |> Var.Set.of_list)
+                        (reads_of_l keep)
+                      |> Set.is_empty
+                    then (* we already have all the dependencies *)
+                      keep
+                    else (dst, e) :: keep)
+              in
+              Some (MultiAssign keep)
             else None
         | Split (g, v, os) ->
             let os =
@@ -555,13 +603,28 @@ let eliminate_dead_code proc =
   in
   { Proc.stmt = dflows; oports; iports }
 
+module Expr_map = Map.Make (struct
+  type t = Var.t Expr.t [@@deriving sexp, compare, equal, hash]
+end)
+
 let eliminate_repeated_vars proc =
   let { Proc.stmt = dflows; iports; oports } = proc in
   let src_of_dst =
-    List.filter_map dflows ~f:(fun dflow ->
+    List.concat_map dflows ~f:(fun dflow ->
         match dflow with
-        | MultiAssign [ (dst, Var src) ] -> Some (dst, src)
-        | _ -> None)
+        | MultiAssign [ (dst, Var src) ] -> [ (dst, src) ]
+        | MultiAssign l ->
+            (* Note that a `dst <- src` inside of a multi-assign block may not be optimized, as the
+               block must wait on _every_ read to complete before an expression exicutes, so
+               the `dst <- src` is not the same as `src` *)
+            (* we may, however, deduplicate repeated expressions *)
+            List.map l ~f:(fun (dst, e) -> (e, dst))
+            |> Expr_map.of_alist_multi |> Map.data
+            |> List.concat_map ~f:(fun ids ->
+                   match ids with
+                   | [] -> failwith "unreachable"
+                   | id :: ids -> List.map ids ~f:(fun i -> (i, id)))
+        | _ -> [])
     |> Var.Map.of_alist_exn
   in
 
@@ -875,13 +938,195 @@ let push_consts_throguh_split_merge { Proc.stmt = dflows; iports; oports } =
   in
   { Proc.stmt = dflows; iports; oports }
 
+(* if we have the following structure
+   split_g(v) -> (v1, v2, v3)
+   merge_g(v1, v2, v3') -> v'
+   and the merge is the only read of v1 and v2
+
+   We may rewrite it as
+   g' <- {g{0}|g{1}, g{2}}
+   split_g(v) -> (v12, v3)
+   merge_g(v12', v3') -> v'
+*)
+(* let zip_coupled_split_merges { Proc.stmt = dflows; iports; oports } = failwith "TODO" *)
+
+(* if we have the following structure
+   split_g(v) -> ( *, *, v3 )
+
+   We may rewrite it as
+   g' <- {g{0}|g{1}, g{2}}
+   split_g(v) -> ( *, v3 )
+*)
+
+(* if we have the following structure
+   split_g(v) -> ( *, *, v3 )
+
+   We may rewrite it as
+   g' <- {g{0}|g{1}, g{2}}
+   split_g(v) -> ( *, v3 )
+*)
+
+let zip_repeated_sink_splits { Proc.stmt = dflows; iports; oports } =
+  let next_id =
+    let biggest_id =
+      var_ids dflows iports oports
+      |> Set.to_list
+      |> List.map ~f:(fun v -> v.id)
+      |> List.max_elt ~compare:Int.compare
+      |> Option.value_exn
+    in
+    ref (biggest_id + 1)
+  in
+  let new_chan bitwidth =
+    let id = !next_id in
+    incr next_id;
+    { Var.id; bitwidth }
+  in
+
+  let dflows =
+    List.concat_map dflows ~f:(fun dflow ->
+        match dflow with
+        | Split (g, i, os) -> (
+            match g with
+            | Bits gs ->
+                let sinks, non_sinks =
+                  List.zip_exn gs os
+                  |> List.partition_tf ~f:(fun (_, o) -> Option.is_none o)
+                in
+                if List.is_empty non_sinks then []
+                else if List.length sinks < 2 then [ dflow ]
+                else
+                  let gs, _ = List.unzip sinks in
+                  let g = new_chan 1 in
+                  let expr =
+                    List.map gs ~f:(fun g -> Expr.Var g)
+                    |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
+                    |> Option.value_exn
+                  in
+                  let ctrl_proc = MultiAssign [ (g, expr) ] in
+                  let gs, os = List.unzip (non_sinks @ [ (g, None) ]) in
+                  [ Split (Bits gs, i, os); ctrl_proc ]
+            | _ -> (* TODO *) [ dflow ])
+        | _ -> [ dflow ])
+  in
+  { Proc.stmt = dflows; iports; oports }
+
+let eval_const_expr e =
+  let rec f e =
+    match e with
+    | Expr.Var _ -> failwith "Expr is not const"
+    | Const c -> c
+    | Add (a, b) -> CInt.add (f a) (f b)
+    | Sub_no_wrap (a, b) -> CInt.sub (f a) (f b)
+    | Mul (a, b) -> CInt.mul (f a) (f b)
+    | Div (a, b) -> CInt.div (f a) (f b)
+    | Mod (a, b) -> CInt.mod_ (f a) (f b)
+    | LShift (a, b) -> CInt.left_shift (f a) ~amt:(f b)
+    | RShift (a, b) -> CInt.right_shift (f a) ~amt:(f b)
+    | BitAnd (a, b) -> CInt.bit_and (f a) (f b)
+    | BitOr (a, b) -> CInt.bit_or (f a) (f b)
+    | BitXor (a, b) -> CInt.bit_xor (f a) (f b)
+    | Clip (e, bits) -> CInt.clip (f e) ~bits
+    | Concat es ->
+        let _, c =
+          List.fold es ~init:(0, CInt.zero) ~f:(fun (acc, tot) (e, bits) ->
+              ( acc + bits,
+                CInt.add tot (CInt.left_shift (f e) ~amt:(CInt.of_int acc)) ))
+        in
+        c
+    | Log2OneHot _ -> failwith "TODO"
+    | Eq (a, b) -> CInt.eq (f a) (f b) |> Bool.to_int |> CInt.of_int
+    | Ne (a, b) -> CInt.ne (f a) (f b) |> Bool.to_int |> CInt.of_int
+    | Lt (a, b) -> CInt.lt (f a) (f b) |> Bool.to_int |> CInt.of_int
+    | Le (a, b) -> CInt.le (f a) (f b) |> Bool.to_int |> CInt.of_int
+    | Gt (a, b) -> CInt.gt (f a) (f b) |> Bool.to_int |> CInt.of_int
+    | Ge (a, b) -> CInt.ge (f a) (f b) |> Bool.to_int |> CInt.of_int
+    | Eq0 a -> CInt.eq (f a) CInt.zero |> Bool.to_int |> CInt.of_int
+  in
+  f e
+
+let zip_repeated_merge_consts { Proc.stmt = dflows; iports; oports } =
+  let const_vars =
+    List.concat_map dflows ~f:(fun dflow ->
+        match dflow with
+        | MultiAssign l ->
+            if
+              List.concat_map l ~f:(fun (_, e) -> Expr.var_ids e)
+              |> List.is_empty
+            then l
+            else []
+        | _ -> [])
+    |> Var.Map.of_alist_exn
+    |> Map.map ~f:(fun e -> eval_const_expr e)
+  in
+
+  let next_id =
+    let biggest_id =
+      var_ids dflows iports oports
+      |> Set.to_list
+      |> List.map ~f:(fun v -> v.id)
+      |> List.max_elt ~compare:Int.compare
+      |> Option.value_exn
+    in
+    ref (biggest_id + 1)
+  in
+  let new_chan bitwidth =
+    let id = !next_id in
+    incr next_id;
+    { Var.id; bitwidth }
+  in
+
+  let dflows =
+    List.concat_map dflows ~f:(fun dflow ->
+        match dflow with
+        | Merge (g, ins, o) -> (
+            match g with
+            | Bits gs ->
+                let const, non_const =
+                  List.zip_exn gs ins
+                  |> List.partition_map ~f:(fun (g, in_v) ->
+                         match Map.find const_vars in_v with
+                         | Some c -> Either.First (c, (g, in_v))
+                         | None -> Either.Second (g, in_v))
+                in
+
+                let const, ctrl_procs =
+                  CInt.Map.of_alist_multi const
+                  |> Map.map ~f:(fun l ->
+                         let gs, in_vs = List.unzip l in
+                         let g, ctrl_proc =
+                           match gs with
+                           | [] -> failwith "unreachable"
+                           | [ g ] -> (g, [])
+                           | gs ->
+                               let g = new_chan 1 in
+                               let expr =
+                                 List.map gs ~f:(fun g -> Expr.Var g)
+                                 |> List.reduce ~f:(fun a b ->
+                                        Expr.BitOr (a, b))
+                                 |> Option.value_exn
+                               in
+                               let assign = MultiAssign [ (g, expr) ] in
+                               (g, [ assign ])
+                         in
+                         ((g, List.hd_exn in_vs), ctrl_proc))
+                  |> Map.data |> List.unzip
+                in
+                let gs, ins = List.unzip (non_const @ const) in
+                Merge (Bits gs, ins, o) :: List.concat ctrl_procs
+            | _ -> (* TODO *) [ dflow ])
+        | _ -> [ dflow ])
+  in
+  { Proc.stmt = dflows; iports; oports }
+
 let optimize_proc proc =
   let proc =
     eliminate_dead_code proc |> eliminate_repeated_vars |> eliminate_dead_code
     |> cluster_same_reads |> cluster_fuse_chains |> cluster_same_reads
     |> push_consts_throguh_split_merge |> eliminate_repeated_vars
-    |> eliminate_dead_code |> normalize_guards |> cluster_same_reads
-    |> eliminate_repeated_vars |> eliminate_dead_code
+    |> zip_repeated_merge_consts |> zip_repeated_sink_splits
+    |> eliminate_dead_code |> cluster_same_reads |> normalize_guards
+    |> cluster_same_reads |> eliminate_repeated_vars |> eliminate_dead_code
   in
   validate proc;
   proc
