@@ -110,7 +110,7 @@ let of_dflow_ir { Dflow_ir.Proc.stmt = dflows; iports; oports } =
   in
   { Proc.stmt = dflows @ copys_and_sinks; iports; oports }
 
-let optimize_proc { Proc.stmt = dflows; iports; oports } =
+let flatten_copies { Proc.stmt = dflows; iports; oports } =
   (* For now this just involves removing copy nodes with a sing output *)
   let renames =
     List.filter_map dflows ~f:(fun dflow ->
@@ -139,10 +139,8 @@ let optimize_proc { Proc.stmt = dflows; iports; oports } =
             | dsts -> Some (Clone (of_v src, List.map dsts ~f:of_v)))
         | Sink v -> Some (Sink (of_v v)))
   in
-
   let iports = List.map iports ~f:(fun (x, i) -> (x, of_v i)) in
   let oports = List.map oports ~f:(fun (x, o) -> (x, of_v o)) in
-
   { Proc.stmt = dflows; iports; oports }
 
 let var_ids { Proc.stmt = dflows; iports; oports } =
@@ -160,6 +158,39 @@ let var_ids { Proc.stmt = dflows; iports; oports } =
     List.map oports ~f:snd;
   ]
   |> List.concat |> Var.Set.of_list
+
+let pack_var_names proc =
+  (* Make all the variable names sequential *)
+  let next_id = ref 0 in
+  let new_chan bitwidth =
+    let id = !next_id in
+    incr next_id;
+    { Var.id; bitwidth }
+  in
+
+  let var_ids =
+    var_ids proc |> Map.of_key_set ~f:(fun id -> new_chan id.bitwidth)
+  in
+  let of_v v = Map.find_exn var_ids v in
+  let dflows =
+    List.map proc.stmt ~f:(fun dflow ->
+        match dflow with
+        | Stmt.MultiAssign l ->
+            Stmt.MultiAssign
+              (List.map l ~f:(fun (dst, e) ->
+                   (of_v dst, Expr.map_vars e ~f:of_v)))
+        | Split (g, i, os) ->
+            Split (of_v g, of_v i, List.map os ~f:(Option.map ~f:of_v))
+        | Merge (g, ins, o) -> Merge (of_v g, List.map ins ~f:of_v, of_v o)
+        | Copy_init (dst, src, init) -> Copy_init (of_v dst, of_v src, init)
+        | Clone (src, dsts) -> Clone (of_v src, List.map dsts ~f:of_v)
+        | Sink v -> Sink (of_v v))
+  in
+  let iports = List.map proc.iports ~f:(fun (x, i) -> (x, of_v i)) in
+  let oports = List.map proc.oports ~f:(fun (x, o) -> (x, of_v o)) in
+  { Proc.stmt = dflows; iports; oports }
+
+let optimize_proc proc = flatten_copies proc |> pack_var_names
 
 let of_chp (chp : Flat_chp.Proc.t) =
   assert chp.dflowable;

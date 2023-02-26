@@ -39,19 +39,19 @@ let%expect_test "expression chains" =
          (((id 8) (bitwidth 8)) (Div (Var ((id 7) (bitwidth 8))) (Const 2)))))))
      (iports ((((id 0) (bitwidth 8)) ((id 2) (bitwidth 8)))))
      (oports ((((id 1) (bitwidth 8)) ((id 8) (bitwidth 8))))))
-    defproc proc_0(chan!(int<8>) iport6; chan?(int<8>) oport5) {
+    defproc proc_0(chan!(int<8>) iport3; chan?(int<8>) oport2) {
+      chan(int<8>) v0;
+      chan(int<8>) v1;
+      chan(int<8>) v2;
       chan(int<8>) v3;
-      chan(int<8>) v4;
-      chan(int<8>) v5;
-      chan(int<8>) v6;
     dataflow {
       dataflow_cluser {
-        v3 <- ((v6) / 2);
-        v4 <- ((v3) / 2);
-        v5 <- ((v4) / 2);
+        v0 <- ((v3) / 2);
+        v1 <- ((v0) / 2);
+        v2 <- ((v1) / 2);
       };
-    iport6 -> v6;
-    v5 -> oport5;
+    iport3 -> v3;
+    v2 -> oport2;
     }
     }
 
@@ -104,17 +104,17 @@ let%expect_test "expression branches" =
           (Div (Var ((id 6) (bitwidth 8))) (Var ((id 6) (bitwidth 8)))))))))
      (iports ((((id 0) (bitwidth 8)) ((id 2) (bitwidth 8)))))
      (oports ((((id 1) (bitwidth 8)) ((id 8) (bitwidth 8))))))
-    defproc proc_0(chan!(int<8>) iport4; chan?(int<8>) oport3) {
+    defproc proc_0(chan!(int<8>) iport2; chan?(int<8>) oport1) {
+      chan(int<8>) v0;
+      chan(int<8>) v1;
       chan(int<8>) v2;
-      chan(int<8>) v3;
-      chan(int<8>) v4;
     dataflow {
       dataflow_cluser {
-        v2 <- ((v4) / 2);
-        v3 <- ((v2) / (v2));
+        v0 <- ((v2) / 2);
+        v1 <- ((v0) / (v0));
       };
-    iport4 -> v4;
-    v3 -> oport3;
+    iport2 -> v2;
+    v1 -> oport1;
     }
     }
 
