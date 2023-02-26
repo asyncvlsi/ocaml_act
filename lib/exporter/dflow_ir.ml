@@ -703,6 +703,29 @@ let cluster_same_reads { Proc.stmt = dflows; iports; oports } =
 
   { Proc.stmt = multi_assigns @ non_assigns; oports; iports }
 
+let connected_components verts edges =
+  let verts = Map.of_key_set verts ~f:Union_find.create in
+  List.iter edges ~f:(fun (a, b) ->
+      Union_find.union (Map.find_exn verts a) (Map.find_exn verts b));
+  let clusters =
+    Map.to_alist verts
+    |> List.fold ~init:[] ~f:(fun clusters (_, id_class) ->
+           match
+             List.find clusters ~f:(fun cluster ->
+                 Union_find.same_class cluster id_class)
+           with
+           | Some _ -> clusters
+           | None -> id_class :: clusters)
+    |> List.mapi ~f:(fun i cluster -> (cluster, i))
+  in
+  let cluster_of_vert =
+    Map.map verts ~f:(fun id_class ->
+        List.find_exn clusters ~f:(fun (cluster, _) ->
+            Union_find.same_class cluster id_class)
+        |> snd)
+  in
+  cluster_of_vert
+
 (* Transofmation #2 *)
 let cluster_fuse_chains { Proc.stmt = dflows; iports; oports } =
   let dflows = List.mapi dflows ~f:(fun id dflow -> (id, dflow)) in
@@ -739,7 +762,7 @@ let cluster_fuse_chains { Proc.stmt = dflows; iports; oports } =
     |> Int.Map.of_alist_multi |> Map.map ~f:List.length
   in
 
-  let consumer_of_producer =
+  let fuses =
     List.concat_map multi_assigns ~f:(fun (id_i, _) ->
         List.filter_map multi_assigns ~f:(fun (id_o, multi_assign) ->
             let reads_of_id_o =
@@ -747,34 +770,25 @@ let cluster_fuse_chains { Proc.stmt = dflows; iports; oports } =
               |> List.filter_map ~f:(Map.find cluster_of_output)
               |> Int.Set.of_list
             in
-            if
+            let o_only_reader_of_i =
               Int.equal 1
                 (Map.find read_ct_of_cluster id_i |> Option.value ~default:0)
               && Set.mem reads_of_id_o id_i
-            then Some (id_i, id_o)
+            in
+            let o_only_reads_of_i =
+              List.equal Int.equal (Set.to_list reads_of_id_o) [ id_i ]
+            in
+            if o_only_reader_of_i || o_only_reads_of_i then Some (id_i, id_o)
             else None))
-    |> Int.Map.of_alist_exn
+  in
+  let cluster_of_id =
+    let ids = List.map multi_assigns ~f:fst |> Int.Set.of_list in
+    connected_components ids fuses
   in
 
-  let true_consumer ~producer ~consumer =
-    let rec h x =
-      if Int.equal x producer then None
-      else
-        let pred = Map.find consumer_of_producer x in
-        match pred with None -> Some x | Some pred -> h pred
-    in
-    h consumer
-  in
-  let true_consumer_of_producer =
-    Map.filter_mapi consumer_of_producer ~f:(fun ~key ~data ->
-        true_consumer ~producer:key ~consumer:data)
-  in
   let multi_assigns =
-    List.map multi_assigns ~f:(fun (cluster_id, multi_assign) ->
-        let cluster_id =
-          Map.find true_consumer_of_producer cluster_id
-          |> Option.value ~default:cluster_id
-        in
+    List.map multi_assigns ~f:(fun (id, multi_assign) ->
+        let cluster_id = Map.find_exn cluster_of_id id in
         (cluster_id, multi_assign))
     |> Int.Map.of_alist_multi |> Map.map ~f:List.concat |> Map.data
     |> List.map ~f:(fun multi_assign -> MultiAssign multi_assign)
@@ -948,7 +962,129 @@ let push_consts_throguh_split_merge { Proc.stmt = dflows; iports; oports } =
    split_g(v) -> (v12, v3)
    merge_g(v12', v3') -> v'
 *)
-(* let zip_coupled_split_merges { Proc.stmt = dflows; iports; oports } = failwith "TODO" *)
+let zip_coupled_split_merges { Proc.stmt = dflows; iports; oports } =
+  let next_id =
+    let biggest_id =
+      var_ids dflows iports oports
+      |> Set.to_list
+      |> List.map ~f:(fun v -> v.id)
+      |> List.max_elt ~compare:Int.compare
+      |> Option.value_exn
+    in
+    ref (biggest_id + 1)
+  in
+  let new_chan bitwidth =
+    let id = !next_id in
+    incr next_id;
+    { Var.id; bitwidth }
+  in
+
+  let read_ct_of_id =
+    List.concat_map dflows ~f:(fun dflow ->
+        match dflow with
+        | MultiAssign assigns ->
+            List.concat_map assigns ~f:(fun (_, e) -> Expr.var_ids e)
+            |> Var.Set.of_list |> Set.to_list
+        | Split (g, v, _) -> v :: Guard.ids g
+        | Merge (g, ins, _) -> Guard.ids g @ ins
+        | Copy_init (dst, src, _) -> [ dst; src ])
+    |> List.map ~f:(fun v -> (v, ()))
+    |> Var.Map.of_alist_multi |> Map.map ~f:List.length
+  in
+
+  let split_merges, other_dflows =
+    List.partition_map dflows ~f:(fun dflow ->
+        match dflow with
+        | Split (_, _, _) | Merge (_, _, _) -> Either.First dflow
+        | _ -> Second dflow)
+  in
+  (* first bit things by guard varaible *)
+  let split_merges = List.mapi split_merges ~f:(fun i dflow -> (i, dflow)) in
+  let couples =
+    List.concat_map split_merges ~f:(fun (split_idx, split) ->
+        List.concat_map split_merges ~f:(fun (merge_idx, merge) ->
+            match (split, merge) with
+            | Split (g_split, _, os), Merge (g_merge, ins, _) ->
+                if Guard.equal g_split g_merge then
+                  match g_split with
+                  | Bits _ ->
+                      if
+                        (* lists are same length because guards are same and both "bits" guards so same number of guards in lists *)
+                        List.zip_exn os ins
+                        |> List.filter ~f:(fun (s, m) ->
+                               Option.is_some s
+                               && Var.equal (Option.value_exn s) m
+                               && Map.find_exn read_ct_of_id
+                                    (Option.value_exn s)
+                                  |> Int.equal 1)
+                        |> List.length >= 2
+                      then [ (split_idx, merge_idx) ]
+                      else []
+                  | _ -> []
+                else []
+            | _ -> []))
+  in
+  (* then make sure this is no split/merge has multiple partners. TODO there are better ways to do this *)
+  let couples =
+    couples |> Int.Map.of_alist_multi |> Map.map ~f:List.hd_exn |> Map.to_alist
+    |> List.map ~f:(fun (split, merge) -> (merge, split))
+    |> Int.Map.of_alist_multi |> Map.map ~f:List.hd_exn |> Map.to_alist
+    |> List.map ~f:(fun (merge, split) -> (split, merge))
+  in
+
+  let modify_set =
+    List.concat_map couples ~f:(fun (split, merge) -> [ split; merge ])
+    |> Int.Set.of_list
+  in
+  let unmod_split_merges, to_modify_split_merges =
+    List.partition_map split_merges ~f:(fun (idx, dflow) ->
+        if Set.mem modify_set idx then Either.Second (idx, dflow)
+        else Either.First dflow)
+  in
+  let to_modify_split_merges = Int.Map.of_alist_exn to_modify_split_merges in
+  let modified_split_merges =
+    List.concat_map couples ~f:(fun (split, merge) ->
+        match
+          ( Map.find_exn to_modify_split_merges split,
+            Map.find_exn to_modify_split_merges merge )
+        with
+        | Split (g, in_v, os), Merge (_, ins, out_v) -> (
+            match g with
+            | Bits gs ->
+                let parrellel, not_parrellel =
+                  List.zip_exn gs (List.zip_exn os ins)
+                  |> List.partition_map ~f:(fun (g, (s, m)) ->
+                         if
+                           Option.is_some s
+                           && Var.equal (Option.value_exn s) m
+                           && Map.find_exn read_ct_of_id (Option.value_exn s)
+                              |> Int.equal 1
+                         then Either.First (g, s, m)
+                         else Either.Second (g, s, m))
+                in
+                let parrellel_g = new_chan 1 in
+                let parrellel_expr =
+                  List.map parrellel ~f:(fun (g, _, _) -> Expr.Var g)
+                  |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
+                  |> Option.value_exn
+                in
+                let par_chan = new_chan in_v.bitwidth in
+                let ctrl_proc = MultiAssign [ (parrellel_g, parrellel_expr) ] in
+                let gs, ss, ms = List.unzip3 not_parrellel in
+                let gs = gs @ [ parrellel_g ] in
+                let ss = ss @ [ Some par_chan ] in
+                let ms = ms @ [ par_chan ] in
+                [
+                  Split (Bits gs, in_v, ss);
+                  Merge (Bits gs, ms, out_v);
+                  ctrl_proc;
+                ]
+            | _ -> failwith "unreachable")
+        | _ -> failwith "unreachable")
+  in
+
+  let dflows = unmod_split_merges @ modified_split_merges @ other_dflows in
+  { Proc.stmt = dflows; iports; oports }
 
 (* if we have the following structure
    split_g(v) -> ( *, *, v3 )
@@ -1124,9 +1260,11 @@ let optimize_proc proc =
     eliminate_dead_code proc |> eliminate_repeated_vars |> eliminate_dead_code
     |> cluster_same_reads |> cluster_fuse_chains |> cluster_same_reads
     |> push_consts_throguh_split_merge |> eliminate_repeated_vars
-    |> zip_repeated_merge_consts |> zip_repeated_sink_splits
-    |> eliminate_dead_code |> cluster_same_reads |> normalize_guards
+    |> zip_coupled_split_merges |> zip_repeated_merge_consts
+    |> zip_repeated_sink_splits |> eliminate_dead_code |> cluster_same_reads
+    |> normalize_guards |> cluster_same_reads |> cluster_fuse_chains
     |> cluster_same_reads |> eliminate_repeated_vars |> eliminate_dead_code
   in
   validate proc;
+  print_s [%sexp (proc : Proc.t)];
   proc

@@ -32,6 +32,13 @@ let%expect_test "expression chains" =
        (Assign ((id 7) (bitwidth 8)) (Div (Var ((id 6) (bitwidth 8))) (Const 2)))
        (Send ((id 1) (bitwidth 8)) (Var ((id 7) (bitwidth 8))))))
      (Const 1))
+    ((stmt
+      ((MultiAssign
+        ((((id 6) (bitwidth 8)) (Div (Var ((id 2) (bitwidth 8))) (Const 2)))
+         (((id 7) (bitwidth 8)) (Div (Var ((id 6) (bitwidth 8))) (Const 2)))
+         (((id 8) (bitwidth 8)) (Div (Var ((id 7) (bitwidth 8))) (Const 2)))))))
+     (iports ((((id 0) (bitwidth 8)) ((id 2) (bitwidth 8)))))
+     (oports ((((id 1) (bitwidth 8)) ((id 8) (bitwidth 8))))))
     defproc proc_0(chan!(int<8>) iport6; chan?(int<8>) oport5) {
       chan(int<8>) v3;
       chan(int<8>) v4;
@@ -90,6 +97,13 @@ let%expect_test "expression branches" =
         (Div (Var ((id 5) (bitwidth 8))) (Var ((id 6) (bitwidth 8)))))
        (Send ((id 1) (bitwidth 8)) (Var ((id 7) (bitwidth 8))))))
      (Const 1))
+    ((stmt
+      ((MultiAssign
+        ((((id 6) (bitwidth 8)) (Div (Var ((id 2) (bitwidth 8))) (Const 2)))
+         (((id 8) (bitwidth 8))
+          (Div (Var ((id 6) (bitwidth 8))) (Var ((id 6) (bitwidth 8)))))))))
+     (iports ((((id 0) (bitwidth 8)) ((id 2) (bitwidth 8)))))
+     (oports ((((id 1) (bitwidth 8)) ((id 8) (bitwidth 8))))))
     defproc proc_0(chan!(int<8>) iport4; chan?(int<8>) oport3) {
       chan(int<8>) v2;
       chan(int<8>) v3;
