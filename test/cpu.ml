@@ -1300,14 +1300,14 @@ let%expect_test "fibonacci" =
         ((((id 264) (bitwidth 1))
           (BitXor (Const 1) (Var ((id 263) (bitwidth 1)))))))
        (MultiAssign
-        ((((id 266) (bitwidth 1))
-          (BitXor (Const 1) (Var ((id 265) (bitwidth 1)))))))
+        ((((id 269) (bitwidth 1))
+          (BitOr (Var ((id 267) (bitwidth 1))) (Var ((id 268) (bitwidth 1)))))))
        (MultiAssign
-        ((((id 271) (bitwidth 1))
-          (BitOr (Var ((id 269) (bitwidth 1))) (Var ((id 270) (bitwidth 1)))))))
+        ((((id 273) (bitwidth 1))
+          (BitXor (Var ((id 271) (bitwidth 1))) (Const 1)))))
        (MultiAssign
         ((((id 275) (bitwidth 1))
-          (BitXor (Var ((id 273) (bitwidth 1))) (Const 1)))))
+          (BitXor (Const 1) (Var ((id 274) (bitwidth 1)))))))
        (MultiAssign
         ((((id 284) (bitwidth 1))
           (BitXor (Var ((id 282) (bitwidth 1))) (Const 1)))))
@@ -1318,14 +1318,14 @@ let%expect_test "fibonacci" =
         ((((id 310) (bitwidth 1))
           (BitXor (Const 1) (Var ((id 309) (bitwidth 1)))))))
        (MultiAssign
-        ((((id 312) (bitwidth 1))
-          (BitXor (Const 1) (Var ((id 311) (bitwidth 1)))))))
+        ((((id 315) (bitwidth 1))
+          (BitOr (Var ((id 313) (bitwidth 1))) (Var ((id 314) (bitwidth 1)))))))
        (MultiAssign
-        ((((id 317) (bitwidth 1))
-          (BitOr (Var ((id 315) (bitwidth 1))) (Var ((id 316) (bitwidth 1)))))))
+        ((((id 319) (bitwidth 1))
+          (BitXor (Var ((id 317) (bitwidth 1))) (Const 1)))))
        (MultiAssign
         ((((id 321) (bitwidth 1))
-          (BitXor (Var ((id 319) (bitwidth 1))) (Const 1)))))
+          (BitXor (Const 1) (Var ((id 320) (bitwidth 1)))))))
        (MultiAssign
         ((((id 330) (bitwidth 1))
           (BitXor (Var ((id 328) (bitwidth 1))) (Const 1)))))
@@ -1336,41 +1336,41 @@ let%expect_test "fibonacci" =
         ((((id 340) (bitwidth 1))
           (BitXor (Const 1) (Var ((id 339) (bitwidth 1)))))))
        (MultiAssign
-        ((((id 342) (bitwidth 1))
-          (BitXor (Const 1) (Var ((id 341) (bitwidth 1)))))))
+        ((((id 345) (bitwidth 1))
+          (BitOr (Var ((id 343) (bitwidth 1))) (Var ((id 344) (bitwidth 1)))))))
        (MultiAssign
-        ((((id 344) (bitwidth 1))
-          (BitXor (Const 1) (Var ((id 343) (bitwidth 1)))))))
+        ((((id 349) (bitwidth 1))
+          (BitXor (Var ((id 347) (bitwidth 1))) (Const 1)))))
        (MultiAssign
-        ((((id 346) (bitwidth 1))
-          (BitXor (Const 1) (Var ((id 345) (bitwidth 1)))))))
+        ((((id 351) (bitwidth 1))
+          (BitXor (Const 1) (Var ((id 350) (bitwidth 1)))))))
        (MultiAssign
-        ((((id 348) (bitwidth 1))
-          (BitXor (Const 1) (Var ((id 347) (bitwidth 1)))))))
+        ((((id 356) (bitwidth 1))
+          (BitOr (Var ((id 354) (bitwidth 1))) (Var ((id 355) (bitwidth 1)))))))
        (MultiAssign
-        ((((id 353) (bitwidth 1))
-          (BitOr (Var ((id 351) (bitwidth 1))) (Var ((id 352) (bitwidth 1)))))))
-       (MultiAssign
-        ((((id 357) (bitwidth 1))
-          (BitXor (Var ((id 355) (bitwidth 1))) (Const 1)))))
+        ((((id 360) (bitwidth 1))
+          (BitXor (Var ((id 358) (bitwidth 1))) (Const 1)))))
        (MultiAssign
         ((((id 362) (bitwidth 1))
-          (BitOr (Var ((id 360) (bitwidth 1))) (Var ((id 361) (bitwidth 1)))))))
+          (BitXor (Const 1) (Var ((id 361) (bitwidth 1)))))))
        (MultiAssign
-        ((((id 366) (bitwidth 1))
-          (BitXor (Var ((id 364) (bitwidth 1))) (Const 1)))))
+        ((((id 367) (bitwidth 1))
+          (BitOr (Var ((id 365) (bitwidth 1))) (Var ((id 366) (bitwidth 1)))))))
        (MultiAssign
         ((((id 371) (bitwidth 1))
-          (BitOr (Var ((id 369) (bitwidth 1))) (Var ((id 370) (bitwidth 1)))))))
+          (BitXor (Var ((id 369) (bitwidth 1))) (Const 1)))))
        (MultiAssign
-        ((((id 375) (bitwidth 1))
-          (BitXor (Var ((id 373) (bitwidth 1))) (Const 1)))))
+        ((((id 373) (bitwidth 1))
+          (BitXor (Const 1) (Var ((id 372) (bitwidth 1)))))))
        (MultiAssign
-        ((((id 380) (bitwidth 1))
-          (BitOr (Var ((id 378) (bitwidth 1))) (Var ((id 379) (bitwidth 1)))))))
+        ((((id 378) (bitwidth 1))
+          (BitOr (Var ((id 376) (bitwidth 1))) (Var ((id 377) (bitwidth 1)))))))
+       (MultiAssign
+        ((((id 382) (bitwidth 1))
+          (BitXor (Var ((id 380) (bitwidth 1))) (Const 1)))))
        (MultiAssign
         ((((id 384) (bitwidth 1))
-          (BitXor (Var ((id 382) (bitwidth 1))) (Const 1)))))
+          (BitXor (Const 1) (Var ((id 383) (bitwidth 1)))))))
        (MultiAssign
         ((((id 393) (bitwidth 1))
           (BitXor (Var ((id 391) (bitwidth 1))) (Const 1)))))
@@ -1382,20 +1382,20 @@ let%expect_test "fibonacci" =
         (((id 1) (bitwidth 1)) ((id 5) (bitwidth 1))) ((id 6) (bitwidth 1)))
        (Merge (Idx ((id 4) (bitwidth 1)))
         (((id 0) (bitwidth 12)) ((id 7) (bitwidth 12))) ((id 8) (bitwidth 12)))
-       (Merge (Idx ((id 269) (bitwidth 1)))
+       (Merge (Idx ((id 267) (bitwidth 1)))
         (((id 261) (bitwidth 1)) ((id 263) (bitwidth 1)))
-        ((id 270) (bitwidth 1)))
-       (Split (Idx ((id 270) (bitwidth 1))) ((id 269) (bitwidth 1))
-        ((((id 273) (bitwidth 1))) (((id 274) (bitwidth 1)))))
-       (Merge (Idx ((id 270) (bitwidth 1)))
-        (((id 275) (bitwidth 1)) ((id 274) (bitwidth 1)))
-        ((id 272) (bitwidth 8)))
-       (Split (Idx ((id 271) (bitwidth 1))) ((id 270) (bitwidth 1))
-        (() (((id 268) (bitwidth 1)))))
-       (Split (Idx ((id 274) (bitwidth 1))) ((id 267) (bitwidth 8))
+        ((id 268) (bitwidth 1)))
+       (Split (Idx ((id 268) (bitwidth 1))) ((id 267) (bitwidth 1))
+        ((((id 271) (bitwidth 1))) (((id 272) (bitwidth 1)))))
+       (Merge (Idx ((id 268) (bitwidth 1)))
+        (((id 273) (bitwidth 1)) ((id 272) (bitwidth 1)))
+        ((id 270) (bitwidth 8)))
+       (Split (Idx ((id 269) (bitwidth 1))) ((id 268) (bitwidth 1))
+        (() (((id 266) (bitwidth 1)))))
+       (Split (Idx ((id 272) (bitwidth 1))) ((id 265) (bitwidth 8))
         ((((id 65) (bitwidth 8))) (((id 78) (bitwidth 8)))))
        (Merge (Idx ((id 278) (bitwidth 1)))
-        (((id 268) (bitwidth 1)) ((id 265) (bitwidth 1)))
+        (((id 266) (bitwidth 1)) ((id 274) (bitwidth 1)))
         ((id 279) (bitwidth 1)))
        (Split (Idx ((id 279) (bitwidth 1))) ((id 278) (bitwidth 1))
         ((((id 282) (bitwidth 1))) (((id 283) (bitwidth 1)))))
@@ -1403,22 +1403,22 @@ let%expect_test "fibonacci" =
         (((id 284) (bitwidth 1)) ((id 283) (bitwidth 1)))
         ((id 281) (bitwidth 8)))
        (Split (Idx ((id 283) (bitwidth 1))) ((id 276) (bitwidth 8))
-        ((((id 267) (bitwidth 8))) (((id 91) (bitwidth 8)))))
-       (Merge (Idx ((id 315) (bitwidth 1)))
+        ((((id 265) (bitwidth 8))) (((id 91) (bitwidth 8)))))
+       (Merge (Idx ((id 313) (bitwidth 1)))
         (((id 307) (bitwidth 1)) ((id 309) (bitwidth 1)))
-        ((id 316) (bitwidth 1)))
-       (Split (Idx ((id 316) (bitwidth 1))) ((id 315) (bitwidth 1))
-        ((((id 319) (bitwidth 1))) (((id 320) (bitwidth 1)))))
-       (Merge (Idx ((id 316) (bitwidth 1)))
-        (((id 321) (bitwidth 1)) ((id 320) (bitwidth 1)))
-        ((id 318) (bitwidth 8)))
-       (Split (Idx ((id 317) (bitwidth 1))) ((id 316) (bitwidth 1))
-        (() (((id 314) (bitwidth 1)))))
-       (Merge (Idx ((id 320) (bitwidth 1)))
+        ((id 314) (bitwidth 1)))
+       (Split (Idx ((id 314) (bitwidth 1))) ((id 313) (bitwidth 1))
+        ((((id 317) (bitwidth 1))) (((id 318) (bitwidth 1)))))
+       (Merge (Idx ((id 314) (bitwidth 1)))
+        (((id 319) (bitwidth 1)) ((id 318) (bitwidth 1)))
+        ((id 316) (bitwidth 8)))
+       (Split (Idx ((id 315) (bitwidth 1))) ((id 314) (bitwidth 1))
+        (() (((id 312) (bitwidth 1)))))
+       (Merge (Idx ((id 318) (bitwidth 1)))
         (((id 223) (bitwidth 8)) ((id 234) (bitwidth 8)))
-        ((id 313) (bitwidth 8)))
+        ((id 311) (bitwidth 8)))
        (Merge (Idx ((id 324) (bitwidth 1)))
-        (((id 314) (bitwidth 1)) ((id 311) (bitwidth 1)))
+        (((id 312) (bitwidth 1)) ((id 320) (bitwidth 1)))
         ((id 325) (bitwidth 1)))
        (Split (Idx ((id 325) (bitwidth 1))) ((id 324) (bitwidth 1))
         ((((id 328) (bitwidth 1))) (((id 329) (bitwidth 1)))))
@@ -1426,62 +1426,62 @@ let%expect_test "fibonacci" =
         (((id 330) (bitwidth 1)) ((id 329) (bitwidth 1)))
         ((id 327) (bitwidth 8)))
        (Merge (Idx ((id 329) (bitwidth 1)))
-        (((id 313) (bitwidth 8)) ((id 245) (bitwidth 8)))
+        (((id 311) (bitwidth 8)) ((id 245) (bitwidth 8)))
         ((id 322) (bitwidth 8)))
-       (Merge (Idx ((id 351) (bitwidth 1)))
+       (Merge (Idx ((id 343) (bitwidth 1)))
         (((id 337) (bitwidth 1)) ((id 339) (bitwidth 1)))
-        ((id 352) (bitwidth 1)))
-       (Split (Idx ((id 352) (bitwidth 1))) ((id 351) (bitwidth 1))
-        ((((id 355) (bitwidth 1))) (((id 356) (bitwidth 1)))))
-       (Merge (Idx ((id 352) (bitwidth 1)))
-        (((id 357) (bitwidth 1)) ((id 356) (bitwidth 1)))
-        ((id 354) (bitwidth 13)))
-       (Split (Idx ((id 353) (bitwidth 1))) ((id 352) (bitwidth 1))
-        (() (((id 350) (bitwidth 1)))))
-       (Merge (Idx ((id 356) (bitwidth 1)))
+        ((id 344) (bitwidth 1)))
+       (Split (Idx ((id 344) (bitwidth 1))) ((id 343) (bitwidth 1))
+        ((((id 347) (bitwidth 1))) (((id 348) (bitwidth 1)))))
+       (Merge (Idx ((id 344) (bitwidth 1)))
+        (((id 349) (bitwidth 1)) ((id 348) (bitwidth 1)))
+        ((id 346) (bitwidth 13)))
+       (Split (Idx ((id 345) (bitwidth 1))) ((id 344) (bitwidth 1))
+        (() (((id 342) (bitwidth 1)))))
+       (Merge (Idx ((id 348) (bitwidth 1)))
         (((id 64) (bitwidth 13)) ((id 77) (bitwidth 13)))
-        ((id 349) (bitwidth 13)))
-       (Merge (Idx ((id 360) (bitwidth 1)))
-        (((id 350) (bitwidth 1)) ((id 341) (bitwidth 1)))
-        ((id 361) (bitwidth 1)))
-       (Split (Idx ((id 361) (bitwidth 1))) ((id 360) (bitwidth 1))
-        ((((id 364) (bitwidth 1))) (((id 365) (bitwidth 1)))))
-       (Merge (Idx ((id 361) (bitwidth 1)))
-        (((id 366) (bitwidth 1)) ((id 365) (bitwidth 1)))
-        ((id 363) (bitwidth 13)))
-       (Split (Idx ((id 362) (bitwidth 1))) ((id 361) (bitwidth 1))
-        (() (((id 359) (bitwidth 1)))))
+        ((id 341) (bitwidth 13)))
+       (Merge (Idx ((id 354) (bitwidth 1)))
+        (((id 342) (bitwidth 1)) ((id 350) (bitwidth 1)))
+        ((id 355) (bitwidth 1)))
+       (Split (Idx ((id 355) (bitwidth 1))) ((id 354) (bitwidth 1))
+        ((((id 358) (bitwidth 1))) (((id 359) (bitwidth 1)))))
+       (Merge (Idx ((id 355) (bitwidth 1)))
+        (((id 360) (bitwidth 1)) ((id 359) (bitwidth 1)))
+        ((id 357) (bitwidth 13)))
+       (Split (Idx ((id 356) (bitwidth 1))) ((id 355) (bitwidth 1))
+        (() (((id 353) (bitwidth 1)))))
+       (Merge (Idx ((id 359) (bitwidth 1)))
+        (((id 341) (bitwidth 13)) ((id 90) (bitwidth 13)))
+        ((id 352) (bitwidth 13)))
        (Merge (Idx ((id 365) (bitwidth 1)))
-        (((id 349) (bitwidth 13)) ((id 90) (bitwidth 13)))
-        ((id 358) (bitwidth 13)))
-       (Merge (Idx ((id 369) (bitwidth 1)))
-        (((id 359) (bitwidth 1)) ((id 343) (bitwidth 1)))
-        ((id 370) (bitwidth 1)))
-       (Split (Idx ((id 370) (bitwidth 1))) ((id 369) (bitwidth 1))
-        ((((id 373) (bitwidth 1))) (((id 374) (bitwidth 1)))))
+        (((id 353) (bitwidth 1)) ((id 361) (bitwidth 1)))
+        ((id 366) (bitwidth 1)))
+       (Split (Idx ((id 366) (bitwidth 1))) ((id 365) (bitwidth 1))
+        ((((id 369) (bitwidth 1))) (((id 370) (bitwidth 1)))))
+       (Merge (Idx ((id 366) (bitwidth 1)))
+        (((id 371) (bitwidth 1)) ((id 370) (bitwidth 1)))
+        ((id 368) (bitwidth 13)))
+       (Split (Idx ((id 367) (bitwidth 1))) ((id 366) (bitwidth 1))
+        (() (((id 364) (bitwidth 1)))))
        (Merge (Idx ((id 370) (bitwidth 1)))
-        (((id 375) (bitwidth 1)) ((id 374) (bitwidth 1)))
-        ((id 372) (bitwidth 13)))
-       (Split (Idx ((id 371) (bitwidth 1))) ((id 370) (bitwidth 1))
-        (() (((id 368) (bitwidth 1)))))
-       (Merge (Idx ((id 374) (bitwidth 1)))
-        (((id 358) (bitwidth 13)) ((id 230) (bitwidth 13)))
-        ((id 367) (bitwidth 13)))
-       (Merge (Idx ((id 378) (bitwidth 1)))
-        (((id 368) (bitwidth 1)) ((id 345) (bitwidth 1)))
-        ((id 379) (bitwidth 1)))
-       (Split (Idx ((id 379) (bitwidth 1))) ((id 378) (bitwidth 1))
-        ((((id 382) (bitwidth 1))) (((id 383) (bitwidth 1)))))
-       (Merge (Idx ((id 379) (bitwidth 1)))
-        (((id 384) (bitwidth 1)) ((id 383) (bitwidth 1)))
-        ((id 381) (bitwidth 13)))
-       (Split (Idx ((id 380) (bitwidth 1))) ((id 379) (bitwidth 1))
-        (() (((id 377) (bitwidth 1)))))
-       (Merge (Idx ((id 383) (bitwidth 1)))
-        (((id 367) (bitwidth 13)) ((id 241) (bitwidth 13)))
-        ((id 376) (bitwidth 13)))
+        (((id 352) (bitwidth 13)) ((id 230) (bitwidth 13)))
+        ((id 363) (bitwidth 13)))
+       (Merge (Idx ((id 376) (bitwidth 1)))
+        (((id 364) (bitwidth 1)) ((id 372) (bitwidth 1)))
+        ((id 377) (bitwidth 1)))
+       (Split (Idx ((id 377) (bitwidth 1))) ((id 376) (bitwidth 1))
+        ((((id 380) (bitwidth 1))) (((id 381) (bitwidth 1)))))
+       (Merge (Idx ((id 377) (bitwidth 1)))
+        (((id 382) (bitwidth 1)) ((id 381) (bitwidth 1)))
+        ((id 379) (bitwidth 13)))
+       (Split (Idx ((id 378) (bitwidth 1))) ((id 377) (bitwidth 1))
+        (() (((id 375) (bitwidth 1)))))
+       (Merge (Idx ((id 381) (bitwidth 1)))
+        (((id 363) (bitwidth 13)) ((id 241) (bitwidth 13)))
+        ((id 374) (bitwidth 13)))
        (Merge (Idx ((id 387) (bitwidth 1)))
-        (((id 377) (bitwidth 1)) ((id 347) (bitwidth 1)))
+        (((id 375) (bitwidth 1)) ((id 383) (bitwidth 1)))
         ((id 388) (bitwidth 1)))
        (Split (Idx ((id 388) (bitwidth 1))) ((id 387) (bitwidth 1))
         ((((id 391) (bitwidth 1))) (((id 392) (bitwidth 1)))))
@@ -1489,7 +1489,7 @@ let%expect_test "fibonacci" =
         (((id 393) (bitwidth 1)) ((id 392) (bitwidth 1)))
         ((id 390) (bitwidth 13)))
        (Merge (Idx ((id 392) (bitwidth 1)))
-        (((id 376) (bitwidth 13)) ((id 251) (bitwidth 13)))
+        (((id 374) (bitwidth 13)) ((id 251) (bitwidth 13)))
         ((id 385) (bitwidth 13)))
        (Merge (Idx ((id 466) (bitwidth 2)))
         (((id 38) (bitwidth 8)) ((id 41) (bitwidth 8)) ((id 43) (bitwidth 8))
@@ -1575,24 +1575,24 @@ let%expect_test "fibonacci" =
        (Copy_init ((id 4) (bitwidth 1)) ((id 2) (bitwidth 1)) 0)
        (Copy_init ((id 261) (bitwidth 1)) ((id 262) (bitwidth 1)) 0)
        (Copy_init ((id 263) (bitwidth 1)) ((id 264) (bitwidth 1)) 0)
-       (Copy_init ((id 265) (bitwidth 1)) ((id 266) (bitwidth 1)) 0)
-       (Copy_init ((id 269) (bitwidth 1)) ((id 272) (bitwidth 8)) 0)
+       (Copy_init ((id 267) (bitwidth 1)) ((id 270) (bitwidth 8)) 0)
+       (Copy_init ((id 274) (bitwidth 1)) ((id 275) (bitwidth 1)) 0)
        (Copy_init ((id 278) (bitwidth 1)) ((id 281) (bitwidth 8)) 0)
        (Copy_init ((id 307) (bitwidth 1)) ((id 308) (bitwidth 1)) 0)
        (Copy_init ((id 309) (bitwidth 1)) ((id 310) (bitwidth 1)) 0)
-       (Copy_init ((id 311) (bitwidth 1)) ((id 312) (bitwidth 1)) 0)
-       (Copy_init ((id 315) (bitwidth 1)) ((id 318) (bitwidth 8)) 0)
+       (Copy_init ((id 313) (bitwidth 1)) ((id 316) (bitwidth 8)) 0)
+       (Copy_init ((id 320) (bitwidth 1)) ((id 321) (bitwidth 1)) 0)
        (Copy_init ((id 324) (bitwidth 1)) ((id 327) (bitwidth 8)) 0)
        (Copy_init ((id 337) (bitwidth 1)) ((id 338) (bitwidth 1)) 0)
        (Copy_init ((id 339) (bitwidth 1)) ((id 340) (bitwidth 1)) 0)
-       (Copy_init ((id 341) (bitwidth 1)) ((id 342) (bitwidth 1)) 0)
-       (Copy_init ((id 343) (bitwidth 1)) ((id 344) (bitwidth 1)) 0)
-       (Copy_init ((id 345) (bitwidth 1)) ((id 346) (bitwidth 1)) 0)
-       (Copy_init ((id 347) (bitwidth 1)) ((id 348) (bitwidth 1)) 0)
-       (Copy_init ((id 351) (bitwidth 1)) ((id 354) (bitwidth 13)) 0)
-       (Copy_init ((id 360) (bitwidth 1)) ((id 363) (bitwidth 13)) 0)
-       (Copy_init ((id 369) (bitwidth 1)) ((id 372) (bitwidth 13)) 0)
-       (Copy_init ((id 378) (bitwidth 1)) ((id 381) (bitwidth 13)) 0)
+       (Copy_init ((id 343) (bitwidth 1)) ((id 346) (bitwidth 13)) 0)
+       (Copy_init ((id 350) (bitwidth 1)) ((id 351) (bitwidth 1)) 0)
+       (Copy_init ((id 354) (bitwidth 1)) ((id 357) (bitwidth 13)) 0)
+       (Copy_init ((id 361) (bitwidth 1)) ((id 362) (bitwidth 1)) 0)
+       (Copy_init ((id 365) (bitwidth 1)) ((id 368) (bitwidth 13)) 0)
+       (Copy_init ((id 372) (bitwidth 1)) ((id 373) (bitwidth 1)) 0)
+       (Copy_init ((id 376) (bitwidth 1)) ((id 379) (bitwidth 13)) 0)
+       (Copy_init ((id 383) (bitwidth 1)) ((id 384) (bitwidth 1)) 0)
        (Copy_init ((id 387) (bitwidth 1)) ((id 390) (bitwidth 13)) 0)))
      (iports
       ((((id 0) (bitwidth 8)) ((id 19) (bitwidth 8)))
@@ -2131,30 +2131,30 @@ let%expect_test "fibonacci" =
       };
       v130 <- (1 ^ (v129));
       v132 <- (1 ^ (v131));
-      v134 <- (1 ^ (v133));
-      v137 <- ((v135) | (v136));
-      v138 <- ((v193) ^ 1);
+      v135 <- ((v133) | (v134));
+      v136 <- ((v193) ^ 1);
+      v138 <- (1 ^ (v137));
       v139 <- ((v208) ^ 1);
       v141 <- (1 ^ (v140));
       v143 <- (1 ^ (v142));
-      v145 <- (1 ^ (v144));
-      v148 <- ((v146) | (v147));
-      v149 <- ((v222) ^ 1);
+      v146 <- ((v144) | (v145));
+      v147 <- ((v222) ^ 1);
+      v149 <- (1 ^ (v148));
       v150 <- ((v236) ^ 1);
       v152 <- (1 ^ (v151));
       v154 <- (1 ^ (v153));
-      v156 <- (1 ^ (v155));
-      v158 <- (1 ^ (v157));
+      v157 <- ((v155) | (v156));
+      v158 <- ((v249) ^ 1);
       v160 <- (1 ^ (v159));
-      v162 <- (1 ^ (v161));
-      v165 <- ((v163) | (v164));
-      v166 <- ((v249) ^ 1);
+      v163 <- ((v161) | (v162));
+      v164 <- ((v263) ^ 1);
+      v166 <- (1 ^ (v165));
       v169 <- ((v167) | (v168));
-      v170 <- ((v263) ^ 1);
-      v173 <- ((v171) | (v172));
-      v174 <- ((v277) ^ 1);
-      v177 <- ((v175) | (v176));
-      v178 <- ((v291) ^ 1);
+      v170 <- ((v277) ^ 1);
+      v172 <- (1 ^ (v171));
+      v175 <- ((v173) | (v174));
+      v176 <- ((v291) ^ 1);
+      v178 <- (1 ^ (v177));
       v179 <- ((v305) ^ 1);
       { v182 } v181 -> *, v180;
       { v184 } v368 -> *, v183;
@@ -2162,8 +2162,8 @@ let%expect_test "fibonacci" =
       { v188 } v0, v183 -> v187;
       { v192 } v190, v191 -> v189;
       { v196 } v195 -> v193, v194;
-      { v199 } v138, v198 -> v197;
-      { v137 } v201 -> *, v200;
+      { v199 } v136, v198 -> v197;
+      { v135 } v201 -> *, v200;
       { v204 } v215 -> v202, v203;
       { v207 } v200, v206 -> v205;
       { v211 } v210 -> v208, v209;
@@ -2171,8 +2171,8 @@ let%expect_test "fibonacci" =
       { v217 } v407 -> v215, v216;
       { v221 } v219, v220 -> v218;
       { v225 } v224 -> v222, v223;
-      { v228 } v149, v227 -> v226;
-      { v148 } v230 -> *, v229;
+      { v228 } v147, v227 -> v226;
+      { v146 } v230 -> *, v229;
       { v232 } v349, v356 -> v231;
       { v235 } v229, v234 -> v233;
       { v239 } v238 -> v236, v237;
@@ -2180,23 +2180,23 @@ let%expect_test "fibonacci" =
       { v244 } v231, v363 -> v243;
       { v248 } v246, v247 -> v245;
       { v252 } v251 -> v249, v250;
-      { v255 } v166, v254 -> v253;
-      { v165 } v257 -> *, v256;
+      { v255 } v158, v254 -> v253;
+      { v157 } v257 -> *, v256;
       { v259 } v8, v104 -> v258;
       { v262 } v256, v261 -> v260;
       { v266 } v265 -> v263, v264;
-      { v269 } v170, v268 -> v267;
-      { v169 } v271 -> *, v270;
+      { v269 } v164, v268 -> v267;
+      { v163 } v271 -> *, v270;
       { v273 } v258, v107 -> v272;
       { v276 } v270, v275 -> v274;
       { v280 } v279 -> v277, v278;
-      { v283 } v174, v282 -> v281;
-      { v173 } v285 -> *, v284;
+      { v283 } v170, v282 -> v281;
+      { v169 } v285 -> *, v284;
       { v287 } v272, v123 -> v286;
       { v290 } v284, v289 -> v288;
       { v294 } v293 -> v291, v292;
-      { v297 } v178, v296 -> v295;
-      { v177 } v299 -> *, v298;
+      { v297 } v176, v296 -> v295;
+      { v175 } v299 -> *, v298;
       { v301 } v286, v125 -> v300;
       { v304 } v298, v303 -> v302;
       { v308 } v307 -> v305, v306;
@@ -2234,24 +2234,24 @@ let%expect_test "fibonacci" =
       v383 -> [1,0] v384;
       v130 -> [1,0] v385;
       v132 -> [1,0] v386;
-      v134 -> [1,0] v387;
-      v197 -> [1,0] v388;
+      v197 -> [1,0] v387;
+      v138 -> [1,0] v388;
       v212 -> [1,0] v389;
       v141 -> [1,0] v390;
       v143 -> [1,0] v391;
-      v145 -> [1,0] v392;
-      v226 -> [1,0] v393;
+      v226 -> [1,0] v392;
+      v149 -> [1,0] v393;
       v240 -> [1,0] v394;
       v152 -> [1,0] v395;
       v154 -> [1,0] v396;
-      v156 -> [1,0] v397;
-      v158 -> [1,0] v398;
-      v160 -> [1,0] v399;
-      v162 -> [1,0] v400;
-      v253 -> [1,0] v401;
-      v267 -> [1,0] v402;
-      v281 -> [1,0] v403;
-      v295 -> [1,0] v404;
+      v253 -> [1,0] v397;
+      v160 -> [1,0] v398;
+      v267 -> [1,0] v399;
+      v166 -> [1,0] v400;
+      v281 -> [1,0] v401;
+      v172 -> [1,0] v402;
+      v295 -> [1,0] v403;
+      v178 -> [1,0] v404;
       v309 -> [1,0] v405;
       v383 <- v21;     v184 <- v21;     v182 <- v21;
       v74 <- v38;     v22 <- v38;
@@ -2275,21 +2275,21 @@ let%expect_test "fibonacci" =
       v355 <- v114;     v353 <- v114;     v350 <- v114;
       v362 <- v115;     v360 <- v115;     v357 <- v115;
       v369 <- v116;     v367 <- v116;     v364 <- v116;
-      v201 <- v189;     v199 <- v189;     v196 <- v189;     v136 <- v189;
+      v201 <- v189;     v199 <- v189;     v196 <- v189;     v134 <- v189;
       v204 <- v194;     v198 <- v194;
       v214 <- v205;     v211 <- v205;
       v217 <- v209;     v213 <- v209;
-      v230 <- v218;     v228 <- v218;     v225 <- v218;     v147 <- v218;
+      v230 <- v218;     v228 <- v218;     v225 <- v218;     v145 <- v218;
       v232 <- v223;     v227 <- v223;
       v242 <- v233;     v239 <- v233;
       v244 <- v237;     v241 <- v237;
-      v257 <- v245;     v255 <- v245;     v252 <- v245;     v164 <- v245;
+      v257 <- v245;     v255 <- v245;     v252 <- v245;     v156 <- v245;
       v259 <- v250;     v254 <- v250;
-      v271 <- v260;     v269 <- v260;     v266 <- v260;     v168 <- v260;
+      v271 <- v260;     v269 <- v260;     v266 <- v260;     v162 <- v260;
       v273 <- v264;     v268 <- v264;
-      v285 <- v274;     v283 <- v274;     v280 <- v274;     v172 <- v274;
+      v285 <- v274;     v283 <- v274;     v280 <- v274;     v168 <- v274;
       v287 <- v278;     v282 <- v278;
-      v299 <- v288;     v297 <- v288;     v294 <- v288;     v176 <- v288;
+      v299 <- v288;     v297 <- v288;     v294 <- v288;     v174 <- v288;
       v301 <- v292;     v296 <- v292;
       v311 <- v302;     v308 <- v302;
       v313 <- v306;     v310 <- v306;
@@ -2298,24 +2298,24 @@ let%expect_test "fibonacci" =
       v188 <- v384;     v186 <- v384;
       v190 <- v385;     v129 <- v385;
       v191 <- v386;     v131 <- v386;
-      v206 <- v387;     v133 <- v387;
-      v195 <- v388;     v192 <- v388;     v135 <- v388;
+      v195 <- v387;     v192 <- v387;     v133 <- v387;
+      v206 <- v388;     v137 <- v388;
       v210 <- v389;     v207 <- v389;
       v219 <- v390;     v140 <- v390;
       v220 <- v391;     v142 <- v391;
-      v234 <- v392;     v144 <- v392;
-      v224 <- v393;     v221 <- v393;     v146 <- v393;
+      v224 <- v392;     v221 <- v392;     v144 <- v392;
+      v234 <- v393;     v148 <- v393;
       v238 <- v394;     v235 <- v394;
       v246 <- v395;     v151 <- v395;
       v247 <- v396;     v153 <- v396;
-      v261 <- v397;     v155 <- v397;
-      v275 <- v398;     v157 <- v398;
-      v289 <- v399;     v159 <- v399;
-      v303 <- v400;     v161 <- v400;
-      v251 <- v401;     v248 <- v401;     v163 <- v401;
-      v265 <- v402;     v262 <- v402;     v167 <- v402;
-      v279 <- v403;     v276 <- v403;     v171 <- v403;
-      v293 <- v404;     v290 <- v404;     v175 <- v404;
+      v251 <- v397;     v248 <- v397;     v155 <- v397;
+      v261 <- v398;     v159 <- v398;
+      v265 <- v399;     v262 <- v399;     v161 <- v399;
+      v275 <- v400;     v165 <- v400;
+      v279 <- v401;     v276 <- v401;     v167 <- v401;
+      v289 <- v402;     v171 <- v402;
+      v293 <- v403;     v290 <- v403;     v173 <- v403;
+      v303 <- v404;     v177 <- v404;
       v307 <- v405;     v304 <- v405;
     iport406 -> v406;
     iport407 -> v407;

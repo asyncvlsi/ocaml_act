@@ -117,481 +117,311 @@ module Chan_end = struct
   include Comparable.Make (T)
 end
 
-module Rui_ctrl_proc = struct
-  type t =
-    | Op of Var.t
-    | Seq of t list
-    | SelectImm of Var.t list * t option list
-    | DoWhile of t * Var.t
+module Rui = struct
+  module Proc = struct
+    type t =
+      | Op of Var.t
+      | Seq of t list
+      | SelectImm of (* `Or`ed together *) (Var.t list * t) list * Var.t list
+      | DoWhile of t * Var.t
+      | Loop of t
+  end
 
-  (*
-     let map_merge_skew_and_accum_list m1 m2 ~combine =
-       let l = Queue.create () in
-       let combine ~key v1 v2 =
-         let v, a = combine ~key v1 v2 in
-         Queue.enqueue l a;
-         v
-       in
-       let m = Map.merge_skewed m1 m2 ~combine in
-       (m, Queue.to_list l |> List.concat)
-  *)
+  let optimize rui =
+    let rec f rui =
+      match rui with
+      | Proc.Op v -> Some (Proc.Op v)
+      | Seq ruis -> (
+          let ruis = List.filter_map ruis ~f in
+          let ruis =
+            List.concat_map ruis ~f:(fun rui ->
+                match rui with Seq ruis -> ruis | _ -> [ rui ])
+          in
+          match ruis with
+          | [] -> None
+          | [ c ] -> Some c
+          | ruis -> Some (Proc.Seq ruis))
+      | SelectImm (some_branches, else_guards) -> (
+          let some_branches, more_none_guards =
+            List.map some_branches ~f:(fun (g, rui) -> (g, f rui))
+            |> List.partition_map ~f:(fun (g, rui) ->
+                   match rui with
+                   | Some rui -> Either.First (g, rui)
+                   | None -> Either.Second g)
+          in
+          let else_guards = else_guards @ List.concat more_none_guards in
+          match some_branches with
+          | [] -> None
+          | [ (_, rui) ] -> Some rui
+          | some_branches -> Some (SelectImm (some_branches, else_guards)))
+      | DoWhile (rui, g) ->
+          Option.map (f rui) ~f:(fun rui -> Proc.DoWhile (rui, g))
+      | Loop rui -> Option.map (f rui) ~f:(fun rui -> Proc.Loop rui)
+    in
+    f rui
+
+  module Synth = struct
+    type t =
+      | Op of Var.t
+      | Seq2 of t * t
+      | SelectImm of
+          (*branch ORed guards*)
+          (Var.t list * t) list
+          * (* else guards *)
+          Var.t list
+      | DoWhile of t * Var.t
+      | Loop of t
+  end
+
+  let rec flatten rui =
+    match rui with
+    | Proc.Op v -> Synth.Op v
+    | Seq ruis -> (
+        match ruis with
+        | [] -> failwith "unreachable"
+        | rui :: ruis ->
+            List.fold ~init:(flatten rui) ruis ~f:(fun pref rui ->
+                Seq2 (pref, flatten rui)))
+    | SelectImm (on_branches, else_guards) ->
+        SelectImm
+          (List.map on_branches ~f:(fun (g, e) -> (g, flatten e)), else_guards)
+    | DoWhile (rui, g) -> DoWhile (flatten rui, g)
+    | Loop rui -> Loop (flatten rui)
+
   let merge_bool_guard s (b1, b2) v = [ Merge (Idx s, [ b1; b2 ], v) ]
   let split_bool_guard s v (b1, b2) = [ Split (Idx s, v, [ b1; b2 ]) ]
   let assign dst e = MultiAssign [ (dst, e) ]
 
-  (* control processes from rui's paper (converted into dataflow and adapted a bit). *)
-  (* let rui_ctrl_chan ctrl ~new_chan ~dir:_ =
-     let s_ = new_chan 1 in
-     [
-       Copy_init (ctrl, s_, CInt.zero);
-       assign s_ (BitXor (Const CInt.one, Var ctrl));
-     ] *)
-  (*
-     let rui_ctrl_send = rui_ctrl_chan ~dir:`Send
-     let rui_ctrl_read = rui_ctrl_chan ~dir:`Read
-  *)
-  (* let rui_ctrl_seq a b_chan a1 b1 a2 b2 ~new_chan ~dir =
-     let x_width = a.Var.bitwidth in
-     let s = new_chan 1 in
-     (* [ ~s -> b1?v [] s -> b2?v ] *)
-     let v = new_chan 1 in
-     let dflow1 = merge_bool_guard s (b1, b2) v in
-     (* [ ~ (s | v) -> skip  []   (s | v) -> b!v   ] *)
-     let dflow2 =
-       let g = new_chan 1 in
-       assign g (Expr.BitOr (Var s, Var v))
-       :: split_bool_guard g v (None, Some b_chan)
-     in
-
-     (* EITHER [ ~v -> s := ~s  []   v -> a?x; [ ~s -> a1!x  []   s -> a2!x ] ]
-        OR  [    ~v -> s := ~s  []   v -> [ ~s -> a1?x  []   s -> a2?x ] a!x; ] *)
-     let s' = new_chan x_width in
-     let dflow3 =
-       let s0 = new_chan 1 in
-       let s1 = new_chan 1 in
-       let s0' = new_chan 1 in
-       let op_procs =
-         match dir with
-         | `Read -> split_bool_guard s1 a (Some a1, Some a2)
-         | `Send -> merge_bool_guard s1 (a1, a2) a
-       in
-       [
-         split_bool_guard v s (Some s0, Some s1);
-         [ assign s0' (Expr.BitXor (Var s0, Const CInt.one)) ];
-         merge_bool_guard v (s0', s1) s';
-         op_procs;
-       ]
-       |> List.concat
-     in
-     (* finally, we must wrap `s` back around to the top *)
-     let dflow_wrap = [ Copy_init (s, s', CInt.zero) ] in
-     dflow1 @ dflow2 @ dflow3 @ dflow_wrap *)
-  (*
-     let rui_ctrl_seq_send = rui_ctrl_seq ~dir:`Send
-     let rui_ctrl_seq_read = rui_ctrl_seq ~dir:`Read
-  *)
-  (* let rui_ctrl_select a_chan b_chan guards ab_list ~new_chan ~dir =
-     let g_width = List.length guards in
-     let v = new_chan 1 in
-     let g = new_chan g_width in
-
-     (* [ ~v -> c?g [] v -> skip ] *)
-     let g' = new_chan g_width in
-     let dflow1 =
-       let g1 = new_chan g_width in
-       let c = new_chan g_width in
-       let c_expr =
-         Expr.Concat (List.map guards ~f:(fun e -> (Expr.Var e, 1)))
-       in
-       [
-         split_bool_guard v g (None, Some g1);
-         (* pack guards into c. TODO get around this somehow to expose this to the optimizer better. *)
-         [ assign c c_expr ];
-         merge_bool_guard v (c, g1) g';
-       ]
-       |> List.concat
-     in
-
-     (* [ g{i}=1   ->   B_i?v ]; B!v; *)
-     let v' = new_chan 1 in
-     let dflow2 =
-       let dflows, vi's =
-         List.map ab_list ~f:(fun o ->
-             let vi' = new_chan 1 in
-             let dflow =
-               match o with
-               | None -> assign vi' (Const CInt.zero)
-               | Some (_, bi) -> assign vi' (Var bi)
-             in
-             (dflow, vi'))
-         |> List.unzip
-       in
-       List.concat
-         [ [ Merge (One_hot g', vi's, v'); assign b_chan (Var v') ]; dflows ]
-     in
-
-     (* [~v -> skip []  v -> [ g{i}=1   ->  A0?x ]; A!x ]; OR *)
-     (* [~v -> skip []  v -> A?x; [ g{i}=1   ->  A0!x ] ]; OR *)
-     let dflow3 =
-       let g1' = new_chan g_width in
-       let op_procs =
-         match dir with
-         | `Send ->
-             let dflows, ais =
-               List.map ab_list ~f:(fun o ->
-                   let vi' = new_chan 1 in
-                   let dflow =
-                     match o with
-                     | None -> assign vi' (Const CInt.zero)
-                     | Some (ai, _) -> assign vi' (Var ai)
-                   in
-                   (dflow, vi'))
-               |> List.unzip
-             in
-             Merge (One_hot g1', ais, a_chan) :: dflows
-         | `Read ->
-             let ais = List.map ab_list ~f:(Option.map ~f:fst) in
-             [ Split (One_hot g1', a_chan, ais) ]
-       in
-       split_bool_guard v' g' (None, Some g1') @ op_procs
-     in
-
-     (* finally, we must wrap `v` and `g` back around to the top *)
-     let dflow_wrap =
-       [ Copy_init (v, v', CInt.zero); Copy_init (g, g', CInt.one) ]
-     in
-     dflow1 @ dflow2 @ dflow3 @ dflow_wrap *)
-  (*
-     let rui_ctrl_select_send = rui_ctrl_select ~dir:`Send
-     let rui_ctrl_select_read = rui_ctrl_select ~dir:`Read
-  *)
-  (* let rui_ctrl_dowhile b_chan guard_chan b1 ~new_chan ~dir:_ =
-     let v = new_chan 1 in
-     let g = new_chan 1 in
-     (* B1?v ;  [ ~v -> C?g  []  v -> skip  ] *)
-     let g' = new_chan 1 in
-     let dflow1 =
-       let g1 = new_chan 1 in
-       [
-         [ assign v (Var b1) ];
-         split_bool_guard v g (None, Some g1);
-         merge_bool_guard v (guard_chan, g1) g';
-       ]
-       |> List.concat
-     in
-     (* [ ~(v | ~g)  -> skip  []  (v | ~g) -> B!b ]; *)
-     let dflow2 =
-       let e = new_chan 1 in
-
-       assign e (BitOr (Var v, Eq0 (Var g)))
-       :: split_bool_guard e v (None, Some b_chan)
-     in
-
-     (* finally, we must wrap `g` back around to the top *)
-     let dflow_wrap = [ Copy_init (g, g', CInt.zero) ] in
-     dflow1 @ dflow2 @ dflow_wrap *)
-  (*
-     let rui_ctrl_dowhile_send = rui_ctrl_dowhile ~dir:`Send
-     let rui_ctrl_dowhile_read = rui_ctrl_dowhile ~dir:`Send
-  *)
-  let flatten rui ~new_chan =
-    let rec f rui =
-      match rui with
-      | Op v -> (Some (Op v), [])
-      | Seq ruis ->
-          let ruis, ctrl_procs = List.map ruis ~f |> List.unzip in
-          let rui =
-            match List.filter_opt ruis with
-            | [] -> None
-            | [ c ] -> Some c
-            | ruis ->
-                let ruis =
-                  List.concat_map ruis ~f:(fun rui ->
-                      match rui with Seq ruis -> ruis | _ -> [ rui ])
-                in
-                Some (Seq ruis)
-          in
-          (rui, List.concat ctrl_procs)
-      | SelectImm (gs, ruis) -> (
-          let ruis, ctrl_procs =
-            List.map ruis ~f:(fun rui ->
-                match rui with Some rui -> f rui | None -> (None, []))
-            |> List.unzip
-          in
-          let somes, nones =
-            List.zip_exn gs ruis
-            |> List.partition_tf ~f:(fun (_, rui) -> Option.is_some rui)
-          in
-          match somes with
-          | [] -> (None, [])
-          | [ (_, rui) ] ->
-              let rui = Option.value_exn rui in
-              (Some rui, List.concat ctrl_procs)
-          | somes ->
-              let none, expr_ctrl_procs =
-                match List.map nones ~f:fst with
-                | [] -> ([], [])
-                | [ g ] -> ([ (g, None) ], [])
-                | gs ->
-                    let v = new_chan 1 in
-                    let expr =
-                      List.map gs ~f:(fun v -> Expr.Var v)
-                      |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
-                      |> Option.value_exn
-                    in
-                    let ctrl_proc = MultiAssign [ (v, expr) ] in
-                    ([ (v, None) ], [ ctrl_proc ])
-              in
-              let gs, ruis = somes @ none |> List.unzip in
-              let ctrl_procs = List.concat ctrl_procs @ expr_ctrl_procs in
-              (Some (SelectImm (gs, ruis)), ctrl_procs))
-      | DoWhile (rui, g) ->
-          let rui, ctrl_procs = f rui in
-          let rui = Option.map rui ~f:(fun rui -> DoWhile (rui, g)) in
-          (rui, ctrl_procs)
+  let synth_op alias ~new_chan ~dir:_ =
+    let ctrl = new_chan 1 in
+    let s_ = new_chan 1 in
+    let dflow =
+      [
+        Copy_init (ctrl, s_, CInt.zero);
+        assign s_ (BitXor (Const CInt.one, Var ctrl));
+      ]
     in
-    f rui
+    ((alias, ctrl), dflow)
+
+  let synth_seq2 ~a1 ~b1 ~a2 ~b2 ~new_chan ~dir =
+    assert (Int.equal a1.Var.bitwidth a2.Var.bitwidth);
+    assert (Int.equal b1.Var.bitwidth 1);
+    assert (Int.equal b2.Var.bitwidth 1);
+    let a = new_chan a1.bitwidth in
+    let b_chan = new_chan 1 in
+    let x_width = a.Var.bitwidth in
+    let s = new_chan 1 in
+    (* [ ~s -> b1?v [] s -> b2?v ] *)
+    let v = new_chan 1 in
+    let dflow1 = merge_bool_guard s (b1, b2) v in
+    (* [ ~ (s | v) -> skip  []   (s | v) -> b!v   ] *)
+    let dflow2 =
+      let g = new_chan 1 in
+      assign g (Expr.BitOr (Var s, Var v))
+      :: split_bool_guard g v (None, Some b_chan)
+    in
+
+    (* EITHER [ ~v -> s := ~s  []   v -> a?x; [ ~s -> a1!x  []   s -> a2!x ] ]
+       OR  [    ~v -> s := ~s  []   v -> [ ~s -> a1?x  []   s -> a2?x ] a!x; ] *)
+    let s' = new_chan x_width in
+    let dflow3 =
+      let s0 = new_chan 1 in
+      let s1 = new_chan 1 in
+      let s0' = new_chan 1 in
+      let op_procs =
+        match dir with
+        | `Read -> split_bool_guard s1 a (Some a1, Some a2)
+        | `Send -> merge_bool_guard s1 (a1, a2) a
+      in
+      [
+        split_bool_guard v s (Some s0, Some s1);
+        [ assign s0' (Expr.BitXor (Var s0, Const CInt.one)) ];
+        merge_bool_guard v (s0', s1) s';
+        op_procs;
+      ]
+      |> List.concat
+    in
+    (* finally, we must wrap `s` back around to the top *)
+    let dflow_wrap = [ Copy_init (s, s', CInt.zero) ] in
+    ((a, b_chan), dflow1 @ dflow2 @ dflow3 @ dflow_wrap)
+
+  let synth_select_imm guards aliases ~new_chan ~dir =
+    let ab_list = aliases in
+    let a_chan =
+      new_chan (List.filter_opt aliases |> List.hd_exn |> snd).Var.bitwidth
+    in
+    let b_chan = new_chan 1 in
+    let g_width = List.length guards in
+    let v = new_chan 1 in
+    let g = new_chan g_width in
+
+    (* [ ~v -> c?g [] v -> skip ] *)
+    let g' = new_chan g_width in
+    let dflow1 =
+      let g1 = new_chan g_width in
+      let c = new_chan g_width in
+      let c_expr =
+        Expr.Concat (List.map guards ~f:(fun e -> (Expr.Var e, 1)))
+      in
+      [
+        split_bool_guard v g (None, Some g1);
+        (* pack guards into c. TODO get around this somehow to expose this to the optimizer better. *)
+        [ assign c c_expr ];
+        merge_bool_guard v (c, g1) g';
+      ]
+      |> List.concat
+    in
+
+    (* [ g{i}=1   ->   B_i?v ]; B!v; *)
+    let v' = new_chan 1 in
+    let dflow2 =
+      let dflows, vi's =
+        List.map ab_list ~f:(fun o ->
+            let vi' = new_chan 1 in
+            let dflow =
+              match o with
+              | None -> assign vi' (Const CInt.zero)
+              | Some (_, bi) -> assign vi' (Var bi)
+            in
+            (dflow, vi'))
+        |> List.unzip
+      in
+      List.concat
+        [ [ Merge (One_hot g', vi's, v'); assign b_chan (Var v') ]; dflows ]
+    in
+
+    (* [~v -> skip []  v -> [ g{i}=1   ->  A0?x ]; A!x ]; OR *)
+    (* [~v -> skip []  v -> A?x; [ g{i}=1   ->  A0!x ] ]; OR *)
+    let dflow3 =
+      let g1' = new_chan g_width in
+      let op_procs =
+        match dir with
+        | `Send ->
+            let dflows, ais =
+              List.map ab_list ~f:(fun o ->
+                  let vi' = new_chan 1 in
+                  let dflow =
+                    match o with
+                    | None -> assign vi' (Const CInt.zero)
+                    | Some (ai, _) -> assign vi' (Var ai)
+                  in
+                  (dflow, vi'))
+              |> List.unzip
+            in
+            Merge (One_hot g1', ais, a_chan) :: dflows
+        | `Read ->
+            let ais = List.map ab_list ~f:(Option.map ~f:fst) in
+            [ Split (One_hot g1', a_chan, ais) ]
+      in
+      split_bool_guard v' g' (None, Some g1') @ op_procs
+    in
+
+    (* finally, we must wrap `v` and `g` back around to the top *)
+    let dflow_wrap =
+      [ Copy_init (v, v', CInt.zero); Copy_init (g, g', CInt.one) ]
+    in
+    let dflow = dflow1 @ dflow2 @ dflow3 @ dflow_wrap in
+    ((a_chan, b_chan), dflow)
+
+  let synth_do_while (alias, b1) guard_chan ~new_chan ~dir:_ =
+    let b_chan = new_chan 1 in
+    let v = new_chan 1 in
+    let g = new_chan 1 in
+    (* B1?v ;  [ ~v -> C?g  []  v -> skip  ] *)
+    let g' = new_chan 1 in
+    let dflow1 =
+      let g1 = new_chan 1 in
+      [
+        [ assign v (Var b1) ];
+        split_bool_guard v g (None, Some g1);
+        merge_bool_guard v (guard_chan, g1) g';
+      ]
+      |> List.concat
+    in
+    (* [ ~(v | ~g)  -> skip  []  (v | ~g) -> B!b ]; *)
+    let dflow2 =
+      let e = new_chan 1 in
+      assign e (BitOr (Var v, Eq0 (Var g)))
+      :: split_bool_guard e v (None, Some b_chan)
+    in
+
+    (* finally, we must wrap `g` back around to the top *)
+    let dflow_wrap = [ Copy_init (g, g', CInt.zero) ] in
+    let dflows = dflow1 @ dflow2 @ dflow_wrap in
+    ((alias, b_chan), dflows)
+
+  let synth_loop (alias, _) ~new_chan ~dir:_ =
+    let b_chan = new_chan 1 in
+    ((alias, b_chan), [ assign b_chan (Const CInt.one) ])
+
+  let rec synth rui ~dir ~new_chan =
+    let synth rui = synth rui ~dir ~new_chan in
+    match rui with
+    | Synth.Op alias -> synth_op alias ~new_chan ~dir
+    | Seq2 (rui1, rui2) ->
+        let (a1, b1), dflows1 = synth rui1 in
+        let (a2, b2), dflows2 = synth rui2 in
+        let alias, more_dflows = synth_seq2 ~a1 ~b1 ~a2 ~b2 ~new_chan ~dir in
+        (alias, dflows1 @ dflows2 @ more_dflows)
+    | SelectImm (some_branches, else_guards) ->
+        let new_ored_guard guards =
+          let v = new_chan 1 in
+          let expr =
+            List.map guards ~f:(fun v -> Expr.Var v)
+            |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
+            |> Option.value_exn
+          in
+          let ctrl_proc = MultiAssign [ (v, expr) ] in
+          (v, [ ctrl_proc ])
+        in
+        let some_branches, dflows =
+          List.map some_branches ~f:(fun (guards, rui) ->
+              let alias, dflows = synth rui in
+              let g, more_dflows =
+                match guards with
+                | [] -> failwith "unreachable"
+                | [ g ] -> (g, [])
+                | guards -> new_ored_guard guards
+              in
+              ((g, alias), dflows @ more_dflows))
+          |> List.unzip
+        in
+        let else_, more_dflows =
+          match else_guards with
+          | [] -> (None, [])
+          | [ g ] -> (Some g, [])
+          | guards ->
+              let g, dflows = new_ored_guard guards in
+              (Some g, dflows)
+        in
+        let guards = List.map some_branches ~f:fst @ Option.to_list else_ in
+        let ab_list =
+          List.map some_branches ~f:(fun (_, alias) -> Some alias)
+          @ (Option.map else_ ~f:(fun _ -> None) |> Option.to_list)
+        in
+        let alias, even_more_dflows =
+          synth_select_imm guards ab_list ~new_chan ~dir
+        in
+        (alias, List.concat dflows @ more_dflows @ even_more_dflows)
+    | DoWhile (rui, g) ->
+        let alias, dflows = synth rui in
+        let alias, more_dflows = synth_do_while alias g ~new_chan ~dir in
+        (alias, dflows @ more_dflows)
+    | Loop rui ->
+        let alias, dflows = synth rui in
+        let alias, more_dflows = synth_loop alias ~new_chan ~dir in
+        (alias, dflows @ more_dflows)
 
   let synthasize_rui rui ~new_chan ~dir =
-    let rec synth rui =
+    let rui = optimize rui in
+    let rui =
       match rui with
-      | Op alias ->
-          let ctrl = new_chan 1 in
-          let s_ = new_chan 1 in
-          let dflow =
-            [
-              Copy_init (ctrl, s_, CInt.zero);
-              assign s_ (BitXor (Const CInt.one, Var ctrl));
-            ]
-          in
-          ((alias, ctrl), dflow)
-      | Seq ruis ->
-          let aliases, ctrl_procs = List.map ruis ~f:synth |> List.unzip in
-          let alias, more_ctrl_procs =
-            match aliases with
-            | [] ->
-                failwith
-                  "cant synthasize an empty seq. SHould have been cleaned up \
-                   in flatten"
-            | first_alias :: aliases ->
-                List.fold aliases ~init:(first_alias, [])
-                  ~f:(fun ((a1, b1), dflows) (a2, b2) ->
-                    assert (Int.equal a1.bitwidth a2.bitwidth);
-                    let a = new_chan a1.bitwidth in
-                    let b_chan = new_chan 1 in
-                    let x_width = a.Var.bitwidth in
-                    let s = new_chan 1 in
-                    (* [ ~s -> b1?v [] s -> b2?v ] *)
-                    let v = new_chan 1 in
-                    let dflow1 = merge_bool_guard s (b1, b2) v in
-                    (* [ ~ (s | v) -> skip  []   (s | v) -> b!v   ] *)
-                    let dflow2 =
-                      let g = new_chan 1 in
-                      assign g (Expr.BitOr (Var s, Var v))
-                      :: split_bool_guard g v (None, Some b_chan)
-                    in
-
-                    (* EITHER [ ~v -> s := ~s  []   v -> a?x; [ ~s -> a1!x  []   s -> a2!x ] ]
-                       OR  [    ~v -> s := ~s  []   v -> [ ~s -> a1?x  []   s -> a2?x ] a!x; ] *)
-                    let s' = new_chan x_width in
-                    let dflow3 =
-                      let s0 = new_chan 1 in
-                      let s1 = new_chan 1 in
-                      let s0' = new_chan 1 in
-                      let op_procs =
-                        match dir with
-                        | `Read -> split_bool_guard s1 a (Some a1, Some a2)
-                        | `Send -> merge_bool_guard s1 (a1, a2) a
-                      in
-                      [
-                        split_bool_guard v s (Some s0, Some s1);
-                        [ assign s0' (Expr.BitXor (Var s0, Const CInt.one)) ];
-                        merge_bool_guard v (s0', s1) s';
-                        op_procs;
-                      ]
-                      |> List.concat
-                    in
-                    (* finally, we must wrap `s` back around to the top *)
-                    let dflow_wrap = [ Copy_init (s, s', CInt.zero) ] in
-                    let more_dflows = dflow1 @ dflow2 @ dflow3 @ dflow_wrap in
-                    ((a, b_chan), dflows @ more_dflows))
-          in
-          (alias, List.concat ctrl_procs @ more_ctrl_procs)
-      | SelectImm (gs, ruis) ->
-          let aliases, ctrl_procs =
-            let l = List.map ruis ~f:(Option.map ~f:synth) in
-            ( List.map l ~f:(Option.map ~f:fst),
-              List.filter_opt l |> List.concat_map ~f:snd )
-          in
-          let alias, more_ctrl_procs =
-            let guards = gs in
-            let ab_list = aliases in
-            let a_chan =
-              new_chan (List.filter_opt aliases |> List.hd_exn |> fst).bitwidth
-            in
-            let b_chan = new_chan 1 in
-            let g_width = List.length guards in
-            let v = new_chan 1 in
-            let g = new_chan g_width in
-
-            (* [ ~v -> c?g [] v -> skip ] *)
-            let g' = new_chan g_width in
-            let dflow1 =
-              let g1 = new_chan g_width in
-              let c = new_chan g_width in
-              let c_expr =
-                Expr.Concat (List.map guards ~f:(fun e -> (Expr.Var e, 1)))
-              in
-              [
-                split_bool_guard v g (None, Some g1);
-                (* pack guards into c. TODO get around this somehow to expose this to the optimizer better. *)
-                [ assign c c_expr ];
-                merge_bool_guard v (c, g1) g';
-              ]
-              |> List.concat
-            in
-
-            (* [ g{i}=1   ->   B_i?v ]; B!v; *)
-            let v' = new_chan 1 in
-            let dflow2 =
-              let dflows, vi's =
-                List.map ab_list ~f:(fun o ->
-                    let vi' = new_chan 1 in
-                    let dflow =
-                      match o with
-                      | None -> assign vi' (Const CInt.zero)
-                      | Some (_, bi) -> assign vi' (Var bi)
-                    in
-                    (dflow, vi'))
-                |> List.unzip
-              in
-              List.concat
-                [
-                  [ Merge (One_hot g', vi's, v'); assign b_chan (Var v') ];
-                  dflows;
-                ]
-            in
-
-            (* [~v -> skip []  v -> [ g{i}=1   ->  A0?x ]; A!x ]; OR *)
-            (* [~v -> skip []  v -> A?x; [ g{i}=1   ->  A0!x ] ]; OR *)
-            let dflow3 =
-              let g1' = new_chan g_width in
-              let op_procs =
-                match dir with
-                | `Send ->
-                    let dflows, ais =
-                      List.map ab_list ~f:(fun o ->
-                          let vi' = new_chan 1 in
-                          let dflow =
-                            match o with
-                            | None -> assign vi' (Const CInt.zero)
-                            | Some (ai, _) -> assign vi' (Var ai)
-                          in
-                          (dflow, vi'))
-                      |> List.unzip
-                    in
-                    Merge (One_hot g1', ais, a_chan) :: dflows
-                | `Read ->
-                    let ais = List.map ab_list ~f:(Option.map ~f:fst) in
-                    [ Split (One_hot g1', a_chan, ais) ]
-              in
-              split_bool_guard v' g' (None, Some g1') @ op_procs
-            in
-
-            (* finally, we must wrap `v` and `g` back around to the top *)
-            let dflow_wrap =
-              [ Copy_init (v, v', CInt.zero); Copy_init (g, g', CInt.one) ]
-            in
-            let dflow = dflow1 @ dflow2 @ dflow3 @ dflow_wrap in
-            ((a_chan, b_chan), dflow)
-          in
-          (alias, ctrl_procs @ more_ctrl_procs)
-      | DoWhile (rui, g) ->
-          let (alias, b1), ctrl_procs = synth rui in
-          let b_chan, more_ctrl_procs =
-            let guard_chan = g in
-            let b_chan = new_chan 1 in
-            let v = new_chan 1 in
-            let g = new_chan 1 in
-            (* B1?v ;  [ ~v -> C?g  []  v -> skip  ] *)
-            let g' = new_chan 1 in
-            let dflow1 =
-              let g1 = new_chan 1 in
-              [
-                [ assign v (Var b1) ];
-                split_bool_guard v g (None, Some g1);
-                merge_bool_guard v (guard_chan, g1) g';
-              ]
-              |> List.concat
-            in
-            (* [ ~(v | ~g)  -> skip  []  (v | ~g) -> B!b ]; *)
-            let dflow2 =
-              let e = new_chan 1 in
-
-              assign e (BitOr (Var v, Eq0 (Var g)))
-              :: split_bool_guard e v (None, Some b_chan)
-            in
-
-            (* finally, we must wrap `g` back around to the top *)
-            let dflow_wrap = [ Copy_init (g, g', CInt.zero) ] in
-            let dflows = dflow1 @ dflow2 @ dflow_wrap in
-            (b_chan, dflows)
-          in
-          ((alias, b_chan), ctrl_procs @ more_ctrl_procs)
+      | None -> failwith "unreachable channel -  TODO"
+      | Some rui -> flatten rui
     in
-
-    let rui, ctrl_procs = flatten rui ~new_chan in
-    let alias, more_ctrl_procs = Option.value_exn rui |> synth in
-    (alias, ctrl_procs @ more_ctrl_procs)
+    let alias, ctrl_procs = synth rui ~new_chan ~dir in
+    (alias, ctrl_procs)
 end
-
-(* let alias_bitwidth =
-     List.filter_opt aliases
-     |> List.map ~f:(fun (alias, _) -> alias.bitwidth)
-     |> List.all_equal ~equal:Int.equal
-     |> Option.value_exn
-   in
-
-   (* OPTIMIZATION: cut out all the branches which dont have aliases, and create a new pile of guards that support that. *)
-   let (aliases, guards), ctrl_proc =
-     let somes, nones =
-       List.zip_exn aliases guards
-       |> List.partition_tf ~f:(fun (alias, _) ->
-              Option.is_some alias)
-     in
-     let nones, ctrl_proc =
-       match nones with
-       | [] -> ([], [])
-       | [ (None, none_guard) ] -> ([ (None, none_guard) ], [])
-       | nones ->
-           let none_guard_var = new_chan 1 in
-           let none_guard_ctrl_proc =
-             let none_guard_expr =
-               List.map nones ~f:snd
-               |> List.map ~f:(fun v -> Expr.Var v)
-               |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
-               |> Option.value_exn
-             in
-             MultiAssign [ (none_guard_var, none_guard_expr) ]
-           in
-           ([ (None, none_guard_var) ], [ none_guard_ctrl_proc ])
-     in
-     (List.unzip (somes @ nones), ctrl_proc)
-   in
-
-   (* rewrite the gaurd expression to be an index into a list. This removes the need for an "else" case. *)
-   let a_chan = new_chan alias_bitwidth in
-   let b_chan = new_ctrl () in
-   let ctrl_procs =
-     match k with
-     | Send _ ->
-         rui_ctrl_select_send a_chan b_chan guards aliases
-           ~new_chan
-     | Read _ ->
-         rui_ctrl_select_read a_chan b_chan guards aliases
-           ~new_chan
-   in
-   ((k, (a_chan, b_chan)), ctrl_proc @ ctrl_procs) *)
 
 let dflow_of_stf proc =
   let next_id = ref 0 in
@@ -622,13 +452,13 @@ let dflow_of_stf proc =
     | Send (c, e) ->
         let alias = new_chan c.bitwidth in
         let ctrl_proc_map =
-          Chan_end.Map.singleton (Chan_end.Send c) (Rui_ctrl_proc.Op alias)
+          Chan_end.Map.singleton (Chan_end.Send c) (Rui.Proc.Op alias)
         in
         ([ MultiAssign [ (alias, of_e e) ] ], ctrl_proc_map)
     | Read (c, v) ->
         let alias = new_chan c.bitwidth in
         let ctrl_proc_map =
-          Chan_end.Map.singleton (Chan_end.Read c) (Rui_ctrl_proc.Op alias)
+          Chan_end.Map.singleton (Chan_end.Read c) (Rui.Proc.Op alias)
         in
         ([ MultiAssign [ (of_v v, Var alias) ] ], ctrl_proc_map)
     | Seq stmts ->
@@ -637,7 +467,7 @@ let dflow_of_stf proc =
         let ctrl_proc_map =
           List.map ctrl_proc_maps ~f:Map.to_alist
           |> List.concat |> Chan_end.Map.of_alist_multi
-          |> Map.map ~f:(fun ctrl_procs -> Rui_ctrl_proc.Seq ctrl_procs)
+          |> Map.map ~f:(fun ctrl_procs -> Rui.Proc.Seq ctrl_procs)
         in
         (List.concat stmts, ctrl_proc_map)
     | Par (splits, stmts, merges) ->
@@ -683,17 +513,24 @@ let dflow_of_stf proc =
           List.concat_map ctrl_proc_maps ~f:Map.keys
           |> Chan_end.Set.of_list
           |> Map.of_key_set ~f:(fun k ->
-                 let ctrl_procs =
-                   List.map ctrl_proc_maps ~f:(fun ctrl_proc_map ->
-                       Map.find ctrl_proc_map k)
+                 let some_branches, else_guards =
+                   List.zip_exn guards ctrl_proc_maps
+                   |> List.partition_map ~f:(fun (g, ctrl_proc_map) ->
+                          match Map.find ctrl_proc_map k with
+                          | Some ctrl_proc -> Either.First ([ g ], ctrl_proc)
+                          | None -> Either.Second g)
                  in
-                 Rui_ctrl_proc.SelectImm (guards, ctrl_procs))
+                 Rui.Proc.SelectImm (some_branches, else_guards))
         in
         let dflows =
           List.concat [ guard_procs; splits; merges; List.concat branches ]
         in
         (dflows, ctrl_proc_map)
     | DoWhile (phis, stmt, guard) ->
+        let is_infinite =
+          match guard with Const c -> CInt.equal c CInt.one | _ -> false
+        in
+        (* TODO add special case for infinite loop *)
         let guard_proc, guard = of_e' guard in
         let prev_guard = new_alias guard in
         let copy_init = Copy_init (prev_guard, guard, CInt.zero) in
@@ -722,7 +559,8 @@ let dflow_of_stf proc =
         let stmts, ctrl_proc_map = of_stmt stmt in
         let ctrl_proc_map =
           Map.map ctrl_proc_map ~f:(fun ctrl_proc ->
-              Rui_ctrl_proc.DoWhile (ctrl_proc, guard))
+              if is_infinite then Rui.Proc.Loop ctrl_proc
+              else Rui.Proc.DoWhile (ctrl_proc, guard))
         in
         let dflow = guard_proc :: copy_init :: (phis @ stmts) in
         (dflow, ctrl_proc_map)
@@ -734,7 +572,7 @@ let dflow_of_stf proc =
       let m =
         Map.mapi ctrl_proc_map ~f:(fun ~key:chan_end ~data:rui ->
             let dir = match chan_end with Send _ -> `Send | Read _ -> `Read in
-            Rui_ctrl_proc.synthasize_rui rui ~new_chan ~dir)
+            Rui.synthasize_rui rui ~new_chan ~dir)
       in
       (Map.map m ~f:fst, Map.map m ~f:snd)
     in
