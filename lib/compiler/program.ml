@@ -28,8 +28,11 @@ type t = {
 }
 [@@deriving sexp_of]
 
-let of_program ir ~user_sendable_ports ~user_readable_ports =
+let of_process (process : Act.Internal_rep.Process.t) =
   let module Ir = Act.Internal_rep in
+  let user_sendable_ports = Set.to_list process.iports in
+  let user_readable_ports = Set.to_list process.oports in
+
   let next_interproc_chan_id = ref 0 in
   let interproc_chan_of_ir_chan_tbl = Ir.Chan.U.Table.create () in
   let new_interproc_chan bitwidth =
@@ -48,17 +51,23 @@ let of_program ir ~user_sendable_ports ~user_readable_ports =
         new_interproc_chan bitwidth)
   in
 
-  let program = Ir.Program.unwrap ir in
   let chp_procs, mem_maps =
-    List.map program ~f:(fun process ->
-        match process with
-        | Dflow_iface_on_chp chp ->
+    let rec helper (proc : Act.Internal_rep.Process.t) =
+      match proc.inner with
+      | Subprocs subprocs -> List.concat_map subprocs ~f:helper
+      | Dflow_iface_on_chp chp ->
+          [
             Flat_chp.of_chp chp ~dflowable:true ~new_interproc_chan
-              ~interproc_chan_of_ir_chan
-        | Chp chp ->
+              ~interproc_chan_of_ir_chan;
+          ]
+      | Chp chp ->
+          [
             Flat_chp.of_chp chp ~dflowable:false ~new_interproc_chan
-              ~interproc_chan_of_ir_chan)
-    |> List.unzip
+              ~interproc_chan_of_ir_chan;
+          ]
+    in
+
+    helper process |> List.unzip
   in
   let chp_procs =
     List.map chp_procs ~f:(fun proc -> { Process.k = Chp proc })
@@ -114,13 +123,11 @@ let of_program ir ~user_sendable_ports ~user_readable_ports =
 
   let top_iports =
     List.map user_sendable_ports ~f:(fun chan ->
-        let chan = Act.Internal_rep.Chan.unwrap_wu chan in
         let interproc_chan = interproc_chan_of_ir_chan chan in
         (interproc_chan, chan))
   in
   let top_oports =
     List.map user_readable_ports ~f:(fun chan ->
-        let chan = Act.Internal_rep.Chan.unwrap_ru chan in
         let interproc_chan = interproc_chan_of_ir_chan chan in
         (interproc_chan, chan))
   in

@@ -9,15 +9,16 @@ let simple_buffer () =
   let i = Chan.create CInt.dtype_32 in
   let x = Var.create CInt.dtype_32 in
   let o = Chan.create CInt.dtype_32 in
-  let ir = Chp.loop [ Chp.read i.r x; Chp.send_var o.w x ] in
-  (ir, i.w, o.r)
+  let chp = Chp.loop [ Chp.read i.r x; Chp.send_var o.w x ] in
+  (chp, i.w, o.r)
 
 let%expect_test "test" =
   (* Instantiate the buffer *)
-  let ir, i, o = simple_buffer () in
+  let chp, i, o = simple_buffer () in
   (* create a simulation *)
   let sim =
-    Sim.create ir ~user_sendable_ports:[ i.u ] ~user_readable_ports:[ o.u ]
+    Sim.simulate_chp chp ~user_sendable_ports:[ i.u ]
+      ~user_readable_ports:[ o.u ]
   in
 
   (* Set up a simulation step. We will send the value `3` on `i`, and check that

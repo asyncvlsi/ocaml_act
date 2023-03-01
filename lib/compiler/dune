@@ -1,5 +1,5 @@
 (library
- (name exporter)
+ (name compiler)
  (libraries core act sim)
  (preprocess
   (pps ppx_jane))

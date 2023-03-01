@@ -421,15 +421,6 @@ module Mem_id_pool = struct
 end
 
 let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
-  let ir = Ir.Chp.unwrap ir in
-  let user_sendable_ports =
-    List.map user_sendable_ports ~f:Ir.Chan.unwrap_wu |> Ir.Chan.U.Set.of_list
-  in
-  let user_readable_ports =
-    List.map user_readable_ports ~f:Ir.Chan.unwrap_ru |> Ir.Chan.U.Set.of_list
-  in
-  assert (Set.inter user_readable_ports user_sendable_ports |> Set.is_empty);
-
   let ab = Assem_builder.create () in
   let push_instr loc instr = Assem_builder.push ab loc instr in
   let edit_instr loc idx instr = Assem_builder.edit ab loc idx instr in
@@ -821,10 +812,25 @@ let reset t =
   t.is_done <- false;
   Queue.clear t.queued_user_ops
 
-let create ?(seed = 0) ir ~user_sendable_ports ~user_readable_ports =
-  let t = create_t ~seed ir ~user_sendable_ports ~user_readable_ports in
+let simulate ?(seed = 0) process =
+  let process = Ir.Process.unwrap process in
+  let chp =
+    match process.inner with
+    | Chp chp -> chp
+    | _ -> failwith "TODO - support process types besides Chp"
+  in
+  let user_sendable_ports = process.iports in
+  let user_readable_ports = process.oports in
+  assert (Set.inter user_readable_ports user_sendable_ports |> Set.is_empty);
+  let t = create_t ~seed chp ~user_sendable_ports ~user_readable_ports in
   reset t;
   t
+
+let simulate_chp ?(seed = 0) chp ~user_sendable_ports ~user_readable_ports =
+  let iports = user_sendable_ports |> List.map ~f:Chan.Ir.ru_of_wu in
+  let oports = user_readable_ports |> List.map ~f:Chan.Ir.wu_of_ru in
+  let process = Process.of_chp chp ~iports ~oports in
+  simulate ~seed process
 
 let queue_user_io_op t call_site chan value chan_instr queuer =
   let value = Any.of_magic value in

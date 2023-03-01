@@ -1,12 +1,9 @@
 open! Core
+(* type t [@@deriving sexp_of]
 
-type t [@@deriving sexp_of]
+   val of_procs : Process.t list -> t
 
-val of_procs : Process.t list -> t
+   module Ir : sig type outer = t type t = Process.Ir.t list [@@deriving
+   sexp_of]
 
-module Ir : sig
-  type outer = t
-  type t = Process.Ir.t list [@@deriving sexp_of]
-
-  val unwrap : outer -> t
-end
+   val unwrap : outer -> t end *)

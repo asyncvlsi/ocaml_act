@@ -65,5 +65,7 @@ module Ir : sig
   val unwrap_wu : W.U.t -> U.t
   val r_of_w : 'a W.t -> 'a R.t
   val w_of_r : 'a R.t -> 'a W.t
+  val ru_of_wu : W.U.t -> R.U.t
+  val wu_of_ru : R.U.t -> W.U.t
   val max_possible_layout_of_value : U.t -> Layout.t
 end

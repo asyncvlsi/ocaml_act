@@ -95,5 +95,7 @@ module Ir = struct
   let wrap_wu t = t
   let r_of_w t = t
   let w_of_r t = t
+  let ru_of_wu t = t
+  let wu_of_ru t = t
   let max_possible_layout_of_value t = Dtype.Ir.layout t.U.d.dtype
 end

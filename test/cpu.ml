@@ -320,7 +320,7 @@ let%expect_test "test" =
   in
   let sim, _, o =
     test instrs ~create:(fun ir ~user_sendable_ports ~user_readable_ports ->
-        Sim.create ir ~user_sendable_ports ~user_readable_ports)
+        Sim.simulate_chp ir ~user_sendable_ports ~user_readable_ports)
   in
   Sim.read sim o (CInt.of_int 3);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
@@ -341,7 +341,7 @@ let%expect_test "test" =
   in
   let sim, i, o =
     test instrs ~create:(fun ir ~user_sendable_ports ~user_readable_ports ->
-        Sim.create ir ~user_sendable_ports ~user_readable_ports)
+        Sim.simulate_chp ir ~user_sendable_ports ~user_readable_ports)
   in
   Sim.send sim i (CInt.of_int 3);
   Sim.read sim o (CInt.of_int 3);
@@ -464,7 +464,7 @@ let%expect_test "fibonacci" =
   (* let t = Caml.Sys.time () in *)
   let sim, i, o =
     test instrs ~create:(fun ir ~user_sendable_ports ~user_readable_ports ->
-        Sim.create ir ~user_sendable_ports ~user_readable_ports)
+        Sim.simulate_chp ir ~user_sendable_ports ~user_readable_ports)
   in
   Sim.send sim i (CInt.of_int 0);
   Sim.read sim o (CInt.of_int 0);
@@ -523,12 +523,11 @@ let%expect_test "fibonacci" =
   let ir = cpu my_instrs ~ichan:ichan.r ~ochan:ochan.w in
   ();
 
-  (* Exporter.export_chp ir ~user_sendable_ports:[ ichan.w.u ]
-     ~user_readable_ports:[ ochan.r.u ]; *)
-  [%expect {| |}];
-
-  Exporter.export_chp ~as_dflow:true ir ~user_sendable_ports:[ ichan.w.u ]
-    ~user_readable_ports:[ ochan.r.u ];
+  let str =
+    Compiler.compile_chp ir ~user_sendable_ports:[ ichan.w.u ]
+      ~user_readable_ports:[ ochan.r.u ] ~to_:`Dataflow
+  in
+  printf "%s" str;
 
   [%expect
     {|

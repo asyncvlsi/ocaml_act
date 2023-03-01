@@ -7,7 +7,6 @@ module Internal_rep = struct
   module Expr = Expr.Ir
   module Mem = Mem.Ir
   module Process = Process.Ir
-  module Program = Program.Ir
   module Var = Var.Ir
   module Layout = Layout
 end
@@ -25,6 +24,5 @@ module Enum = Enum
 module Expr = Expr
 module Mem = Mem
 module Process = Process
-module Program = Program
 module Var = Var
 module Vec = Vec

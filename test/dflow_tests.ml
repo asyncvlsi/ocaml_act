@@ -19,8 +19,11 @@ let%expect_test "expression chains" =
         Chp.send_var ochan.w tmp3;
       ]
   in
-  Exporter.export_chp ~as_dflow:true ir ~user_sendable_ports:[ ichan.w.u ]
-    ~user_readable_ports:[ ochan.r.u ];
+  let str =
+    Compiler.compile_chp ~to_:`Dataflow ir ~user_sendable_ports:[ ichan.w.u ]
+      ~user_readable_ports:[ ochan.r.u ]
+  in
+  printf "%s" str;
 
   [%expect
     {|
@@ -83,8 +86,11 @@ let%expect_test "expression branches" =
         Chp.send_var ochan.w tmp3;
       ]
   in
-  Exporter.export_chp ~as_dflow:true ir ~user_sendable_ports:[ ichan.w.u ]
-    ~user_readable_ports:[ ochan.r.u ];
+  let str =
+    Compiler.compile_chp ~to_:`Dataflow ir ~user_sendable_ports:[ ichan.w.u ]
+      ~user_readable_ports:[ ochan.r.u ]
+  in
+  printf "%s" str;
 
   [%expect
     {|

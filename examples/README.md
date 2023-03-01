@@ -24,15 +24,16 @@ let simple_buffer () =
   let i = Chan.create CInt.dtype_32 in
   let x = Var.create CInt.dtype_32 in
   let o = Chan.create CInt.dtype_32 in
-  let ir = Chp.loop [ Chp.read i.r x; Chp.send_var o.w x ] in
-  (ir, i.w, o.r)
+  let chp = Chp.loop [ Chp.read i.r x; Chp.send_var o.w x ] in
+  (chp, i.w, o.r)
 
 let%expect_test "test" =
   (* Instantiate the buffer *)
-  let ir, i, o = simple_buffer () in
+  let chp, i, o = simple_buffer () in
   (* create a simulation *)
   let sim =
-    Sim.create ir ~user_sendable_ports:[ i.u ] ~user_readable_ports:[ o.u ]
+    Sim.simulate_chp chp ~user_sendable_ports:[ i.u ]
+      ~user_readable_ports:[ o.u ]
   in
 
   (* Set up a simulation step. We will send the value `3` on `i`, and check that
@@ -89,6 +90,7 @@ defproc<pint bw> kmac_cjp ( chan?(int<bw>) A;                    //input activat
 }
 ```
 
+Here is how that same process might look as (heavily commented) OCaml code:
 <!-- $MDX file=lukas_example.ml,part=lukas_example -->
 ```ocaml
 (* First, importing the Jane Street's Core library and the OCaml Act library *)
@@ -132,9 +134,7 @@ let kmac_cjp ~bw ~kernel ~a ~leftinput ~command ~rightout ~out =
          and a `Var.t`. It returns a node rerpesenting reading that channel into
          that variable. *)
       Chp.read command c;
-      (* 
-
-         Now we will add a select statement, using the function `Chp.select_imm
+      (* Now we will add a select statement, using the function `Chp.select_imm
          <statements> ~else_:<statement>`. This is a function take in a list of
          tuples of the type `(<expression guard>, <CHP statement>`). It
          represents a deterministic select statement in chp with no probes as
@@ -204,7 +204,7 @@ let%expect_test "kmac_cjp_test_1" =
      defined above expects kernel to be the read-end of a port and rightout to
      be the send-end of a port, but kernel and rightout (as created a few lines
      ago) are two-sided channels. *)
-  let ir =
+  let chp =
     kmac_cjp ~bw ~kernel:kernel.r ~a:a.r ~leftinput:leftinput.r
       ~command:command.r ~rightout:rightout.w ~out:out.w
   in
@@ -215,7 +215,7 @@ let%expect_test "kmac_cjp_test_1" =
      whether the port is read-end or send-end. The `u` "untypes" the port. This
      allows us to have heterogeneous types of channels in the same list. *)
   let sim =
-    Sim.create ir
+    Sim.simulate_chp chp
       ~user_sendable_ports:[ kernel.w.u; a.w.u; leftinput.w.u; command.w.u ]
       ~user_readable_ports:[ rightout.r.u; out.r.u ]
   in

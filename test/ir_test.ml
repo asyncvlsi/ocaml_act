@@ -19,7 +19,9 @@ let%expect_test "test1" =
           ];
       ]
   in
-  let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
+  let sim =
+    Sim.simulate_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
+  in
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
   [%expect {|
     12345(Ok ()) |}]
@@ -48,7 +50,9 @@ let%expect_test "test2" =
         Chp.log1 var1 ~f:(fun v -> [%string "%{v#CInt}\n"]);
       ]
   in
-  let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
+  let sim =
+    Sim.simulate_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
+  in
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
   [%expect {|
     62
@@ -71,7 +75,8 @@ let%expect_test "test3" =
       ]
   in
   let sim =
-    Sim.create ir ~user_sendable_ports:[ chan.w.u ] ~user_readable_ports:[]
+    Sim.simulate_chp ir ~user_sendable_ports:[ chan.w.u ]
+      ~user_readable_ports:[]
   in
   Sim.wait' sim ();
   [%expect {|
@@ -112,7 +117,7 @@ let%expect_test "test3" =
       ]
   in
   let sim =
-    Sim.create ir ~user_sendable_ports:[ chan1.w.u ]
+    Sim.simulate_chp ir ~user_sendable_ports:[ chan1.w.u ]
       ~user_readable_ports:[ chan2.r.u ]
   in
   Sim.wait' sim ();
@@ -151,7 +156,7 @@ let%expect_test "test4" =
       ]
   in
   let sim =
-    Sim.create ir ~user_sendable_ports:[ chan1.w.u ]
+    Sim.simulate_chp ir ~user_sendable_ports:[ chan1.w.u ]
       ~user_readable_ports:[ chan2.r.u ]
   in
   Sim.wait' sim ();
@@ -168,7 +173,7 @@ let%expect_test "test4" =
   [%expect
     {|
     send 1
-    (Error "Assertion failed: in test/ir_test.ml on line 149.") |}]
+    (Error "Assertion failed: in test/ir_test.ml on line 154.") |}]
 
 let%expect_test "test5" =
   let var1 = Var.create CInt.dtype_32 in
@@ -178,7 +183,7 @@ let%expect_test "test5" =
     Chp.loop [ Chp.read chan1.r var1; Chp.send chan2.w Expr.(var var1) ]
   in
   let sim =
-    Sim.create ir ~user_sendable_ports:[ chan1.w.u ]
+    Sim.simulate_chp ir ~user_sendable_ports:[ chan1.w.u ]
       ~user_readable_ports:[ chan2.r.u ]
   in
   Sim.wait' sim ();
@@ -198,7 +203,7 @@ let%expect_test "test5" =
   [%expect
     {|
       (Error
-       "User read has wrong value: got 4, but expected 5 based on `send' function call in test/ir_test.ml on line 195, on chan created in test/ir_test.ml on line 176.") |}]
+       "User read has wrong value: got 4, but expected 5 based on `send' function call in test/ir_test.ml on line 200, on chan created in test/ir_test.ml on line 181.") |}]
 
 let split ~dtype i1 o1 o2 =
   let var1 = Var.create dtype in
@@ -248,7 +253,8 @@ let%expect_test "test_buff 1" =
   let o = Chan.R.create dtype in
   let ir = block11 i o ~f:(fun i o -> buff ~depth:1 ~dtype i o) in
   let sim =
-    Sim.create ir ~user_sendable_ports:[ i.u ] ~user_readable_ports:[ o.u ]
+    Sim.simulate_chp ir ~user_sendable_ports:[ i.u ]
+      ~user_readable_ports:[ o.u ]
   in
   Sim.send sim i (CInt.of_int 7);
 
@@ -283,7 +289,7 @@ let%expect_test "test_buff 1" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in test/ir_test.ml on line 281, on chan created in test/ir_test.ml on line 247.") |}]
+     "User send did not complete:  called in test/ir_test.ml on line 287, on chan created in test/ir_test.ml on line 252.") |}]
 
 let%expect_test "test_buff 2" =
   let dtype = CInt.dtype_32 in
@@ -291,7 +297,8 @@ let%expect_test "test_buff 2" =
   let o = Chan.R.create dtype in
   let ir = block11 i o ~f:(fun i o -> buff ~depth:2 ~dtype i o) in
   let sim =
-    Sim.create ir ~user_sendable_ports:[ i.u ] ~user_readable_ports:[ o.u ]
+    Sim.simulate_chp ir ~user_sendable_ports:[ i.u ]
+      ~user_readable_ports:[ o.u ]
   in
 
   List.iter [ 1; 2; 3; 4; 5; 6 ] ~f:(fun v -> Sim.send sim i (CInt.of_int v));
@@ -307,7 +314,7 @@ let%expect_test "test_buff 2" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in test/ir_test.ml on line 305, on chan created in test/ir_test.ml on line 290.") |}]
+     "User send did not complete:  called in test/ir_test.ml on line 312, on chan created in test/ir_test.ml on line 296.") |}]
 
 let%expect_test "mem" =
   let mem =
@@ -322,7 +329,9 @@ let%expect_test "mem" =
         Chp.log1 var1 ~f:CInt.to_string;
       ]
   in
-  let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
+  let sim =
+    Sim.simulate_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
+  in
   Sim.wait' sim ();
   [%expect {|
     4(Ok ()) |}]
@@ -340,12 +349,14 @@ let%expect_test "mem" =
         Chp.log1 var1 ~f:CInt.to_string;
       ]
   in
-  let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
+  let sim =
+    Sim.simulate_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
+  in
   Sim.wait' sim ();
   [%expect
     {|
     (Error
-     "Mem access out of bounds: in test/ir_test.ml on line 339, idx is 4, size of mem is 4.") |}]
+     "Mem access out of bounds: in test/ir_test.ml on line 348, idx is 4, size of mem is 4.") |}]
 
 let%expect_test "mem" =
   let mem =
@@ -369,12 +380,14 @@ let%expect_test "mem" =
           ];
       ]
   in
-  let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
+  let sim =
+    Sim.simulate_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
+  in
   Sim.wait' sim ();
   [%expect
     {|
     (Error
-     "Simulatnious accesses of a memory/rom: statement 1 in test/ir_test.ml on line 367, statement 2 in test/ir_test.ml on line 362.") |}]
+     "Simulatnious accesses of a memory/rom: statement 1 in test/ir_test.ml on line 378, statement 2 in test/ir_test.ml on line 373.") |}]
 
 let%expect_test "test probes" =
   let var = Var.create CInt.dtype_32 in
@@ -405,8 +418,8 @@ let%expect_test "test probes" =
       ]
   in
   let sim =
-    Sim.create ir ~user_sendable_ports:[ chan.w.u ] ~user_readable_ports:[]
-      ~seed:777
+    Sim.simulate_chp ir ~user_sendable_ports:[ chan.w.u ]
+      ~user_readable_ports:[] ~seed:777
   in
   Sim.wait' sim ();
   [%expect {|
@@ -477,7 +490,7 @@ end
 let%expect_test "mini cpu" =
   let ir, op, arg0, arg1, result = Mini_alu.alu in
   let sim =
-    Sim.create ir ~user_sendable_ports:[ op.u; arg0.u; arg1.u ]
+    Sim.simulate_chp ir ~user_sendable_ports:[ op.u; arg0.u; arg1.u ]
       ~user_readable_ports:[ result.u ]
   in
   Sim.wait' sim ();
@@ -495,7 +508,7 @@ let%expect_test "error send too big value" =
   Expect_test_helpers_core.require_does_raise [%here] (fun () ->
       let ir, op, arg0, arg1, result = Mini_alu.alu in
       let sim =
-        Sim.create ir ~user_sendable_ports:[ op.u; arg0.u; arg1.u ]
+        Sim.simulate_chp ir ~user_sendable_ports:[ op.u; arg0.u; arg1.u ]
           ~user_readable_ports:[ result.u ]
       in
       Sim.send sim arg0 (CInt.of_int 1000));
@@ -508,7 +521,7 @@ let%expect_test "error read too big value" =
   Expect_test_helpers_core.require_does_raise [%here] (fun () ->
       let ir, op, arg0, arg1, result = Mini_alu.alu in
       let sim =
-        Sim.create ir ~user_sendable_ports:[ op.u; arg0.u; arg1.u ]
+        Sim.simulate_chp ir ~user_sendable_ports:[ op.u; arg0.u; arg1.u ]
           ~user_readable_ports:[ result.u ]
       in
       Sim.read sim result (CInt.of_int 257));
@@ -543,16 +556,20 @@ let%expect_test "test2" =
   in
   Expect_test_helpers_core.require_does_raise [%here] (fun () ->
       let ir = ir (CInt.dtype ~bits:14) 123456 in
-      let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
+      let sim =
+        Sim.simulate_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
+      in
       print_s [%sexp (Sim.wait sim () : unit Or_error.t)]);
   [%expect
     {|
     (Failure
      "Trying to initialize a variable of dtype (Bits_fixed 14) with a value of max_layout (Bits_fixed 17).") |}];
   let ir = ir (CInt.dtype ~bits:6) 63 in
-  let sim = Sim.create ir ~user_sendable_ports:[] ~user_readable_ports:[] in
+  let sim =
+    Sim.simulate_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
+  in
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
   [%expect
     {|
     (Error
-     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in test/ir_test.ml on line 536.") |}]
+     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in test/ir_test.ml on line 549.") |}]
