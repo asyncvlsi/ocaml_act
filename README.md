@@ -55,11 +55,13 @@ If you want me to help you set up my tool/have any questions at all about OCaml/
 So, now that you are excited to try out this library :), the first thing you need to do is install ocaml.
 
 1. Install opam
-2. Run ```
+2. Run 
+```
 $ opam switch create 4.14.0
 $ eval $(opam env)
 $ opam install bignum core dune expect_test_helpers_core mdx merlin ocamlformat
 ```
+
 3. Clone this repository (e.g. if you have ssh keys installed, `$ git clone git@git.yale.edu:avlsi/ocaml_act.git`)
 4. For now, I have not made this library installable. Therefore, you should just create a directory. So, to create a new project, _create a new folder in the cloned directory_ and build your code there.
 5. Read the tutorials/examples in the `examples` directory. Start with `examples/README.md`.
