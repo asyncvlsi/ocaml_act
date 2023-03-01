@@ -24,7 +24,7 @@ module Chan_ = struct
         dtype : Any.t Dtype.Ir.t;
         creation_code_pos : Code_pos.t;
         (* I have not come up with a way to add which direction is passive into
-             the type system. These two fields help with error reporting *)
+           the type system. These two fields help with error reporting *)
         mutable wait_readable_code_pos : Code_pos.t option;
         mutable wait_sendable_code_pos : Code_pos.t option;
       }

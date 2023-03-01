@@ -1,8 +1,9 @@
 open! Core
 open! Act
 
-(* This module doesnt know about dtypes. Everything is just a CInt. Moreover, it includes no recursive
-   data types. So, this should be fairly easy to port into c/c++/rust if we need the extra performance *)
+(* This module doesnt know about dtypes. Everything is just a CInt. Moreover, it
+   includes no recursive data types. So, this should be fairly easy to port into
+   c/c++/rust if we need the extra performance *)
 
 module Instr_idx : sig
   type t = int [@@deriving sexp, equal]
@@ -95,8 +96,9 @@ module N : sig
     (* Should include all but the branch just taken *)
     | SelectProbes_AssertStable of
         (* should be true *) Probe.t * (* should be false *) Probe.t list
-    (* These are ``magic'' instructions that allow user io operations. These instruction
-       should be placed immediatly after the assoiated send/read instruction *)
+    (* These are ``magic'' instructions that allow user io operations. These
+       instruction should be placed immediatly after the assoiated send/read
+       instruction *)
     | Send_enqueuer of Enqueuer_idx.t
     | Read_dequeuer of Dequeuer_idx.t
   [@@deriving sexp_of]

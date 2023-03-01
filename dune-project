@@ -2,6 +2,8 @@
 
 (name ochp)
 
+(using mdx 0.3)
+
 (generate_opam_files true)
 
 (source

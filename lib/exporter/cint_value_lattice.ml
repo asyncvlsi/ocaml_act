@@ -84,15 +84,9 @@ let eval_rewrite_expr e ~of_var =
           in
           let nn = Expr.BitOr (a, b) in
           (create ~min ~max, nn)
-          (* let (al, a), (bl, b) = (f a, f b) in
-              let lat =
-               if CInt.eq al.min al.max && CInt.eq bl.min bl.max then
-                 {
-                   min = CInt.bit_or al.min bl.min;
-                   max = CInt.bit_or al.min bl.min;
-                 }
-             in
-             (lat,  (a, b)) *)
+          (* let (al, a), (bl, b) = (f a, f b) in let lat = if CInt.eq al.min
+             al.max && CInt.eq bl.min bl.max then { min = CInt.bit_or al.min
+             bl.min; max = CInt.bit_or al.min bl.min; } in (lat, (a, b)) *)
       | BitXor (a, b) ->
           let (al, a), (bl, b) = (f a, f b) in
           let min = CInt.min al.min bl.min in
@@ -104,19 +98,10 @@ let eval_rewrite_expr e ~of_var =
           in
           let nn = Expr.BitXor (a, b) in
           (create ~min ~max, nn)
-          (*
-             let (al, a), (bl, b) = (f a, f b) in
-             let lat =
-               {
-                 min = CInt.zero;
-                 max =
-                   (let bitwidth =
-                      Int.max (CInt.bitwidth al.max) (CInt.bitwidth bl.max)
-                    in
-                    CInt.min (CInt.add al.max bl.max) (max_cint_of_width bitwidth));
-               }
-             in
-             (lat, BitXor (a, b)) *)
+          (* let (al, a), (bl, b) = (f a, f b) in let lat = { min = CInt.zero;
+             max = (let bitwidth = Int.max (CInt.bitwidth al.max) (CInt.bitwidth
+             bl.max) in CInt.min (CInt.add al.max bl.max) (max_cint_of_width
+             bitwidth)); } in (lat, BitXor (a, b)) *)
       | Clip (e, bits) ->
           let el, e = f e in
           let min = CInt.zero in

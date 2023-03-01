@@ -1,9 +1,8 @@
 open! Core
 open! Act
 
-(* TODO switch stuff 4.14.0
-   opam install bignum core dune expect_test_helpers_core ocamlfmt
-*)
+(* TODO switch stuff 4.14.0 opam install bignum core dune
+   expect_test_helpers_core ocamlfmt *)
 
 let%expect_test "test1" =
   let ir =

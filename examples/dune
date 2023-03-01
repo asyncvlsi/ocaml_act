@@ -1,0 +1,8 @@
+(library
+ (name my_example)
+ (libraries core act sim expect_test_helpers_core exporter)
+ (preprocess
+  (pps ppx_jane))
+ (inline_tests))
+
+(mdx)

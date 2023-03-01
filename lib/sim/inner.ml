@@ -175,8 +175,9 @@ module N = struct
     (* Should include all but the branch just taken *)
     | SelectProbes_AssertStable of
         (* should be true *) Probe.t * (* should be false *) Probe.t list
-    (* These are ``magic'' instructions that allow user io operations. These instruction
-       should be placed immediatly after the assoiated send/read instruction *)
+    (* These are ``magic'' instructions that allow user io operations. These
+       instruction should be placed immediatly after the assoiated send/read
+       instruction *)
     | Send_enqueuer of Enqueuer_idx.t
     | Read_dequeuer of Dequeuer_idx.t
   [@@deriving sexp_of]
@@ -216,8 +217,8 @@ module N = struct
     |> Var_id.Set.of_list
 end
 
-(* This module doesnt know about dtypes. Everything is just a CInt. This should be fairly easy to port
-   into c/c++/rust if we need the extra performance *)
+(* This module doesnt know about dtypes. Everything is just a CInt. This should
+   be fairly easy to port into c/c++/rust if we need the extra performance *)
 module E = struct
   module Expr_kind = struct
     type t =
@@ -598,8 +599,9 @@ let step' t ~pc_idx =
                     Vec.filter
                       t.s.chan_table.(ochan_idx).select_probe_send_ready
                       ~f:(fun (pc, _) -> not (Int.equal pc oinstr)));
-            (* It doesnt need gaurding becaus the waiting_pc is required to be a WaitUntilReadable
-               or WaitUntilSendable node, which has no read/written variables *)
+            (* It doesnt need gaurding becaus the waiting_pc is required to be a
+               WaitUntilReadable or WaitUntilSendable node, which has no
+               read/written variables *)
             Vec.push t.s.pcs waiting_pc);
         step_chan chan chan_idx)
   | Send (expr, chan_idx) ->
@@ -626,14 +628,16 @@ let step' t ~pc_idx =
                     Vec.filter
                       t.s.chan_table.(ochan_idx).select_probe_send_ready
                       ~f:(fun (pc, _) -> not (Int.equal pc oinstr)));
-            (* It doesnt need gaurding becaus the waiting_pc is required to be a WaitUntilReadable
-               or WaitUntilSendable node, which has no read/written variables *)
+            (* It doesnt need gaurding becaus the waiting_pc is required to be a
+               WaitUntilReadable or WaitUntilSendable node, which has no
+               read/written variables *)
             Vec.push t.s.pcs waiting_pc);
         step_chan chan chan_idx)
   | SelectProbes probe_select -> (
       (* TODO *)
       (* unguard pc; *)
-      (* first check that how many probes are already true. If it is more than one, this is an error *)
+      (* first check that how many probes are already true. If it is more than
+         one, this is an error *)
       match
         List.mapi probe_select ~f:(fun i probe -> (i, probe))
         |> List.filter ~f:(fun (_, (probe, _)) ->

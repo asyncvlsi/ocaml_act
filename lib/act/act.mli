@@ -1,6 +1,7 @@
 open! Core
 
-(* The internal data structures. These are only meant to be constructed throguh the above interfaces. *)
+(* The internal data structures. These are only meant to be constructed throguh
+   the above interfaces. *)
 module Internal_rep : sig
   module Chan = Chan.Ir
   module Chp = Chp.Ir

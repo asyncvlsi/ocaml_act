@@ -21,8 +21,9 @@ type 'v t =
   | Gt of 'v t * 'v t
   | Ge of 'v t * 'v t
   | Clip of 'v t * int
-  (* This asserts that the first expression (which must have value 0 or 1) is 1, and then returns the second value.
-     In the simulator, if it is false, it calls the function for a nice error report. *)
+  (* This asserts that the first expression (which must have value 0 or 1) is 1,
+     and then returns the second value. In the simulator, if it is false, it
+     calls the function for a nice error report. *)
   | With_assert_log of
       (* assert *)
       'v t

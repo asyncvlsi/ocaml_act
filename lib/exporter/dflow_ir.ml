@@ -61,7 +61,8 @@ end
 
 let validate proc =
   let { Proc.stmt = dflows; iports; oports } = proc in
-  (* Check that each id is written at most one time, and that each read id is written at least once *)
+  (* Check that each id is written at most one time, and that each read id is
+     written at least once *)
   let reads =
     [
       List.concat_map dflows ~f:(fun dflow ->
@@ -161,6 +162,7 @@ module Rui = struct
     f rui
 
   module Synth = struct
+    (* TODO Add direct support for "Op-seq"s and for "conditionaled Op-seq"s *)
     type t =
       | Op of Var.t
       | Seq2 of t * t
@@ -214,15 +216,15 @@ module Rui = struct
     (* [ ~s -> b1?v [] s -> b2?v ] *)
     let v = new_chan 1 in
     let dflow1 = merge_bool_guard s (b1, b2) v in
-    (* [ ~ (s | v) -> skip  []   (s | v) -> b!v   ] *)
+    (* [ ~ (s | v) -> skip [] (s | v) -> b!v ] *)
     let dflow2 =
       let g = new_chan 1 in
       assign g (Expr.BitOr (Var s, Var v))
       :: split_bool_guard g v (None, Some b_chan)
     in
 
-    (* EITHER [ ~v -> s := ~s  []   v -> a?x; [ ~s -> a1!x  []   s -> a2!x ] ]
-       OR  [    ~v -> s := ~s  []   v -> [ ~s -> a1?x  []   s -> a2?x ] a!x; ] *)
+    (* EITHER [ ~v -> s := ~s [] v -> a?x; [ ~s -> a1!x [] s -> a2!x ] ] OR [ ~v
+       -> s := ~s [] v -> [ ~s -> a1?x [] s -> a2?x ] a!x; ] *)
     let s' = new_chan x_width in
     let dflow3 =
       let s0 = new_chan 1 in
@@ -265,14 +267,15 @@ module Rui = struct
       in
       [
         split_bool_guard v g (None, Some g1);
-        (* pack guards into c. TODO get around this somehow to expose this to the optimizer better. *)
+        (* pack guards into c. TODO get around this somehow to expose this to
+           the optimizer better. *)
         [ assign c c_expr ];
         merge_bool_guard v (c, g1) g';
       ]
       |> List.concat
     in
 
-    (* [ g{i}=1   ->   B_i?v ]; B!v; *)
+    (* [ g{i}=1 -> B_i?v ]; B!v; *)
     let v' = new_chan 1 in
     let dflow2 =
       let dflows, vi's =
@@ -327,7 +330,7 @@ module Rui = struct
     let b_chan = new_chan 1 in
     let v = new_chan 1 in
     let g = new_chan 1 in
-    (* B1?v ;  [ ~v -> C?g  []  v -> skip  ] *)
+    (* B1?v ; [ ~v -> C?g [] v -> skip ] *)
     let g' = new_chan 1 in
     let dflow1 =
       let g1 = new_chan 1 in
@@ -338,7 +341,7 @@ module Rui = struct
       ]
       |> List.concat
     in
-    (* [ ~(v | ~g)  -> skip  []  (v | ~g) -> B!b ]; *)
+    (* [ ~(v | ~g) -> skip [] (v | ~g) -> B!b ]; *)
     let dflow2 =
       let e = new_chan 1 in
       assign e (BitOr (Var v, Eq0 (Var g)))
@@ -368,8 +371,7 @@ module Rui = struct
           let v = new_chan 1 in
           let expr =
             List.map guards ~f:(fun v -> Expr.Var v)
-            |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
-            |> Option.value_exn
+            |> List.reduce_exn ~f:(fun a b -> Expr.BitOr (a, b))
           in
           let ctrl_proc = MultiAssign [ (v, expr) ] in
           (v, [ ctrl_proc ])
@@ -444,7 +446,8 @@ let dflow_of_stf proc =
     (MultiAssign [ (v, of_e e) ], v)
   in
 
-  (* returns a tuple (dflow, alias_map) where alias_map is a map { Chan_end.t -> (alias, ctrl)} *)
+  (* returns a tuple (dflow, alias_map) where alias_map is a map { Chan_end.t ->
+     (alias, ctrl)} *)
   let rec of_stmt n =
     match n with
     | Stf.Stmt.Nop -> ([], Chan_end.Map.empty)
@@ -639,8 +642,10 @@ let eliminate_dead_code proc =
     List.filter_map dflows ~f:(fun dflow ->
         match dflow with
         | MultiAssign assigns ->
-            (* we cant just eliminate unread variables because that might change the dependencies of the MultiAssign block *)
-            (* TODO the better way to do this is to have an explicit list of dependencies for the multiassign block *)
+            (* we cant just eliminate unread variables because that might change
+               the dependencies of the MultiAssign block *)
+            (* TODO the better way to do this is to have an explicit list of
+               dependencies for the multiassign block *)
             if List.exists assigns ~f:(fun (dst, _) -> Set.mem alive dst) then
               let keep, maybe_remove =
                 List.partition_tf assigns ~f:(fun (dst, _) -> Set.mem alive dst)
@@ -690,9 +695,10 @@ let eliminate_repeated_vars proc =
         match dflow with
         | MultiAssign [ (dst, Var src) ] -> [ (dst, src) ]
         | MultiAssign l ->
-            (* Note that a `dst <- src` inside of a multi-assign block may not be optimized, as the
-               block must wait on _every_ read to complete before an expression exicutes, so
-               the `dst <- src` is not the same as `src` *)
+            (* Note that a `dst <- src` inside of a multi-assign block may not
+               be optimized, as the block must wait on _every_ read to complete
+               before an expression exicutes, so the `dst <- src` is not the
+               same as `src` *)
             (* we may, however, deduplicate repeated expressions *)
             List.map l ~f:(fun (dst, e) -> (e, dst))
             |> Expr_map.of_alist_multi |> Map.data
@@ -741,17 +747,21 @@ let eliminate_repeated_vars proc =
   let oports = List.map oports ~f:(fun (i, v) -> (i, of_v v)) in
   { Proc.stmt = dflows; oports; iports }
 
-(* A compilcation when optimizing dataflow is that one cannot, in general, safely ADD OR REMOVE reads for a node.
-   In particular, this means that optimizing expressions is hard, since an expression still needs to read a token
-   for timing reasons even if it never looks at it. Moreover, fusing two assigns into a block is in general not
-   allowed, because the MultiAssign block will only fire one it has received all the necassary tokens.
+(* A compilcation when optimizing dataflow is that one cannot, in general,
+   safely ADD OR REMOVE reads for a node. In particular, this means that
+   optimizing expressions is hard, since an expression still needs to read a
+   token for timing reasons even if it never looks at it. Moreover, fusing two
+   assigns into a block is in general not allowed, because the MultiAssign block
+   will only fire one it has received all the necassary tokens.
 
-   However, the following three transformations are always valid.
-   1) If two nodes read the same set of tokens, they may be merged together.
-   2) If one node is the only node that reads the output of a second node, the second node may be merged into the first.
-   3) We may duplicate a node, and may assign some readers of the original node to read the duplicate node instead.
+   However, the following three transformations are always valid. 1) If two
+   nodes read the same set of tokens, they may be merged together. 2) If one
+   node is the only node that reads the output of a second node, the second node
+   may be merged into the first. 3) We may duplicate a node, and may assign some
+   readers of the original node to read the duplicate node instead.
 
-   Here I implement the first and second optimization. More general breaking/clusering work could be useful *)
+   Here I implement the first and second optimization. More general
+   breaking/clusering work could be useful *)
 
 (* Transofmation #1 *)
 let cluster_same_reads { Proc.stmt = dflows; iports; oports } =
@@ -819,10 +829,9 @@ let cluster_fuse_chains { Proc.stmt = dflows; iports; oports } =
         |> List.map ~f:(fun dflow_id -> (dflow_id, cluster_id)))
     |> Var.Map.of_alist_exn
   in
-  (* let read_cluster_of_id = Map.map multi_assigns ~f:(fun multi_assign -> List.concat_map multi_assign ~f:(fun (_, e) -> Expr.var_ids)
-     |> List.filter_map ~f:(Map.find id_of_output)
-     |> Int.Set.of_list) in
-  *)
+  (* let read_cluster_of_id = Map.map multi_assigns ~f:(fun multi_assign ->
+     List.concat_map multi_assign ~f:(fun (_, e) -> Expr.var_ids) |>
+     List.filter_map ~f:(Map.find id_of_output) |> Int.Set.of_list) in *)
   let read_ct_of_cluster =
     List.map dflows ~f:(fun (_, dflow) ->
         (match dflow with
@@ -897,13 +906,6 @@ let normalize_guards (proc : Proc.t) =
         | Split (g, _, _) -> Some g)
     |> Guard.Set.of_list
     |> Guard.Map.of_key_set ~f:(fun g ->
-           (* let log2_bits bits =
-
-                List.mapi bits ~f:(fun i bit ->
-                    Expr.(Mul (Const (CInt.of_int i), bit)))
-                |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
-                |> Option.value ~default:(Expr.Const CInt.zero)
-              in *)
            match g with
            | Idx g -> (Guard.Idx g, None)
            | One_hot g ->
@@ -931,18 +933,13 @@ let normalize_guards (proc : Proc.t) =
   let dflows = dflows @ procs in
   { Proc.stmt = dflows; iports = proc.iports; oports = proc.oports }
 
-(* There a number of optimizations we can do if we have a pairs of split-merges with the same guard and some "parrelel" inputs/outputs *)
-(* if we have the following structure
-   v <- const
-   split_g(v) -> (v1, v2, v3)
+(* There a number of optimizations we can do if we have a pairs of split-merges
+   with the same guard and some "parrelel" inputs/outputs *)
+(* if we have the following structure v <- const split_g(v) -> (v1, v2, v3)
    merge_g(v1, v2', v3') -> v'
 
-   We may rewrite it as
-   v <- const
-   split_g(v) -> (v1, v2, v3)
-   v1' <- const
-   merge_g(v1', v2', v3') -> v'
-*)
+   We may rewrite it as v <- const split_g(v) -> (v1, v2, v3) v1' <- const
+   merge_g(v1', v2', v3') -> v' *)
 let push_consts_throguh_split_merge { Proc.stmt = dflows; iports; oports } =
   let map_parallel_split_merges dflows ~fuse =
     let split_merges, other_dflows =
@@ -1028,16 +1025,11 @@ let push_consts_throguh_split_merge { Proc.stmt = dflows; iports; oports } =
   in
   { Proc.stmt = dflows; iports; oports }
 
-(* if we have the following structure
-   split_g(v) -> (v1, v2, v3)
-   merge_g(v1, v2, v3') -> v'
-   and the merge is the only read of v1 and v2
+(* if we have the following structure split_g(v) -> (v1, v2, v3) merge_g(v1, v2,
+   v3') -> v' and the merge is the only read of v1 and v2
 
-   We may rewrite it as
-   g' <- {g{0}|g{1}, g{2}}
-   split_g(v) -> (v12, v3)
-   merge_g(v12', v3') -> v'
-*)
+   We may rewrite it as g' <- {g{0}|g{1}, g{2}} split_g(v) -> (v12, v3)
+   merge_g(v12', v3') -> v' *)
 let zip_coupled_split_merges { Proc.stmt = dflows; iports; oports } =
   let next_id =
     let biggest_id =
@@ -1085,7 +1077,9 @@ let zip_coupled_split_merges { Proc.stmt = dflows; iports; oports } =
                   match g_split with
                   | Bits _ ->
                       if
-                        (* lists are same length because guards are same and both "bits" guards so same number of guards in lists *)
+                        (* lists are same length because guards are same and
+                           both "bits" guards so same number of guards in
+                           lists *)
                         List.zip_exn os ins
                         |> List.filter ~f:(fun (s, m) ->
                                Option.is_some s
@@ -1100,7 +1094,8 @@ let zip_coupled_split_merges { Proc.stmt = dflows; iports; oports } =
                 else []
             | _ -> []))
   in
-  (* then make sure this is no split/merge has multiple partners. TODO there are better ways to do this *)
+  (* then make sure this is no split/merge has multiple partners. TODO there are
+     better ways to do this *)
   let couples =
     couples |> Int.Map.of_alist_multi |> Map.map ~f:List.hd_exn |> Map.to_alist
     |> List.map ~f:(fun (split, merge) -> (merge, split))
@@ -1141,8 +1136,7 @@ let zip_coupled_split_merges { Proc.stmt = dflows; iports; oports } =
                 let parrellel_g = new_chan 1 in
                 let parrellel_expr =
                   List.map parrellel ~f:(fun (g, _, _) -> Expr.Var g)
-                  |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
-                  |> Option.value_exn
+                  |> List.reduce_exn ~f:(fun a b -> Expr.BitOr (a, b))
                 in
                 let par_chan = new_chan in_v.bitwidth in
                 let ctrl_proc = MultiAssign [ (parrellel_g, parrellel_expr) ] in
@@ -1162,21 +1156,13 @@ let zip_coupled_split_merges { Proc.stmt = dflows; iports; oports } =
   let dflows = unmod_split_merges @ modified_split_merges @ other_dflows in
   { Proc.stmt = dflows; iports; oports }
 
-(* if we have the following structure
-   split_g(v) -> ( *, *, v3 )
+(* if we have the following structure split_g(v) -> ( *, *, v3 )
 
-   We may rewrite it as
-   g' <- {g{0}|g{1}, g{2}}
-   split_g(v) -> ( *, v3 )
-*)
+   We may rewrite it as g' <- {g{0}|g{1}, g{2}} split_g(v) -> ( *, v3 ) *)
 
-(* if we have the following structure
-   split_g(v) -> ( *, *, v3 )
+(* if we have the following structure split_g(v) -> ( *, *, v3 )
 
-   We may rewrite it as
-   g' <- {g{0}|g{1}, g{2}}
-   split_g(v) -> ( *, v3 )
-*)
+   We may rewrite it as g' <- {g{0}|g{1}, g{2}} split_g(v) -> ( *, v3 ) *)
 
 let zip_repeated_sink_splits { Proc.stmt = dflows; iports; oports } =
   let next_id =
@@ -1212,8 +1198,7 @@ let zip_repeated_sink_splits { Proc.stmt = dflows; iports; oports } =
                   let g = new_chan 1 in
                   let expr =
                     List.map gs ~f:(fun g -> Expr.Var g)
-                    |> List.reduce ~f:(fun a b -> Expr.BitOr (a, b))
-                    |> Option.value_exn
+                    |> List.reduce_exn ~f:(fun a b -> Expr.BitOr (a, b))
                   in
                   let ctrl_proc = MultiAssign [ (g, expr) ] in
                   let gs, os = List.unzip (non_sinks @ [ (g, None) ]) in
@@ -1314,9 +1299,8 @@ let zip_repeated_merge_consts { Proc.stmt = dflows; iports; oports } =
                                let g = new_chan 1 in
                                let expr =
                                  List.map gs ~f:(fun g -> Expr.Var g)
-                                 |> List.reduce ~f:(fun a b ->
+                                 |> List.reduce_exn ~f:(fun a b ->
                                         Expr.BitOr (a, b))
-                                 |> Option.value_exn
                                in
                                let assign = MultiAssign [ (g, expr) ] in
                                (g, [ assign ])

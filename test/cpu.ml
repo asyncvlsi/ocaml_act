@@ -8,15 +8,18 @@ module Instr = struct
       | End
       | Nop
       | Push_imm
-        (* push the next instruction, and then increase the program counter by 2 *)
+        (* push the next instruction, and then increase the program counter by
+           2 *)
       | Push_imm2
       | Dup (* pop a; push a; push a *)
       | Exch (* pop a; pop b; push a; push b *)
       | Exch2
-        (* pop a; pop b; pop c; push a; push c; push b;   [TOP;a;b;c] -> [TOP;b;c;a] *)
+        (* pop a; pop b; pop c; push a; push c; push b; [TOP;a;b;c] ->
+           [TOP;b;c;a] *)
       | Jump (* pop addr_high; pop addr_loc; goto addr *)
       | JumpIfNot
-        (*  pop addr_high; pop addr_loc; pop flag; if (flag == 0) then goto addr *)
+        (* pop addr_high; pop addr_loc; pop flag; if (flag == 0) then goto
+           addr *)
       | Eq (* pop a; pop b; push Int8.(a == b) *)
       | Add (* pop a; pop b; push Int8.Wrapping.(a + b) *)
       | Sub (* pop a; pop b; push Int8.Wrapping.(b - a) *)
@@ -88,7 +91,8 @@ let cpu instrs ~ochan ~ichan =
   let push value =
     Chp.seq
       [
-        (* Chp.log1' value ~f:(fun value -> sprintf "push %d\n" (CInt.to_int_exn value)); *)
+        (* Chp.log1' value ~f:(fun value -> sprintf "push %d\n" (CInt.to_int_exn
+           value)); *)
         Chp.write_ug_mem stack ~idx:CInt.E.(var sp) ~value;
         CInt.Chp.incr sp ~overflow:Cant;
       ]
@@ -98,7 +102,8 @@ let cpu instrs ~ochan ~ichan =
       [
         CInt.Chp.decr sp ~underflow:Cant;
         Chp.read_ug_mem stack ~idx:CInt.E.(var sp) ~dst;
-        (* Chp.log1 dst ~f:(fun dst -> sprintf "pop %d\n" (CInt.to_int_exn dst)); *)
+        (* Chp.log1 dst ~f:(fun dst -> sprintf "pop %d\n" (CInt.to_int_exn
+           dst)); *)
       ]
   in
   let set_pc_to_addr ~addr_high ~addr_low =
@@ -114,21 +119,24 @@ let cpu instrs ~ochan ~ichan =
   Chp.while_loop
     CBool.E.(not_ (var done_))
     [
-      (* These helps the compiler optimize away the loping variable. TODO Maybe make this something like "forget" *)
+      (* These helps the compiler optimize away the loping variable. TODO Maybe
+         make this something like "forget" *)
       Chp.assign pop0 Expr.zero;
       Chp.assign pop1 Expr.zero;
       Chp.assign pop2 Expr.zero;
       Chp.assign push0 Expr.zero;
       Chp.assign push1 Expr.zero;
       Chp.assign push2 Expr.zero;
-      (* TODO I would also like to be able to put them at the bottom of the loop instead of the top *)
+      (* TODO I would also like to be able to put them at the bottom of the loop
+         instead of the top *)
       Chp.read_ug_rom instrs ~idx:Expr.(var pc) ~dst:tmp0;
       Chp.assign instr
         (Expr.var tmp0 |> Expr.bit_and (Expr.of_int 0xf) |> Instr.E.of_int);
       Chp.assign arg (Expr.var tmp0 |> Expr.right_shift' ~amt:4);
       (* Chp.log "\n"; *)
       (* Chp.log1 pc ~f:(fun pc -> sprintf "pc = %d\n" (CInt.to_int_exn pc)); *)
-      (* Chp.log1 tmp0 ~f:(fun instr -> sprintf "instr = %d\n" (CInt.to_int_exn instr)); *)
+      (* Chp.log1 tmp0 ~f:(fun instr -> sprintf "instr = %d\n" (CInt.to_int_exn
+         instr)); *)
       (* Chp.log1 sp ~f:(fun sp -> sprintf "sp = %d\n" (CInt.to_int_exn sp)); *)
       Instr.Chp.match_ (Expr.var instr) ~f:(fun op ->
           let pop_ct_i =
@@ -179,13 +187,15 @@ let cpu instrs ~ochan ~ichan =
         | End -> Chp.assign done_ CBool.E.true_
         | Nop -> CInt.Chp.incr pc ~overflow:Cant
         | Push_imm ->
-            (* push the next instruction, and then increase the program counter by 2 *)
+            (* push the next instruction, and then increase the program counter
+               by 2 *)
             Chp.seq
               [
                 Chp.assign push0 Expr.(var arg); CInt.Chp.incr pc ~overflow:Cant;
               ]
         | Push_imm2 ->
-            (* push the next instruction, and then increase the program counter by 2 *)
+            (* push the next instruction, and then increase the program counter
+               by 2 *)
             Chp.seq
               [
                 Chp.assign push0
@@ -218,7 +228,8 @@ let cpu instrs ~ochan ~ichan =
               ]
         | Jump -> Chp.seq [ set_pc_to_addr ~addr_high:pop0 ~addr_low:pop1 ]
         | JumpIfNot ->
-            (* pop flag; pop addr_high; pop addr_loc; if (flag == 0) then goto addr *)
+            (* pop flag; pop addr_high; pop addr_loc; if (flag == 0) then goto
+               addr *)
             Chp.seq
               [
                 CBool.Chp.match_
@@ -358,8 +369,8 @@ let%expect_test "fibonacci" =
       (* just slide into the function code! *)
 
       (* BEGIN FUNCTION - fib *)
-      (* Input: [TOP; n; return_addr_high; return_addr_low];
-         Output: [TOP; fib(n)] and pc = return_addr *)
+      (* Input: [TOP; n; return_addr_high; return_addr_low]; Output: [TOP;
+         fib(n)] and pc = return_addr *)
       Instr.to_int Dup;
       Instr.to_int Dup;
       (* [TOP; n; n; n; return_addr_high; return_addr_low]; *)
@@ -396,13 +407,15 @@ let%expect_test "fibonacci" =
       push_first 0;
       push_second 0;
       (* 30: *) Instr.to_int Exch;
-      (* [TOP; n-1; rec1_return_addr_high; rec1_return_addr_low; n; return_addr_high; return_addr_low]; *)
+      (* [TOP; n-1; rec1_return_addr_high; rec1_return_addr_low; n;
+         return_addr_high; return_addr_low]; *)
       (* push the start of the function *)
       push_first 5;
       push_second 5;
       push_first 0;
       push_second 0;
-      (* [TOP; func_start_high; func_start_low; n-1; rec1_return_addr_high; rec1_return_addr_low; n; return_addr_high; return_addr_low]; *)
+      (* [TOP; func_start_high; func_start_low; n-1; rec1_return_addr_high;
+         rec1_return_addr_low; n; return_addr_high; return_addr_low]; *)
       Instr.to_int Jump;
       (* [TOP; fib(n-1); n; return_addr_high; return_addr_low]; *)
 
@@ -419,20 +432,23 @@ let%expect_test "fibonacci" =
       push_first 0;
       push_second 0;
       Instr.to_int Exch;
-      (* [TOP; n-2; rec1_return_addr_high; rec1_return_addr_low; fib(n-1); return_addr_high; return_addr_low]; *)
+      (* [TOP; n-2; rec1_return_addr_high; rec1_return_addr_low; fib(n-1);
+         return_addr_high; return_addr_low]; *)
       (* push the start of the function *)
       push_first 5;
       push_second 5;
       push_first 0;
       push_second 0;
-      (* [TOP; func_start_high; func_start_low; n-2; rec1_return_addr_high; rec1_return_addr_low; fib(n-1); return_addr_high; return_addr_low]; *)
+      (* [TOP; func_start_high; func_start_low; n-2; rec1_return_addr_high;
+         rec1_return_addr_low; fib(n-1); return_addr_high; return_addr_low]; *)
       (* 50: *)
       Instr.to_int Jump;
       (* [TOP; fib(n-2); fib(n-1); return_addr_high; return_addr_low]; *)
       Instr.to_int Add;
       (* [TOP; fib(n); return_addr_high; return_addr_low]; *)
 
-      (* so now in either case it has fib(n) on the top of the stack. So reorder the stack and return. *)
+      (* so now in either case it has fib(n) on the top of the stack. So reorder
+         the stack and return. *)
       Instr.to_int Exch2;
       (* [TOP; return_addr_high; return_addr_low]; fib(n); *)
       Instr.to_int Jump;
@@ -477,41 +493,27 @@ let%expect_test "fibonacci" =
     (Ok ())
     (Ok ()) |}];
 
-  (*
-      Printf.printf "Execution time: %fs\n" (Caml.Sys.time () -. t);
-      [%expect {| |}]; *)
+  (* Printf.printf "Execution time: %fs\n" (Caml.Sys.time () -. t); [%expect {|
+     |}]; *)
 
   (* let t = Caml.Sys.time () in *)
-  (* let sim, i, o = test instrs  ~create:(fun ir ~user_sendable_ports ~user_readable_ports ->  Exporter.stf_sim ir ~user_sendable_ports ~user_readable_ports) in
-     Sim.send sim i (CInt.of_int 0);
-     Sim.read sim o (CInt.of_int 0);
-     print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
-     Sim.send sim i (CInt.of_int 1);
-     Sim.read sim o (CInt.of_int 1);
-     print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
-     Sim.send sim i (CInt.of_int 2);
-     Sim.read sim o (CInt.of_int 1);
-     print_s [%sexp (Sim.wait sim ~max_steps:10000 () : unit Or_error.t)];
-     Sim.send sim i (CInt.of_int 7);
-     Sim.read sim o (CInt.of_int 13);
-     print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)];
-     Sim.send sim i (CInt.of_int 8);
-     Sim.read sim o (CInt.of_int 21);
-     print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)];
-     Sim.send sim i (CInt.of_int 12);
-     Sim.read sim o (CInt.of_int 144);
-     print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)];
-     [%expect
-       {|
-       (Ok ())
-       (Ok ())
-       (Ok ())
-       (Ok ())
-       (Ok ())
-       (Ok ()) |}]; *)
-  (*
-      Printf.printf "Execution time: %fs\n" (Caml.Sys.time () -. t);
-      [%expect {| |}]; *)
+  (* let sim, i, o = test instrs ~create:(fun ir ~user_sendable_ports
+     ~user_readable_ports -> Exporter.stf_sim ir ~user_sendable_ports
+     ~user_readable_ports) in Sim.send sim i (CInt.of_int 0); Sim.read sim o
+     (CInt.of_int 0); print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
+     Sim.send sim i (CInt.of_int 1); Sim.read sim o (CInt.of_int 1); print_s
+     [%sexp (Sim.wait sim () : unit Or_error.t)]; Sim.send sim i (CInt.of_int
+     2); Sim.read sim o (CInt.of_int 1); print_s [%sexp (Sim.wait sim
+     ~max_steps:10000 () : unit Or_error.t)]; Sim.send sim i (CInt.of_int 7);
+     Sim.read sim o (CInt.of_int 13); print_s [%sexp (Sim.wait sim
+     ~max_steps:1000000 () : unit Or_error.t)]; Sim.send sim i (CInt.of_int 8);
+     Sim.read sim o (CInt.of_int 21); print_s [%sexp (Sim.wait sim
+     ~max_steps:1000000 () : unit Or_error.t)]; Sim.send sim i (CInt.of_int 12);
+     Sim.read sim o (CInt.of_int 144); print_s [%sexp (Sim.wait sim
+     ~max_steps:1000000 () : unit Or_error.t)]; [%expect {| (Ok ()) (Ok ()) (Ok
+     ()) (Ok ()) (Ok ()) (Ok ()) |}]; *)
+  (* Printf.printf "Execution time: %fs\n" (Caml.Sys.time () -. t); [%expect {|
+     |}]; *)
   let my_instrs =
     Array.init 4096 ~f:(fun i ->
         if i < Array.length instrs then instrs.(i) else Instr.to_int Instr.Nop)

@@ -137,8 +137,10 @@ let stf_of_dflowable_chp_proc proc =
               Hashtbl.keys stf_id_of_raw_read_id)
           |> Flat_chp.Var.Set.of_list
         in
-        (* print_s [%sexp (("pre_split stf_id_of_raw_read_id", stf_id_of_raw_read_id): string * Var.t Var.Table.t )]; *)
-        (* print_s [%sexp (("pre_split stf_id_of_id", stf_id_of_id): string * Var.t Var.Table.t)]; *)
+        (* print_s [%sexp (("pre_split stf_id_of_raw_read_id",
+           stf_id_of_raw_read_id): string * Var.t Var.Table.t )]; *)
+        (* print_s [%sexp (("pre_split stf_id_of_id", stf_id_of_id): string *
+           Var.t Var.Table.t)]; *)
         let splits =
           Set.to_list raw_read_ids
           |> List.map ~f:(fun raw_read_id ->
@@ -159,8 +161,10 @@ let stf_of_dflowable_chp_proc proc =
                  let out_v = write_v write_id in
                  { Par_merge.in_vs; out_v })
         in
-        (* print_s [%sexp (("splits", raw_read_ids, splits): string * Var.Set.t * Stmt.Par_split.t list)]; *)
-        (* print_s [%sexp (("merges", merges): string * Stmt.Par_merge.t list)]; *)
+        (* print_s [%sexp (("splits", raw_read_ids, splits): string * Var.Set.t
+           * Stmt.Par_split.t list)]; *)
+        (* print_s [%sexp (("merges", merges): string * Stmt.Par_merge.t
+           list)]; *)
         Par (splits, stmts, merges)
     | Nondeterm_select _ -> failwith "STF does not support Nondeterm_select"
     | SelectImm (gaurds, branches) ->
@@ -178,7 +182,8 @@ let stf_of_dflowable_chp_proc proc =
               Hashtbl.keys stf_id_of_id)
           |> Flat_chp.Var.Set.of_list
         in
-        (* every branch must either write the write_id or have it as a raw read. If not, add it as a raw read *)
+        (* every branch must either write the write_id or have it as a raw read.
+           If not, add it as a raw read *)
         let merges' =
           Set.to_list write_ids
           |> List.map ~f:(fun write_id ->
@@ -238,7 +243,7 @@ let stf_of_dflowable_chp_proc proc =
                        out_v = None;
                      }
                  | None, Some body_write ->
-                     (* let init_v = of_v var_id in  *)
+                     (* let init_v = of_v var_id in *)
                      let out_v = write_v var_id in
                      {
                        init_v = None;

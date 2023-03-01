@@ -131,9 +131,9 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
           "Simultanious read and write of variable: read %{str_i read_pc}, \
            write %{str_i write_pc}, create %{str_l var_decl}."]
   | Simul_write_write_var (pc1, pc2, var_id) -> (
-      (* This could either be because an actual variable is written in two locations,
-         or could be the fake variable used by a memory to mark that two accesses are
-         happening at the same time *)
+      (* This could either be because an actual variable is written in two
+         locations, or could be the fake variable used by a memory to mark that
+         two accesses are happening at the same time *)
       match t.var_table_info.(var_id).src with
       | Var var ->
           Error
@@ -713,7 +713,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
              push_instr Code_pos.dummy_loc (Send (send_expr, chan_idx))
            in
            let _ = push_instr Code_pos.dummy_loc (Send_enqueuer enqueuer_idx) in
-           (* let enqueuer =  in *)
+           (* let enqueuer = in *)
            ((chan, (send_instr, enqueuer_idx)), (var_id, chan_idx)))
     |> List.unzip
   in

@@ -11,7 +11,8 @@ type 'a t = { u : U.t } [@@deriving sexp_of]
 
 val create : ?init:'a -> 'a Dtype.t -> 'a t
 
-(* The internal data structures. These are only meant to be constructed throguh the above interfaces. *)
+(* The internal data structures. These are only meant to be constructed throguh
+   the above interfaces. *)
 module Ir : sig
   module U : sig
     module Id : Identifiable
