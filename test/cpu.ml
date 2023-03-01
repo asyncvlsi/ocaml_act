@@ -905,7 +905,13 @@ let%expect_test "fibonacci" =
             (out_v ((id 237) (bitwidth 12))))))))
        (Eq (Var ((id 212) (bitwidth 1))) (Const 0)))))
     ((stmt
-      ((MultiAssign ((((id 0) (bitwidth 12)) (Const 0))))
+      ((MultiAssign ((((id 394) (bitwidth 8)) (Const 0))))
+       (MultiAssign ((((id 395) (bitwidth 8)) (Const 0))))
+       (MultiAssign ((((id 396) (bitwidth 8)) (Const 0))))
+       (MultiAssign ((((id 397) (bitwidth 8)) (Const 0))))
+       (MultiAssign ((((id 402) (bitwidth 8)) (Const 0))))
+       (MultiAssign ((((id 415) (bitwidth 8)) (Const 0))))
+       (MultiAssign ((((id 0) (bitwidth 12)) (Const 0))))
        (MultiAssign ((((id 1) (bitwidth 1)) (Const 0))))
        (MultiAssign ((((id 18) (bitwidth 13)) (Const 0))))
        (MultiAssign ((((id 38) (bitwidth 8)) (Const 0))))
@@ -919,173 +925,16 @@ let%expect_test "fibonacci" =
        (MultiAssign ((((id 112) (bitwidth 8)) (Const 2))))
        (MultiAssign ((((id 114) (bitwidth 8)) (Const 3))))
        (MultiAssign ((((id 208) (bitwidth 1)) (Const 1))))
-       (MultiAssign ((((id 415) (bitwidth 8)) (Const 0))))
-       (MultiAssign ((((id 402) (bitwidth 8)) (Const 0))))
-       (MultiAssign ((((id 397) (bitwidth 8)) (Const 0))))
-       (MultiAssign ((((id 396) (bitwidth 8)) (Const 0))))
-       (MultiAssign ((((id 395) (bitwidth 8)) (Const 0))))
-       (MultiAssign ((((id 394) (bitwidth 8)) (Const 0))))
        (MultiAssign
         ((((id 2) (bitwidth 1)) (Eq (Var ((id 3) (bitwidth 1))) (Const 0)))))
        (MultiAssign
-        ((((id 20) (bitwidth 4))
-          (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-         (((id 21) (bitwidth 4))
+        ((((id 21) (bitwidth 4))
           (Clip (RShift (Var ((id 19) (bitwidth 8))) (Const 4)) 4))
-         (((id 22) (bitwidth 1)) (Eq (Const 0) (Var ((id 20) (bitwidth 4)))))
-         (((id 23) (bitwidth 1)) (Eq (Const 1) (Var ((id 20) (bitwidth 4)))))
-         (((id 24) (bitwidth 1)) (Eq (Const 2) (Var ((id 20) (bitwidth 4)))))
-         (((id 25) (bitwidth 1)) (Eq (Const 3) (Var ((id 20) (bitwidth 4)))))
-         (((id 26) (bitwidth 1)) (Eq (Const 4) (Var ((id 20) (bitwidth 4)))))
-         (((id 27) (bitwidth 1)) (Eq (Const 5) (Var ((id 20) (bitwidth 4)))))
-         (((id 28) (bitwidth 1)) (Eq (Const 6) (Var ((id 20) (bitwidth 4)))))
-         (((id 29) (bitwidth 1)) (Eq (Const 7) (Var ((id 20) (bitwidth 4)))))
-         (((id 30) (bitwidth 1)) (Eq (Const 8) (Var ((id 20) (bitwidth 4)))))
-         (((id 31) (bitwidth 1)) (Eq (Const 9) (Var ((id 20) (bitwidth 4)))))
-         (((id 32) (bitwidth 1)) (Eq (Const 10) (Var ((id 20) (bitwidth 4)))))
-         (((id 33) (bitwidth 1)) (Eq (Const 11) (Var ((id 20) (bitwidth 4)))))
-         (((id 34) (bitwidth 1)) (Eq (Const 12) (Var ((id 20) (bitwidth 4)))))
-         (((id 35) (bitwidth 1)) (Eq (Const 13) (Var ((id 20) (bitwidth 4)))))
-         (((id 36) (bitwidth 1)) (Eq (Const 14) (Var ((id 20) (bitwidth 4)))))
-         (((id 37) (bitwidth 1)) (Eq (Const 15) (Var ((id 20) (bitwidth 4)))))
-         (((id 445) (bitwidth 1))
-          (BitOr
-           (BitOr
-            (BitOr
-             (BitOr
-              (BitOr
-               (BitOr
-                (BitOr
-                 (BitOr
-                  (BitOr
-                   (BitOr
-                    (BitOr
-                     (BitOr
-                      (BitOr
-                       (BitOr (Var ((id 22) (bitwidth 1)))
-                        (Var ((id 23) (bitwidth 1))))
-                       (Var ((id 24) (bitwidth 1))))
-                      (Var ((id 25) (bitwidth 1))))
-                     (Var ((id 26) (bitwidth 1))))
-                    (Var ((id 27) (bitwidth 1))))
-                   (Var ((id 29) (bitwidth 1))))
-                  (Var ((id 30) (bitwidth 1))))
-                 (Var ((id 31) (bitwidth 1))))
-                (Var ((id 32) (bitwidth 1))))
-               (Var ((id 33) (bitwidth 1))))
-              (Var ((id 34) (bitwidth 1))))
-             (Var ((id 35) (bitwidth 1))))
-            (Var ((id 36) (bitwidth 1))))
-           (Var ((id 37) (bitwidth 1)))))
-         (((id 444) (bitwidth 1))
-          (BitOr
-           (BitOr
-            (BitOr
-             (BitOr
-              (BitOr
-               (BitOr
-                (BitOr
-                 (BitOr
-                  (BitOr (Var ((id 22) (bitwidth 1)))
-                   (Var ((id 23) (bitwidth 1))))
-                  (Var ((id 24) (bitwidth 1))))
-                 (Var ((id 25) (bitwidth 1))))
-                (Var ((id 26) (bitwidth 1))))
-               (Var ((id 29) (bitwidth 1))))
-              (Var ((id 30) (bitwidth 1))))
-             (Var ((id 34) (bitwidth 1))))
-            (Var ((id 35) (bitwidth 1))))
-           (Var ((id 36) (bitwidth 1)))))
-         (((id 441) (bitwidth 1))
-          (BitOr
-           (BitOr
-            (BitOr
-             (BitOr
-              (BitOr
-               (BitOr
-                (BitOr
-                 (BitOr
-                  (BitOr
-                   (BitOr
-                    (BitOr
-                     (BitOr (Var ((id 22) (bitwidth 1)))
-                      (Var ((id 23) (bitwidth 1))))
-                     (Var ((id 24) (bitwidth 1))))
-                    (Var ((id 25) (bitwidth 1))))
-                   (Var ((id 29) (bitwidth 1))))
-                  (Var ((id 30) (bitwidth 1))))
-                 (Var ((id 31) (bitwidth 1))))
-                (Var ((id 32) (bitwidth 1))))
-               (Var ((id 33) (bitwidth 1))))
-              (Var ((id 34) (bitwidth 1))))
-             (Var ((id 35) (bitwidth 1))))
-            (Var ((id 36) (bitwidth 1))))
-           (Var ((id 37) (bitwidth 1)))))
-         (((id 449) (bitwidth 1))
-          (BitOr
-           (BitOr
-            (BitOr
-             (BitOr
-              (BitOr (Var ((id 22) (bitwidth 1))) (Var ((id 23) (bitwidth 1))))
-              (Var ((id 24) (bitwidth 1))))
-             (Var ((id 29) (bitwidth 1))))
-            (Var ((id 30) (bitwidth 1))))
-           (Var ((id 35) (bitwidth 1)))))
-         (((id 434) (bitwidth 1))
-          (BitOr
-           (BitOr
-            (BitOr (Var ((id 22) (bitwidth 1))) (Var ((id 23) (bitwidth 1))))
-            (Var ((id 24) (bitwidth 1))))
-           (Var ((id 35) (bitwidth 1)))))
-         (((id 448) (bitwidth 1))
-          (BitOr
-           (BitOr
-            (BitOr
-             (BitOr
-              (BitOr
-               (BitOr
-                (BitOr
-                 (BitOr
-                  (BitOr
-                   (BitOr
-                    (BitOr
-                     (BitOr
-                      (BitOr (Var ((id 22) (bitwidth 1)))
-                       (Var ((id 23) (bitwidth 1))))
-                      (Var ((id 26) (bitwidth 1))))
-                     (Var ((id 27) (bitwidth 1))))
-                    (Var ((id 28) (bitwidth 1))))
-                   (Var ((id 29) (bitwidth 1))))
-                  (Var ((id 30) (bitwidth 1))))
-                 (Var ((id 31) (bitwidth 1))))
-                (Var ((id 32) (bitwidth 1))))
-               (Var ((id 33) (bitwidth 1))))
-              (Var ((id 34) (bitwidth 1))))
-             (Var ((id 35) (bitwidth 1))))
-            (Var ((id 36) (bitwidth 1))))
-           (Var ((id 37) (bitwidth 1)))))
-         (((id 438) (bitwidth 1))
-          (BitOr
-           (BitOr
-            (BitOr
-             (BitOr (Var ((id 22) (bitwidth 1))) (Var ((id 23) (bitwidth 1))))
-             (Var ((id 29) (bitwidth 1))))
-            (Var ((id 30) (bitwidth 1))))
-           (Var ((id 34) (bitwidth 1)))))
          (((id 450) (bitwidth 1))
           (Log2OneHot
            (Concat
-            (((Var ((id 22) (bitwidth 1))) 1) ((Var ((id 430) (bitwidth 1))) 1)))))
-         (((id 465) (bitwidth 1))
-          (Log2OneHot
-           (Concat
-            (((Var ((id 430) (bitwidth 1))) 1) ((Var ((id 22) (bitwidth 1))) 1)))))
-         (((id 430) (bitwidth 1))
-          (BitOr
-           (BitOr
-            (BitOr
-             (BitOr
-              (BitOr
+            (((Eq (Const 0) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((BitOr
                (BitOr
                 (BitOr
                  (BitOr
@@ -1094,168 +943,428 @@ let%expect_test "fibonacci" =
                     (BitOr
                      (BitOr
                       (BitOr
-                       (BitOr (Var ((id 23) (bitwidth 1)))
-                        (Var ((id 24) (bitwidth 1))))
-                       (Var ((id 25) (bitwidth 1))))
-                      (Var ((id 26) (bitwidth 1))))
-                     (Var ((id 27) (bitwidth 1))))
-                    (Var ((id 28) (bitwidth 1))))
-                   (Var ((id 29) (bitwidth 1))))
-                  (Var ((id 30) (bitwidth 1))))
-                 (Var ((id 31) (bitwidth 1))))
-                (Var ((id 32) (bitwidth 1))))
-               (Var ((id 33) (bitwidth 1))))
-              (Var ((id 34) (bitwidth 1))))
-             (Var ((id 35) (bitwidth 1))))
-            (Var ((id 36) (bitwidth 1))))
-           (Var ((id 37) (bitwidth 1)))))
-         (((id 439) (bitwidth 1))
-          (BitOr
-           (BitOr
-            (BitOr
-             (BitOr
-              (BitOr
+                       (BitOr
+                        (BitOr
+                         (BitOr
+                          (BitOr
+                           (BitOr
+                            (Eq (Const 1)
+                             (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+                            (Eq (Const 2)
+                             (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                           (Eq (Const 3)
+                            (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                          (Eq (Const 4)
+                           (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                         (Eq (Const 5)
+                          (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                        (Eq (Const 6)
+                         (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                       (Eq (Const 7)
+                        (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                      (Eq (Const 8)
+                       (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                     (Eq (Const 9)
+                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                    (Eq (Const 10)
+                     (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                   (Eq (Const 11)
+                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                  (Eq (Const 12)
+                   (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                 (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+               (Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)))))
+         (((id 465) (bitwidth 1))
+          (Log2OneHot
+           (Concat
+            (((BitOr
                (BitOr
-                (BitOr (Var ((id 24) (bitwidth 1))) (Var ((id 25) (bitwidth 1))))
-                (Var ((id 31) (bitwidth 1))))
-               (Var ((id 32) (bitwidth 1))))
-              (Var ((id 33) (bitwidth 1))))
-             (Var ((id 35) (bitwidth 1))))
-            (Var ((id 36) (bitwidth 1))))
-           (Var ((id 37) (bitwidth 1)))))
+                (BitOr
+                 (BitOr
+                  (BitOr
+                   (BitOr
+                    (BitOr
+                     (BitOr
+                      (BitOr
+                       (BitOr
+                        (BitOr
+                         (BitOr
+                          (BitOr
+                           (BitOr
+                            (Eq (Const 1)
+                             (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+                            (Eq (Const 2)
+                             (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                           (Eq (Const 3)
+                            (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                          (Eq (Const 4)
+                           (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                         (Eq (Const 5)
+                          (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                        (Eq (Const 6)
+                         (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                       (Eq (Const 7)
+                        (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                      (Eq (Const 8)
+                       (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                     (Eq (Const 9)
+                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                    (Eq (Const 10)
+                     (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                   (Eq (Const 11)
+                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                  (Eq (Const 12)
+                   (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                 (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+               (Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)
+             ((Eq (Const 0) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)))))
          (((id 452) (bitwidth 2))
           (Log2OneHot
            (Concat
-            (((Var ((id 24) (bitwidth 1))) 1) ((Var ((id 25) (bitwidth 1))) 1)
-             ((Var ((id 448) (bitwidth 1))) 1)))))
-         (((id 453) (bitwidth 4))
-          (Log2OneHot
-           (Concat
-            (((Var ((id 25) (bitwidth 1))) 1) ((Var ((id 26) (bitwidth 1))) 1)
-             ((Var ((id 31) (bitwidth 1))) 1) ((Var ((id 32) (bitwidth 1))) 1)
-             ((Var ((id 33) (bitwidth 1))) 1) ((Var ((id 34) (bitwidth 1))) 1)
-             ((Var ((id 36) (bitwidth 1))) 1) ((Var ((id 37) (bitwidth 1))) 1)
-             ((Var ((id 432) (bitwidth 1))) 1) ((Var ((id 449) (bitwidth 1))) 1)))))
-         (((id 435) (bitwidth 1))
-          (BitOr
-           (BitOr
-            (BitOr (Var ((id 25) (bitwidth 1))) (Var ((id 26) (bitwidth 1))))
-            (Var ((id 34) (bitwidth 1))))
-           (Var ((id 36) (bitwidth 1)))))
-         (((id 440) (bitwidth 1))
-          (BitOr (Var ((id 26) (bitwidth 1))) (Var ((id 27) (bitwidth 1)))))
+            (((Eq (Const 2) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 3) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((BitOr
+               (BitOr
+                (BitOr
+                 (BitOr
+                  (BitOr
+                   (BitOr
+                    (BitOr
+                     (BitOr
+                      (BitOr
+                       (BitOr
+                        (BitOr
+                         (BitOr
+                          (BitOr
+                           (Eq (Const 0)
+                            (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+                           (Eq (Const 1)
+                            (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                          (Eq (Const 4)
+                           (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                         (Eq (Const 5)
+                          (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                        (Eq (Const 6)
+                         (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                       (Eq (Const 7)
+                        (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                      (Eq (Const 8)
+                       (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                     (Eq (Const 9)
+                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                    (Eq (Const 10)
+                     (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                   (Eq (Const 11)
+                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                  (Eq (Const 12)
+                   (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                 (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+               (Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)))))
          (((id 454) (bitwidth 2))
           (Log2OneHot
            (Concat
-            (((Var ((id 26) (bitwidth 1))) 1) ((Var ((id 27) (bitwidth 1))) 1)
-             ((Var ((id 28) (bitwidth 1))) 1) ((Var ((id 441) (bitwidth 1))) 1)))))
-         (((id 432) (bitwidth 1))
-          (BitOr (Var ((id 27) (bitwidth 1))) (Var ((id 28) (bitwidth 1)))))
+            (((Eq (Const 4) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 5) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 6) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((BitOr
+               (BitOr
+                (BitOr
+                 (BitOr
+                  (BitOr
+                   (BitOr
+                    (BitOr
+                     (BitOr
+                      (BitOr
+                       (BitOr
+                        (BitOr
+                         (BitOr
+                          (Eq (Const 0)
+                           (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+                          (Eq (Const 1)
+                           (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                         (Eq (Const 2)
+                          (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                        (Eq (Const 3)
+                         (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                       (Eq (Const 7)
+                        (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                      (Eq (Const 8)
+                       (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                     (Eq (Const 9)
+                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                    (Eq (Const 10)
+                     (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                   (Eq (Const 11)
+                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                  (Eq (Const 12)
+                   (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                 (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+               (Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)))))
+         (((id 451) (bitwidth 4))
+          (Log2OneHot
+           (Concat
+            (((Eq (Const 2) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 3) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 4) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 9) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 10) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 11) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((BitOr
+               (Eq (Const 5) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+               (Eq (Const 6) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)
+             ((BitOr
+               (BitOr
+                (BitOr
+                 (BitOr
+                  (Eq (Const 0) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+                  (Eq (Const 1) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                 (Eq (Const 7) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                (Eq (Const 8) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+               (Eq (Const 12) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)))))
+         (((id 453) (bitwidth 4))
+          (Log2OneHot
+           (Concat
+            (((Eq (Const 3) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 4) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 9) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 10) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 11) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 12) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((BitOr
+               (Eq (Const 5) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+               (Eq (Const 6) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)
+             ((BitOr
+               (BitOr
+                (BitOr
+                 (BitOr
+                  (BitOr
+                   (Eq (Const 0)
+                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+                   (Eq (Const 1)
+                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                  (Eq (Const 2) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                 (Eq (Const 7) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                (Eq (Const 8) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+               (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)))))
          (((id 455) (bitwidth 3))
           (Log2OneHot
            (Concat
-            (((Var ((id 27) (bitwidth 1))) 1) ((Var ((id 28) (bitwidth 1))) 1)
-             ((Var ((id 31) (bitwidth 1))) 1) ((Var ((id 32) (bitwidth 1))) 1)
-             ((Var ((id 33) (bitwidth 1))) 1) ((Var ((id 37) (bitwidth 1))) 1)
-             ((Var ((id 444) (bitwidth 1))) 1)))))
-         (((id 436) (bitwidth 1))
-          (BitOr
-           (BitOr
-            (BitOr
-             (BitOr
-              (BitOr (Var ((id 27) (bitwidth 1))) (Var ((id 29) (bitwidth 1))))
-              (Var ((id 31) (bitwidth 1))))
-             (Var ((id 32) (bitwidth 1))))
-            (Var ((id 33) (bitwidth 1))))
-           (Var ((id 37) (bitwidth 1)))))
-         (((id 437) (bitwidth 1))
-          (BitOr (Var ((id 28) (bitwidth 1))) (Var ((id 30) (bitwidth 1)))))
+            (((Eq (Const 5) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 6) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 9) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 10) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 11) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((BitOr
+               (BitOr
+                (BitOr
+                 (BitOr
+                  (BitOr
+                   (BitOr
+                    (BitOr
+                     (BitOr
+                      (BitOr
+                       (Eq (Const 0)
+                        (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+                       (Eq (Const 1)
+                        (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                      (Eq (Const 2)
+                       (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                     (Eq (Const 3)
+                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                    (Eq (Const 4)
+                     (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                   (Eq (Const 7)
+                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                  (Eq (Const 8) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                 (Eq (Const 12) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+               (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)))))
          (((id 467) (bitwidth 2))
           (Log2OneHot
            (Concat
-            (((Var ((id 438) (bitwidth 1))) 1) ((Var ((id 439) (bitwidth 1))) 1)
-             ((Var ((id 440) (bitwidth 1))) 1) ((Var ((id 28) (bitwidth 1))) 1)))))
+            (((BitOr
+               (BitOr
+                (BitOr
+                 (BitOr
+                  (Eq (Const 0) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+                  (Eq (Const 1) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                 (Eq (Const 7) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                (Eq (Const 8) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+               (Eq (Const 12) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)
+             ((BitOr
+               (BitOr
+                (BitOr
+                 (BitOr
+                  (BitOr
+                   (BitOr
+                    (BitOr
+                     (Eq (Const 2)
+                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+                     (Eq (Const 3)
+                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                    (Eq (Const 9)
+                     (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                   (Eq (Const 10)
+                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                  (Eq (Const 11)
+                   (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                 (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+               (Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)
+             ((BitOr
+               (Eq (Const 4) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+               (Eq (Const 5) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)
+             ((Eq (Const 6) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)))))
+         (((id 456) (bitwidth 1))
+          (Log2OneHot
+           (Concat
+            (((Eq (Const 6) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
+             ((BitOr
+               (BitOr
+                (BitOr
+                 (BitOr
+                  (BitOr
+                   (BitOr
+                    (BitOr
+                     (BitOr
+                      (BitOr
+                       (BitOr
+                        (BitOr
+                         (BitOr
+                          (BitOr
+                           (BitOr
+                            (Eq (Const 0)
+                             (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+                            (Eq (Const 1)
+                             (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                           (Eq (Const 2)
+                            (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                          (Eq (Const 3)
+                           (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                         (Eq (Const 4)
+                          (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                        (Eq (Const 5)
+                         (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                       (Eq (Const 7)
+                        (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                      (Eq (Const 8)
+                       (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                     (Eq (Const 9)
+                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                    (Eq (Const 10)
+                     (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                   (Eq (Const 11)
+                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                  (Eq (Const 12)
+                   (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                 (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+               (Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)))))
          (((id 466) (bitwidth 2))
           (Log2OneHot
            (Concat
-            (((Var ((id 434) (bitwidth 1))) 1) ((Var ((id 435) (bitwidth 1))) 1)
-             ((Var ((id 436) (bitwidth 1))) 1) ((Var ((id 437) (bitwidth 1))) 1)))))))
+            (((BitOr
+               (BitOr
+                (BitOr
+                 (Eq (Const 0) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+                 (Eq (Const 1) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                (Eq (Const 2) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+               (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)
+             ((BitOr
+               (BitOr
+                (BitOr
+                 (Eq (Const 3) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+                 (Eq (Const 4) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                (Eq (Const 12) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+               (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)
+             ((BitOr
+               (BitOr
+                (BitOr
+                 (BitOr
+                  (BitOr
+                   (Eq (Const 5)
+                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+                   (Eq (Const 7)
+                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                  (Eq (Const 9) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                 (Eq (Const 10) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+                (Eq (Const 11) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+               (Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)
+             ((BitOr
+               (Eq (Const 6) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
+               (Eq (Const 8) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
+              1)))))))
        (MultiAssign
-        ((((id 451) (bitwidth 4))
+        ((((id 458) (bitwidth 1))
           (Log2OneHot
            (Concat
-            (((Var ((id 24) (bitwidth 1))) 1) ((Var ((id 25) (bitwidth 1))) 1)
-             ((Var ((id 26) (bitwidth 1))) 1) ((Var ((id 31) (bitwidth 1))) 1)
-             ((Var ((id 32) (bitwidth 1))) 1) ((Var ((id 33) (bitwidth 1))) 1)
-             ((Var ((id 35) (bitwidth 1))) 1) ((Var ((id 36) (bitwidth 1))) 1)
-             ((Var ((id 37) (bitwidth 1))) 1) ((Var ((id 432) (bitwidth 1))) 1)
-             ((Var ((id 438) (bitwidth 1))) 1)))))))
-       (MultiAssign
-        ((((id 456) (bitwidth 1))
-          (Log2OneHot
-           (Concat
-            (((Var ((id 28) (bitwidth 1))) 1) ((Var ((id 445) (bitwidth 1))) 1)))))))
-       (MultiAssign
-        ((((id 457) (bitwidth 1))
-          (Log2OneHot
-           (Concat
-            (((Var ((id 28) (bitwidth 1))) 1) ((Var ((id 445) (bitwidth 1))) 1)))))))
-       (MultiAssign
-        ((((id 55) (bitwidth 1)) (Ge (Var ((id 54) (bitwidth 8))) (Const 1)))
-         (((id 56) (bitwidth 1))
-          (Eq0 (Ge (Var ((id 54) (bitwidth 8))) (Const 1))))
-         (((id 66) (bitwidth 1)) (Ge (Var ((id 54) (bitwidth 8))) (Const 2)))
-         (((id 67) (bitwidth 1))
-          (Eq0 (Ge (Var ((id 54) (bitwidth 8))) (Const 2))))
-         (((id 79) (bitwidth 1)) (Ge (Var ((id 54) (bitwidth 8))) (Const 3)))
-         (((id 80) (bitwidth 1))
-          (Eq0 (Ge (Var ((id 54) (bitwidth 8))) (Const 3))))
-         (((id 458) (bitwidth 1))
-          (Log2OneHot
-           (Concat
-            (((Var ((id 55) (bitwidth 1))) 1) ((Var ((id 56) (bitwidth 1))) 1)))))
+            (((Ge (Var ((id 54) (bitwidth 8))) (Const 1)) 1)
+             ((Eq0 (Ge (Var ((id 54) (bitwidth 8))) (Const 1))) 1)))))
          (((id 459) (bitwidth 1))
           (Log2OneHot
            (Concat
-            (((Var ((id 56) (bitwidth 1))) 1) ((Var ((id 55) (bitwidth 1))) 1)))))
+            (((Eq0 (Ge (Var ((id 54) (bitwidth 8))) (Const 1))) 1)
+             ((Ge (Var ((id 54) (bitwidth 8))) (Const 1)) 1)))))
          (((id 460) (bitwidth 1))
           (Log2OneHot
            (Concat
-            (((Var ((id 66) (bitwidth 1))) 1) ((Var ((id 67) (bitwidth 1))) 1)))))
+            (((Ge (Var ((id 54) (bitwidth 8))) (Const 2)) 1)
+             ((Eq0 (Ge (Var ((id 54) (bitwidth 8))) (Const 2))) 1)))))
          (((id 461) (bitwidth 1))
           (Log2OneHot
            (Concat
-            (((Var ((id 79) (bitwidth 1))) 1) ((Var ((id 80) (bitwidth 1))) 1)))))))
+            (((Ge (Var ((id 54) (bitwidth 8))) (Const 3)) 1)
+             ((Eq0 (Ge (Var ((id 54) (bitwidth 8))) (Const 3))) 1)))))))
        (MultiAssign
         ((((id 73) (bitwidth 12)) (Add (Var ((id 69) (bitwidth 12))) (Const 1)))
          (((id 77) (bitwidth 13))
-          (LShift (Var ((id 73) (bitwidth 12))) (Const 1)))))
+          (LShift (Add (Var ((id 69) (bitwidth 12))) (Const 1)) (Const 1)))))
        (MultiAssign
         ((((id 86) (bitwidth 12)) (Add (Var ((id 82) (bitwidth 12))) (Const 1)))
          (((id 90) (bitwidth 13))
-          (LShift (Var ((id 86) (bitwidth 12))) (Const 1)))))
+          (LShift (Add (Var ((id 82) (bitwidth 12))) (Const 1)) (Const 1)))))
        (MultiAssign
-        ((((id 221) (bitwidth 1)) (Ge (Var ((id 124) (bitwidth 8))) (Const 1)))
-         (((id 222) (bitwidth 1))
-          (Eq0 (Ge (Var ((id 124) (bitwidth 8))) (Const 1))))
-         (((id 232) (bitwidth 1)) (Ge (Var ((id 124) (bitwidth 8))) (Const 2)))
-         (((id 233) (bitwidth 1))
-          (Eq0 (Ge (Var ((id 124) (bitwidth 8))) (Const 2))))
-         (((id 243) (bitwidth 1)) (Ge (Var ((id 124) (bitwidth 8))) (Const 3)))
-         (((id 244) (bitwidth 1))
-          (Eq0 (Ge (Var ((id 124) (bitwidth 8))) (Const 3))))
-         (((id 462) (bitwidth 1))
+        ((((id 462) (bitwidth 1))
           (Log2OneHot
            (Concat
-            (((Var ((id 221) (bitwidth 1))) 1) ((Var ((id 222) (bitwidth 1))) 1)))))
+            (((Ge (Var ((id 124) (bitwidth 8))) (Const 1)) 1)
+             ((Eq0 (Ge (Var ((id 124) (bitwidth 8))) (Const 1))) 1)))))
          (((id 463) (bitwidth 1))
           (Log2OneHot
            (Concat
-            (((Var ((id 232) (bitwidth 1))) 1) ((Var ((id 233) (bitwidth 1))) 1)))))
+            (((Ge (Var ((id 124) (bitwidth 8))) (Const 2)) 1)
+             ((Eq0 (Ge (Var ((id 124) (bitwidth 8))) (Const 2))) 1)))))
          (((id 464) (bitwidth 1))
           (Log2OneHot
            (Concat
-            (((Var ((id 243) (bitwidth 1))) 1) ((Var ((id 244) (bitwidth 1))) 1)))))))
+            (((Ge (Var ((id 124) (bitwidth 8))) (Const 3)) 1)
+             ((Eq0 (Ge (Var ((id 124) (bitwidth 8))) (Const 3))) 1)))))))
        (MultiAssign
         ((((id 209) (bitwidth 8))
           (BitOr (Var ((id 207) (bitwidth 4)))
@@ -1525,7 +1634,7 @@ let%expect_test "fibonacci" =
         ((((id 166) (bitwidth 8))) (((id 167) (bitwidth 8)))
          (((id 168) (bitwidth 8))) (((id 169) (bitwidth 8)))
          (((id 170) (bitwidth 8))) (((id 171) (bitwidth 8))) ()))
-       (Split (Idx ((id 457) (bitwidth 1))) ((id 85) (bitwidth 8))
+       (Split (Idx ((id 456) (bitwidth 1))) ((id 85) (bitwidth 8))
         ((((id 172) (bitwidth 8))) ()))
        (Split (Idx ((id 452) (bitwidth 2))) ((id 21) (bitwidth 4))
         ((((id 206) (bitwidth 4))) (((id 207) (bitwidth 4))) ()))
@@ -1604,63 +1713,63 @@ let%expect_test "fibonacci" =
        (((id 4) (bitwidth 8)) ((id 322) (bitwidth 8)))
        (((id 5) (bitwidth 13)) ((id 385) (bitwidth 13)))
        (((id 6) (bitwidth 8)) ((id 163) (bitwidth 8))))))
-    defproc proc_0(chan!(int<8>) iport406; chan!(int<8>) iport407; chan!(int<8>) iport408; chan?(int<13>) oport2; chan?(int<8>) oport243; chan?(int<13>) oport312; chan?(int<8>) oport377) {
-      chan(int<12>) v0;
-      chan(int<1>) v1;
-      chan(int<13>) v2;
+    defproc proc_0(chan!(int<8>) iport333; chan!(int<8>) iport334; chan!(int<8>) iport335; chan?(int<13>) oport8; chan?(int<8>) oport170; chan?(int<13>) oport239; chan?(int<8>) oport304) {
+      chan(int<8>) v0;
+      chan(int<8>) v1;
+      chan(int<8>) v2;
       chan(int<8>) v3;
       chan(int<8>) v4;
       chan(int<8>) v5;
-      chan(int<8>) v6;
-      chan(int<12>) v7;
+      chan(int<12>) v6;
+      chan(int<1>) v7;
       chan(int<13>) v8;
       chan(int<8>) v9;
       chan(int<8>) v10;
       chan(int<8>) v11;
       chan(int<8>) v12;
-      chan(int<1>) v13;
-      chan(int<8>) v14;
+      chan(int<12>) v13;
+      chan(int<13>) v14;
       chan(int<8>) v15;
       chan(int<8>) v16;
       chan(int<8>) v17;
       chan(int<8>) v18;
-      chan(int<8>) v19;
+      chan(int<1>) v19;
       chan(int<1>) v20;
       chan(int<1>) v21;
-      chan(int<1>) v22;
+      chan(int<4>) v22;
       chan(int<1>) v23;
       chan(int<1>) v24;
-      chan(int<1>) v25;
-      chan(int<1>) v26;
-      chan(int<1>) v27;
-      chan(int<1>) v28;
-      chan(int<1>) v29;
-      chan(int<1>) v30;
+      chan(int<2>) v25;
+      chan(int<2>) v26;
+      chan(int<4>) v27;
+      chan(int<4>) v28;
+      chan(int<3>) v29;
+      chan(int<2>) v30;
       chan(int<1>) v31;
-      chan(int<1>) v32;
+      chan(int<2>) v32;
       chan(int<1>) v33;
-      chan(int<4>) v34;
-      chan(int<4>) v35;
+      chan(int<1>) v34;
+      chan(int<1>) v35;
       chan(int<1>) v36;
-      chan(int<1>) v37;
-      chan(int<1>) v38;
-      chan(int<1>) v39;
-      chan(int<1>) v40;
+      chan(int<12>) v37;
+      chan(int<13>) v38;
+      chan(int<12>) v39;
+      chan(int<13>) v40;
       chan(int<1>) v41;
       chan(int<1>) v42;
       chan(int<1>) v43;
-      chan(int<1>) v44;
-      chan(int<1>) v45;
-      chan(int<1>) v46;
-      chan(int<1>) v47;
-      chan(int<1>) v48;
-      chan(int<1>) v49;
-      chan(int<1>) v50;
-      chan(int<1>) v51;
-      chan(int<1>) v52;
-      chan(int<1>) v53;
-      chan(int<1>) v54;
-      chan(int<1>) v55;
+      chan(int<8>) v44;
+      chan(int<8>) v45;
+      chan(int<8>) v46;
+      chan(int<8>) v47;
+      chan(int<8>) v48;
+      chan(int<8>) v49;
+      chan(int<13>) v50;
+      chan(int<12>) v51;
+      chan(int<13>) v52;
+      chan(int<12>) v53;
+      chan(int<13>) v54;
+      chan(int<12>) v55;
       chan(int<1>) v56;
       chan(int<1>) v57;
       chan(int<1>) v58;
@@ -1668,17 +1777,17 @@ let%expect_test "fibonacci" =
       chan(int<1>) v60;
       chan(int<1>) v61;
       chan(int<1>) v62;
-      chan(int<2>) v63;
-      chan(int<4>) v64;
+      chan(int<1>) v63;
+      chan(int<1>) v64;
       chan(int<1>) v65;
       chan(int<1>) v66;
-      chan(int<2>) v67;
+      chan(int<1>) v67;
       chan(int<1>) v68;
-      chan(int<3>) v69;
+      chan(int<1>) v69;
       chan(int<1>) v70;
       chan(int<1>) v71;
-      chan(int<2>) v72;
-      chan(int<2>) v73;
+      chan(int<1>) v72;
+      chan(int<1>) v73;
       chan(int<1>) v74;
       chan(int<1>) v75;
       chan(int<1>) v76;
@@ -1690,7 +1799,7 @@ let%expect_test "fibonacci" =
       chan(int<1>) v82;
       chan(int<1>) v83;
       chan(int<1>) v84;
-      chan(int<4>) v85;
+      chan(int<1>) v85;
       chan(int<1>) v86;
       chan(int<1>) v87;
       chan(int<1>) v88;
@@ -1707,35 +1816,35 @@ let%expect_test "fibonacci" =
       chan(int<1>) v99;
       chan(int<1>) v100;
       chan(int<1>) v101;
-      chan(int<12>) v102;
-      chan(int<12>) v103;
-      chan(int<13>) v104;
-      chan(int<12>) v105;
-      chan(int<12>) v106;
-      chan(int<13>) v107;
+      chan(int<1>) v102;
+      chan(int<1>) v103;
+      chan(int<1>) v104;
+      chan(int<1>) v105;
+      chan(int<1>) v106;
+      chan(int<1>) v107;
       chan(int<1>) v108;
       chan(int<1>) v109;
-      chan(int<1>) v110;
+      chan(int<12>) v110;
       chan(int<1>) v111;
       chan(int<1>) v112;
       chan(int<1>) v113;
-      chan(int<1>) v114;
+      chan(int<12>) v114;
       chan(int<1>) v115;
       chan(int<1>) v116;
-      chan(int<8>) v117;
-      chan(int<8>) v118;
-      chan(int<8>) v119;
-      chan(int<8>) v120;
-      chan(int<8>) v121;
-      chan(int<8>) v122;
-      chan(int<13>) v123;
-      chan(int<12>) v124;
-      chan(int<13>) v125;
-      chan(int<12>) v126;
-      chan(int<13>) v127;
-      chan(int<12>) v128;
-      chan(int<1>) v129;
-      chan(int<1>) v130;
+      chan(int<1>) v117;
+      chan(int<1>) v118;
+      chan(int<1>) v119;
+      chan(int<1>) v120;
+      chan(int<1>) v121;
+      chan(int<1>) v122;
+      chan(int<1>) v123;
+      chan(int<8>) v124;
+      chan(int<1>) v125;
+      chan(int<1>) v126;
+      chan(int<1>) v127;
+      chan(int<1>) v128;
+      chan(int<8>) v129;
+      chan(int<8>) v130;
       chan(int<1>) v131;
       chan(int<1>) v132;
       chan(int<1>) v133;
@@ -1744,11 +1853,11 @@ let%expect_test "fibonacci" =
       chan(int<1>) v136;
       chan(int<1>) v137;
       chan(int<1>) v138;
-      chan(int<1>) v139;
+      chan(int<8>) v139;
       chan(int<1>) v140;
       chan(int<1>) v141;
-      chan(int<1>) v142;
-      chan(int<1>) v143;
+      chan(int<8>) v142;
+      chan(int<8>) v143;
       chan(int<1>) v144;
       chan(int<1>) v145;
       chan(int<1>) v146;
@@ -1758,12 +1867,12 @@ let%expect_test "fibonacci" =
       chan(int<1>) v150;
       chan(int<1>) v151;
       chan(int<1>) v152;
-      chan(int<1>) v153;
+      chan(int<8>) v153;
       chan(int<1>) v154;
       chan(int<1>) v155;
       chan(int<1>) v156;
       chan(int<1>) v157;
-      chan(int<1>) v158;
+      chan(int<8>) v158;
       chan(int<1>) v159;
       chan(int<1>) v160;
       chan(int<1>) v161;
@@ -1772,10 +1881,10 @@ let%expect_test "fibonacci" =
       chan(int<1>) v164;
       chan(int<1>) v165;
       chan(int<1>) v166;
-      chan(int<1>) v167;
+      chan(int<8>) v167;
       chan(int<1>) v168;
       chan(int<1>) v169;
-      chan(int<1>) v170;
+      chan(int<8>) v170;
       chan(int<1>) v171;
       chan(int<1>) v172;
       chan(int<1>) v173;
@@ -1785,546 +1894,415 @@ let%expect_test "fibonacci" =
       chan(int<1>) v177;
       chan(int<1>) v178;
       chan(int<1>) v179;
-      chan(int<1>) v180;
+      chan(int<13>) v180;
       chan(int<1>) v181;
       chan(int<1>) v182;
-      chan(int<12>) v183;
+      chan(int<1>) v183;
       chan(int<1>) v184;
-      chan(int<1>) v185;
+      chan(int<13>) v185;
       chan(int<1>) v186;
-      chan(int<12>) v187;
+      chan(int<1>) v187;
       chan(int<1>) v188;
       chan(int<1>) v189;
       chan(int<1>) v190;
       chan(int<1>) v191;
       chan(int<1>) v192;
       chan(int<1>) v193;
-      chan(int<1>) v194;
+      chan(int<13>) v194;
       chan(int<1>) v195;
       chan(int<1>) v196;
-      chan(int<8>) v197;
+      chan(int<1>) v197;
       chan(int<1>) v198;
-      chan(int<1>) v199;
+      chan(int<13>) v199;
       chan(int<1>) v200;
       chan(int<1>) v201;
-      chan(int<8>) v202;
-      chan(int<8>) v203;
+      chan(int<1>) v202;
+      chan(int<1>) v203;
       chan(int<1>) v204;
       chan(int<1>) v205;
       chan(int<1>) v206;
       chan(int<1>) v207;
-      chan(int<1>) v208;
+      chan(int<13>) v208;
       chan(int<1>) v209;
       chan(int<1>) v210;
       chan(int<1>) v211;
-      chan(int<8>) v212;
-      chan(int<1>) v213;
+      chan(int<1>) v212;
+      chan(int<13>) v213;
       chan(int<1>) v214;
-      chan(int<8>) v215;
-      chan(int<8>) v216;
+      chan(int<1>) v215;
+      chan(int<1>) v216;
       chan(int<1>) v217;
       chan(int<1>) v218;
       chan(int<1>) v219;
       chan(int<1>) v220;
       chan(int<1>) v221;
-      chan(int<1>) v222;
+      chan(int<13>) v222;
       chan(int<1>) v223;
       chan(int<1>) v224;
       chan(int<1>) v225;
-      chan(int<8>) v226;
-      chan(int<1>) v227;
+      chan(int<1>) v226;
+      chan(int<13>) v227;
       chan(int<1>) v228;
       chan(int<1>) v229;
       chan(int<1>) v230;
-      chan(int<8>) v231;
+      chan(int<1>) v231;
       chan(int<1>) v232;
       chan(int<1>) v233;
       chan(int<1>) v234;
       chan(int<1>) v235;
-      chan(int<1>) v236;
+      chan(int<13>) v236;
       chan(int<1>) v237;
       chan(int<1>) v238;
-      chan(int<1>) v239;
-      chan(int<8>) v240;
-      chan(int<1>) v241;
-      chan(int<1>) v242;
-      chan(int<8>) v243;
-      chan(int<1>) v244;
+      chan(int<13>) v239;
+      chan(int<1>) v240;
+      chan(int<8>) v241;
+      chan(int<12>) v242;
+      chan(int<1>) v243;
+      chan(int<8>) v244;
       chan(int<1>) v245;
-      chan(int<1>) v246;
-      chan(int<1>) v247;
-      chan(int<1>) v248;
+      chan(int<12>) v246;
+      chan(int<12>) v247;
+      chan(int<12>) v248;
       chan(int<1>) v249;
-      chan(int<1>) v250;
+      chan(int<8>) v250;
       chan(int<1>) v251;
-      chan(int<1>) v252;
-      chan(int<13>) v253;
-      chan(int<1>) v254;
-      chan(int<1>) v255;
+      chan(int<12>) v252;
+      chan(int<1>) v253;
+      chan(int<12>) v254;
+      chan(int<12>) v255;
       chan(int<1>) v256;
-      chan(int<1>) v257;
-      chan(int<13>) v258;
-      chan(int<1>) v259;
+      chan(int<8>) v257;
+      chan(int<1>) v258;
+      chan(int<12>) v259;
       chan(int<1>) v260;
-      chan(int<1>) v261;
-      chan(int<1>) v262;
-      chan(int<1>) v263;
-      chan(int<1>) v264;
-      chan(int<1>) v265;
-      chan(int<1>) v266;
-      chan(int<13>) v267;
-      chan(int<1>) v268;
+      chan(int<8>) v261;
+      chan(int<8>) v262;
+      chan(int<8>) v263;
+      chan(int<8>) v264;
+      chan(int<8>) v265;
+      chan(int<8>) v266;
+      chan(int<8>) v267;
+      chan(int<8>) v268;
       chan(int<1>) v269;
-      chan(int<1>) v270;
-      chan(int<1>) v271;
-      chan(int<13>) v272;
-      chan(int<1>) v273;
-      chan(int<1>) v274;
+      chan(int<4>) v270;
+      chan(int<4>) v271;
+      chan(int<8>) v272;
+      chan(int<8>) v273;
+      chan(int<8>) v274;
       chan(int<1>) v275;
-      chan(int<1>) v276;
+      chan(int<8>) v276;
       chan(int<1>) v277;
-      chan(int<1>) v278;
-      chan(int<1>) v279;
+      chan(int<12>) v278;
+      chan(int<12>) v279;
       chan(int<1>) v280;
-      chan(int<13>) v281;
+      chan(int<12>) v281;
       chan(int<1>) v282;
-      chan(int<1>) v283;
+      chan(int<8>) v283;
       chan(int<1>) v284;
-      chan(int<1>) v285;
-      chan(int<13>) v286;
+      chan(int<12>) v285;
+      chan(int<12>) v286;
       chan(int<1>) v287;
-      chan(int<1>) v288;
+      chan(int<12>) v288;
       chan(int<1>) v289;
-      chan(int<1>) v290;
+      chan(int<8>) v290;
       chan(int<1>) v291;
-      chan(int<1>) v292;
-      chan(int<1>) v293;
+      chan(int<12>) v292;
+      chan(int<12>) v293;
       chan(int<1>) v294;
-      chan(int<13>) v295;
+      chan(int<12>) v295;
       chan(int<1>) v296;
       chan(int<1>) v297;
       chan(int<1>) v298;
-      chan(int<1>) v299;
-      chan(int<13>) v300;
-      chan(int<1>) v301;
-      chan(int<1>) v302;
-      chan(int<1>) v303;
-      chan(int<1>) v304;
-      chan(int<1>) v305;
-      chan(int<1>) v306;
-      chan(int<1>) v307;
-      chan(int<1>) v308;
-      chan(int<13>) v309;
+      chan(int<8>) v299;
+      chan(int<8>) v300;
+      chan(int<8>) v301;
+      chan(int<8>) v302;
+      chan(int<8>) v303;
+      chan(int<8>) v304;
+      chan(int<8>) v305;
+      chan(int<8>) v306;
+      chan(int<8>) v307;
+      chan(int<8>) v308;
+      chan(int<8>) v309;
       chan(int<1>) v310;
       chan(int<1>) v311;
-      chan(int<13>) v312;
+      chan(int<1>) v312;
       chan(int<1>) v313;
-      chan(int<8>) v314;
-      chan(int<12>) v315;
+      chan(int<1>) v314;
+      chan(int<1>) v315;
       chan(int<1>) v316;
-      chan(int<8>) v317;
+      chan(int<1>) v317;
       chan(int<1>) v318;
-      chan(int<12>) v319;
-      chan(int<12>) v320;
-      chan(int<12>) v321;
+      chan(int<1>) v319;
+      chan(int<1>) v320;
+      chan(int<1>) v321;
       chan(int<1>) v322;
-      chan(int<8>) v323;
+      chan(int<1>) v323;
       chan(int<1>) v324;
-      chan(int<12>) v325;
-      chan(int<12>) v326;
+      chan(int<1>) v325;
+      chan(int<1>) v326;
       chan(int<1>) v327;
-      chan(int<12>) v328;
-      chan(int<12>) v329;
+      chan(int<1>) v328;
+      chan(int<1>) v329;
       chan(int<1>) v330;
-      chan(int<8>) v331;
+      chan(int<1>) v331;
       chan(int<1>) v332;
-      chan(int<12>) v333;
-      chan(int<12>) v334;
-      chan(int<1>) v335;
-      chan(int<8>) v336;
-      chan(int<8>) v337;
-      chan(int<8>) v338;
-      chan(int<8>) v339;
-      chan(int<8>) v340;
-      chan(int<8>) v341;
-      chan(int<8>) v342;
-      chan(int<8>) v343;
-      chan(int<4>) v344;
-      chan(int<4>) v345;
-      chan(int<8>) v346;
-      chan(int<8>) v347;
-      chan(int<8>) v348;
-      chan(int<8>) v349;
-      chan(int<1>) v350;
-      chan(int<12>) v351;
-      chan(int<12>) v352;
-      chan(int<1>) v353;
-      chan(int<12>) v354;
-      chan(int<1>) v355;
-      chan(int<8>) v356;
-      chan(int<1>) v357;
-      chan(int<12>) v358;
-      chan(int<12>) v359;
-      chan(int<1>) v360;
-      chan(int<12>) v361;
-      chan(int<1>) v362;
-      chan(int<8>) v363;
-      chan(int<1>) v364;
-      chan(int<12>) v365;
-      chan(int<12>) v366;
-      chan(int<1>) v367;
-      chan(int<12>) v368;
-      chan(int<1>) v369;
-      chan(int<1>) v370;
-      chan(int<1>) v371;
-      chan(int<8>) v372;
-      chan(int<8>) v373;
-      chan(int<8>) v374;
-      chan(int<8>) v375;
-      chan(int<8>) v376;
-      chan(int<8>) v377;
-      chan(int<8>) v378;
-      chan(int<8>) v379;
-      chan(int<8>) v380;
-      chan(int<8>) v381;
-      chan(int<8>) v382;
-      chan(int<1>) v383;
-      chan(int<1>) v384;
-      chan(int<1>) v385;
-      chan(int<1>) v386;
-      chan(int<1>) v387;
-      chan(int<1>) v388;
-      chan(int<1>) v389;
-      chan(int<1>) v390;
-      chan(int<1>) v391;
-      chan(int<1>) v392;
-      chan(int<1>) v393;
-      chan(int<1>) v394;
-      chan(int<1>) v395;
-      chan(int<1>) v396;
-      chan(int<1>) v397;
-      chan(int<1>) v398;
-      chan(int<1>) v399;
-      chan(int<1>) v400;
-      chan(int<1>) v401;
-      chan(int<1>) v402;
-      chan(int<1>) v403;
-      chan(int<1>) v404;
-      chan(int<1>) v405;
-      chan(int<8>) v406;
-      chan(int<8>) v407;
-      chan(int<8>) v408;
+      chan(int<8>) v333;
+      chan(int<8>) v334;
+      chan(int<8>) v335;
     dataflow {
       v0 <- 0;
       v1 <- 0;
       v2 <- 0;
       v3 <- 0;
-      v4 <- 1;
-      v5 <- 2;
-      v6 <- 3;
-      v7 <- 1;
-      v8 <- 2;
+      v4 <- 0;
+      v5 <- 0;
+      v6 <- 0;
+      v7 <- 0;
+      v8 <- 0;
       v9 <- 0;
       v10 <- 1;
       v11 <- 2;
       v12 <- 3;
       v13 <- 1;
-      v14 <- 0;
+      v14 <- 2;
       v15 <- 0;
-      v16 <- 0;
-      v17 <- 0;
-      v18 <- 0;
-      v19 <- 0;
+      v16 <- 1;
+      v17 <- 2;
+      v18 <- 3;
+      v19 <- 1;
       v21 <- int((v20) = 0);
       dataflow_cluser {
-        v34 <- (15 & (v406));
-        v35 <- int(((v406) >> 4), 4);
-        v36 <- int(0 = (v34));
-        v37 <- int(1 = (v34));
-        v38 <- int(2 = (v34));
-        v39 <- int(3 = (v34));
-        v40 <- int(4 = (v34));
-        v41 <- int(5 = (v34));
-        v42 <- int(6 = (v34));
-        v43 <- int(7 = (v34));
-        v44 <- int(8 = (v34));
-        v45 <- int(9 = (v34));
-        v46 <- int(10 = (v34));
-        v47 <- int(11 = (v34));
-        v48 <- int(12 = (v34));
-        v49 <- int(13 = (v34));
-        v50 <- int(14 = (v34));
-        v51 <- int(15 = (v34));
-        v52 <- (((((((((((((((v36) | (v37)) | (v22)) | (v23)) | (v24)) | (v41)) | (v43)) | (v44)) | (v26)) | (v27)) | (v28)) | (v48)) | (v29)) | (v30)) | (v31));
-        v53 <- ((((((((((v36) | (v37)) | (v22)) | (v23)) | (v24)) | (v43)) | (v44)) | (v48)) | (v29)) | (v30));
-        v54 <- (((((((((((((v36) | (v37)) | (v22)) | (v23)) | (v43)) | (v44)) | (v26)) | (v27)) | (v28)) | (v48)) | (v29)) | (v30)) | (v31));
-        v55 <- ((((((v36) | (v37)) | (v22)) | (v43)) | (v44)) | (v29));
-        v56 <- ((((v36) | (v37)) | (v22)) | (v29));
-        v57 <- ((((((((((((((v36) | (v37)) | (v24)) | (v41)) | (v25)) | (v43)) | (v44)) | (v26)) | (v27)) | (v28)) | (v48)) | (v29)) | (v30)) | (v31));
-        v58 <- (((((v36) | (v37)) | (v43)) | (v44)) | (v48));
-        v59 <- ( log2_one_hot({ int((v61), 1), int((v36), 1) }) );
-        v60 <- ( log2_one_hot({ int((v36), 1), int((v61), 1) }) );
-        v61 <- (((((((((((((((v37) | (v22)) | (v23)) | (v24)) | (v41)) | (v25)) | (v43)) | (v44)) | (v26)) | (v27)) | (v28)) | (v48)) | (v29)) | (v30)) | (v31));
-        v62 <- ((((((((v22) | (v23)) | (v26)) | (v27)) | (v28)) | (v29)) | (v30)) | (v31));
-        v63 <- ( log2_one_hot({ int((v57), 1), int((v23), 1), int((v22), 1) }) );
-        v64 <- ( log2_one_hot({ int((v55), 1), int((v32), 1), int((v31), 1), int((v30), 1), int((v48), 1), int((v28), 1), int((v27), 1), int((v26), 1), int((v24), 1), int((v23), 1) }) );
-        v65 <- ((((v23) | (v24)) | (v48)) | (v30));
-        v66 <- ((v24) | (v41));
-        v67 <- ( log2_one_hot({ int((v54), 1), int((v25), 1), int((v41), 1), int((v24), 1) }) );
-        v68 <- ((v41) | (v25));
-        v69 <- ( log2_one_hot({ int((v53), 1), int((v31), 1), int((v28), 1), int((v27), 1), int((v26), 1), int((v25), 1), int((v41), 1) }) );
-        v70 <- ((((((v41) | (v43)) | (v26)) | (v27)) | (v28)) | (v31));
-        v71 <- ((v25) | (v44));
-        v72 <- ( log2_one_hot({ int((v25), 1), int((v66), 1), int((v62), 1), int((v33), 1) }) );
-        v73 <- ( log2_one_hot({ int((v71), 1), int((v70), 1), int((v65), 1), int((v56), 1) }) );
-      };
-      v85 <- ( log2_one_hot({ int((v84), 1), int((v83), 1), int((v82), 1), int((v81), 1), int((v80), 1), int((v79), 1), int((v78), 1), int((v77), 1), int((v76), 1), int((v75), 1), int((v74), 1) }) );
-      v88 <- ( log2_one_hot({ int((v87), 1), int((v86), 1) }) );
-      v91 <- ( log2_one_hot({ int((v90), 1), int((v89), 1) }) );
-      dataflow_cluser {
-        v92 <- int((v314) >= 1);
-        v93 <- int(int((v314) >= 1) = 0);
-        v94 <- int((v314) >= 2);
-        v95 <- int(int((v314) >= 2) = 0);
-        v96 <- int((v314) >= 3);
-        v97 <- int(int((v314) >= 3) = 0);
-        v98 <- ( log2_one_hot({ int((v93), 1), int((v92), 1) }) );
-        v99 <- ( log2_one_hot({ int((v92), 1), int((v93), 1) }) );
-        v100 <- ( log2_one_hot({ int((v95), 1), int((v94), 1) }) );
-        v101 <- ( log2_one_hot({ int((v97), 1), int((v96), 1) }) );
+        v22 <- int(((v333) >> 4), 4);
+        v23 <- ( log2_one_hot({ int(((((((((((((((int(1 = (15 & (v333))) | int(2 = (15 & (v333)))) | int(3 = (15 & (v333)))) | int(4 = (15 & (v333)))) | int(5 = (15 & (v333)))) | int(6 = (15 & (v333)))) | int(7 = (15 & (v333)))) | int(8 = (15 & (v333)))) | int(9 = (15 & (v333)))) | int(10 = (15 & (v333)))) | int(11 = (15 & (v333)))) | int(12 = (15 & (v333)))) | int(13 = (15 & (v333)))) | int(14 = (15 & (v333)))) | int(15 = (15 & (v333)))), 1), int(int(0 = (15 & (v333))), 1) }) );
+        v24 <- ( log2_one_hot({ int(int(0 = (15 & (v333))), 1), int(((((((((((((((int(1 = (15 & (v333))) | int(2 = (15 & (v333)))) | int(3 = (15 & (v333)))) | int(4 = (15 & (v333)))) | int(5 = (15 & (v333)))) | int(6 = (15 & (v333)))) | int(7 = (15 & (v333)))) | int(8 = (15 & (v333)))) | int(9 = (15 & (v333)))) | int(10 = (15 & (v333)))) | int(11 = (15 & (v333)))) | int(12 = (15 & (v333)))) | int(13 = (15 & (v333)))) | int(14 = (15 & (v333)))) | int(15 = (15 & (v333)))), 1) }) );
+        v25 <- ( log2_one_hot({ int((((((((((((((int(0 = (15 & (v333))) | int(1 = (15 & (v333)))) | int(4 = (15 & (v333)))) | int(5 = (15 & (v333)))) | int(6 = (15 & (v333)))) | int(7 = (15 & (v333)))) | int(8 = (15 & (v333)))) | int(9 = (15 & (v333)))) | int(10 = (15 & (v333)))) | int(11 = (15 & (v333)))) | int(12 = (15 & (v333)))) | int(13 = (15 & (v333)))) | int(14 = (15 & (v333)))) | int(15 = (15 & (v333)))), 1), int(int(3 = (15 & (v333))), 1), int(int(2 = (15 & (v333))), 1) }) );
+        v26 <- ( log2_one_hot({ int(((((((((((((int(0 = (15 & (v333))) | int(1 = (15 & (v333)))) | int(2 = (15 & (v333)))) | int(3 = (15 & (v333)))) | int(7 = (15 & (v333)))) | int(8 = (15 & (v333)))) | int(9 = (15 & (v333)))) | int(10 = (15 & (v333)))) | int(11 = (15 & (v333)))) | int(12 = (15 & (v333)))) | int(13 = (15 & (v333)))) | int(14 = (15 & (v333)))) | int(15 = (15 & (v333)))), 1), int(int(6 = (15 & (v333))), 1), int(int(5 = (15 & (v333))), 1), int(int(4 = (15 & (v333))), 1) }) );
+        v27 <- ( log2_one_hot({ int(((((int(0 = (15 & (v333))) | int(1 = (15 & (v333)))) | int(7 = (15 & (v333)))) | int(8 = (15 & (v333)))) | int(12 = (15 & (v333)))), 1), int((int(5 = (15 & (v333))) | int(6 = (15 & (v333)))), 1), int(int(15 = (15 & (v333))), 1), int(int(14 = (15 & (v333))), 1), int(int(13 = (15 & (v333))), 1), int(int(11 = (15 & (v333))), 1), int(int(10 = (15 & (v333))), 1), int(int(9 = (15 & (v333))), 1), int(int(4 = (15 & (v333))), 1), int(int(3 = (15 & (v333))), 1), int(int(2 = (15 & (v333))), 1) }) );
+        v28 <- ( log2_one_hot({ int((((((int(0 = (15 & (v333))) | int(1 = (15 & (v333)))) | int(2 = (15 & (v333)))) | int(7 = (15 & (v333)))) | int(8 = (15 & (v333)))) | int(13 = (15 & (v333)))), 1), int((int(5 = (15 & (v333))) | int(6 = (15 & (v333)))), 1), int(int(15 = (15 & (v333))), 1), int(int(14 = (15 & (v333))), 1), int(int(12 = (15 & (v333))), 1), int(int(11 = (15 & (v333))), 1), int(int(10 = (15 & (v333))), 1), int(int(9 = (15 & (v333))), 1), int(int(4 = (15 & (v333))), 1), int(int(3 = (15 & (v333))), 1) }) );
+        v29 <- ( log2_one_hot({ int((((((((((int(0 = (15 & (v333))) | int(1 = (15 & (v333)))) | int(2 = (15 & (v333)))) | int(3 = (15 & (v333)))) | int(4 = (15 & (v333)))) | int(7 = (15 & (v333)))) | int(8 = (15 & (v333)))) | int(12 = (15 & (v333)))) | int(13 = (15 & (v333)))) | int(14 = (15 & (v333)))), 1), int(int(15 = (15 & (v333))), 1), int(int(11 = (15 & (v333))), 1), int(int(10 = (15 & (v333))), 1), int(int(9 = (15 & (v333))), 1), int(int(6 = (15 & (v333))), 1), int(int(5 = (15 & (v333))), 1) }) );
+        v30 <- ( log2_one_hot({ int(int(6 = (15 & (v333))), 1), int((int(4 = (15 & (v333))) | int(5 = (15 & (v333)))), 1), int((((((((int(2 = (15 & (v333))) | int(3 = (15 & (v333)))) | int(9 = (15 & (v333)))) | int(10 = (15 & (v333)))) | int(11 = (15 & (v333)))) | int(13 = (15 & (v333)))) | int(14 = (15 & (v333)))) | int(15 = (15 & (v333)))), 1), int(((((int(0 = (15 & (v333))) | int(1 = (15 & (v333)))) | int(7 = (15 & (v333)))) | int(8 = (15 & (v333)))) | int(12 = (15 & (v333)))), 1) }) );
+        v31 <- ( log2_one_hot({ int(((((((((((((((int(0 = (15 & (v333))) | int(1 = (15 & (v333)))) | int(2 = (15 & (v333)))) | int(3 = (15 & (v333)))) | int(4 = (15 & (v333)))) | int(5 = (15 & (v333)))) | int(7 = (15 & (v333)))) | int(8 = (15 & (v333)))) | int(9 = (15 & (v333)))) | int(10 = (15 & (v333)))) | int(11 = (15 & (v333)))) | int(12 = (15 & (v333)))) | int(13 = (15 & (v333)))) | int(14 = (15 & (v333)))) | int(15 = (15 & (v333)))), 1), int(int(6 = (15 & (v333))), 1) }) );
+        v32 <- ( log2_one_hot({ int((int(6 = (15 & (v333))) | int(8 = (15 & (v333)))), 1), int((((((int(5 = (15 & (v333))) | int(7 = (15 & (v333)))) | int(9 = (15 & (v333)))) | int(10 = (15 & (v333)))) | int(11 = (15 & (v333)))) | int(15 = (15 & (v333)))), 1), int((((int(3 = (15 & (v333))) | int(4 = (15 & (v333)))) | int(12 = (15 & (v333)))) | int(14 = (15 & (v333)))), 1), int((((int(0 = (15 & (v333))) | int(1 = (15 & (v333)))) | int(2 = (15 & (v333)))) | int(13 = (15 & (v333)))), 1) }) );
       };
       dataflow_cluser {
-        v103 <- ((v320) + 1);
-        v104 <- ((v102) << 1);
+        v33 <- ( log2_one_hot({ int(int(int((v241) >= 1) = 0), 1), int(int((v241) >= 1), 1) }) );
+        v34 <- ( log2_one_hot({ int(int((v241) >= 1), 1), int(int(int((v241) >= 1) = 0), 1) }) );
+        v35 <- ( log2_one_hot({ int(int(int((v241) >= 2) = 0), 1), int(int((v241) >= 2), 1) }) );
+        v36 <- ( log2_one_hot({ int(int(int((v241) >= 3) = 0), 1), int(int((v241) >= 3), 1) }) );
       };
       dataflow_cluser {
-        v106 <- ((v328) + 1);
-        v107 <- ((v105) << 1);
+        v37 <- ((v247) + 1);
+        v38 <- (((v247) + 1) << 1);
       };
       dataflow_cluser {
-        v108 <- int((v336) >= 1);
-        v109 <- int(int((v336) >= 1) = 0);
-        v110 <- int((v336) >= 2);
-        v111 <- int(int((v336) >= 2) = 0);
-        v112 <- int((v336) >= 3);
-        v113 <- int(int((v336) >= 3) = 0);
-        v114 <- ( log2_one_hot({ int((v109), 1), int((v108), 1) }) );
-        v115 <- ( log2_one_hot({ int((v111), 1), int((v110), 1) }) );
-        v116 <- ( log2_one_hot({ int((v113), 1), int((v112), 1) }) );
-      };
-      v117 <- ((v345) | int((int((v372), 4) << 4), 8));
-      v118 <- int((v374) = (v339));
-      v119 <- int(((v375) + (v340)), 8);
-      v120 <- int(((int((v341), 8) | 256) + int((v376), 8)), 8);
-      v121 <- int(0 = (v378));
-      v122 <- (int(0 != (v379)) | int(0 != (v342)));
-      dataflow_cluser {
-        v123 <- { int((v351), 12), int(1, 1) };
-        v124 <- (1 + (v351));
+        v39 <- ((v254) + 1);
+        v40 <- (((v254) + 1) << 1);
       };
       dataflow_cluser {
-        v125 <- { int((v358), 12), int(1, 1) };
-        v126 <- (1 + (v358));
+        v41 <- ( log2_one_hot({ int(int(int((v261) >= 1) = 0), 1), int(int((v261) >= 1), 1) }) );
+        v42 <- ( log2_one_hot({ int(int(int((v261) >= 2) = 0), 1), int(int((v261) >= 2), 1) }) );
+        v43 <- ( log2_one_hot({ int(int(int((v261) >= 3) = 0), 1), int(int((v261) >= 3), 1) }) );
+      };
+      v44 <- ((v271) | int((int((v299), 4) << 4), 8));
+      v45 <- int((v301) = (v264));
+      v46 <- int(((v302) + (v265)), 8);
+      v47 <- int(((int((v266), 8) | 256) + int((v303), 8)), 8);
+      v48 <- int(0 = (v305));
+      v49 <- (int(0 != (v306)) | int(0 != (v267)));
+      dataflow_cluser {
+        v50 <- { int((v278), 12), int(1, 1) };
+        v51 <- (1 + (v278));
       };
       dataflow_cluser {
-        v127 <- { int((v365), 12), int(1, 1) };
-        v128 <- (1 + (v365));
+        v52 <- { int((v285), 12), int(1, 1) };
+        v53 <- (1 + (v285));
       };
-      v130 <- (1 ^ (v129));
-      v132 <- (1 ^ (v131));
-      v135 <- ((v133) | (v134));
-      v136 <- ((v193) ^ 1);
-      v138 <- (1 ^ (v137));
-      v139 <- ((v208) ^ 1);
-      v141 <- (1 ^ (v140));
-      v143 <- (1 ^ (v142));
-      v146 <- ((v144) | (v145));
-      v147 <- ((v222) ^ 1);
-      v149 <- (1 ^ (v148));
-      v150 <- ((v236) ^ 1);
-      v152 <- (1 ^ (v151));
-      v154 <- (1 ^ (v153));
-      v157 <- ((v155) | (v156));
-      v158 <- ((v249) ^ 1);
-      v160 <- (1 ^ (v159));
-      v163 <- ((v161) | (v162));
-      v164 <- ((v263) ^ 1);
-      v166 <- (1 ^ (v165));
-      v169 <- ((v167) | (v168));
-      v170 <- ((v277) ^ 1);
-      v172 <- (1 ^ (v171));
-      v175 <- ((v173) | (v174));
-      v176 <- ((v291) ^ 1);
-      v178 <- (1 ^ (v177));
-      v179 <- ((v305) ^ 1);
-      { v182 } v181 -> *, v180;
-      { v184 } v368 -> *, v183;
-      { v186 } v1, v180 -> v185;
-      { v188 } v0, v183 -> v187;
-      { v192 } v190, v191 -> v189;
-      { v196 } v195 -> v193, v194;
-      { v199 } v136, v198 -> v197;
-      { v135 } v201 -> *, v200;
-      { v204 } v215 -> v202, v203;
-      { v207 } v200, v206 -> v205;
-      { v211 } v210 -> v208, v209;
-      { v214 } v139, v213 -> v212;
-      { v217 } v407 -> v215, v216;
-      { v221 } v219, v220 -> v218;
-      { v225 } v224 -> v222, v223;
-      { v228 } v147, v227 -> v226;
-      { v146 } v230 -> *, v229;
-      { v232 } v349, v356 -> v231;
-      { v235 } v229, v234 -> v233;
-      { v239 } v238 -> v236, v237;
-      { v242 } v150, v241 -> v240;
-      { v244 } v231, v363 -> v243;
-      { v248 } v246, v247 -> v245;
-      { v252 } v251 -> v249, v250;
-      { v255 } v158, v254 -> v253;
-      { v157 } v257 -> *, v256;
-      { v259 } v8, v104 -> v258;
-      { v262 } v256, v261 -> v260;
-      { v266 } v265 -> v263, v264;
-      { v269 } v164, v268 -> v267;
-      { v163 } v271 -> *, v270;
-      { v273 } v258, v107 -> v272;
-      { v276 } v270, v275 -> v274;
-      { v280 } v279 -> v277, v278;
-      { v283 } v170, v282 -> v281;
-      { v169 } v285 -> *, v284;
-      { v287 } v272, v123 -> v286;
-      { v290 } v284, v289 -> v288;
-      { v294 } v293 -> v291, v292;
-      { v297 } v176, v296 -> v295;
-      { v175 } v299 -> *, v298;
-      { v301 } v286, v125 -> v300;
-      { v304 } v298, v303 -> v302;
-      { v308 } v307 -> v305, v306;
-      { v311 } v179, v310 -> v309;
-      { v313 } v300, v127 -> v312;
-      { v73 } v3, v4, v5, v6 -> v314;
-      { v316 } v187 -> *, v315;
-      { v318 } v202, v19 -> v317;
-      { v99 } v315, v7 -> v319;
-      { v322 } v319 -> v320, v321;
-      { v324 } v203, v18 -> v323;
-      { v327 } v326, v321 -> v325;
-      { v330 } v325 -> v328, v329;
-      { v332 } v216, v17 -> v331;
-      { v335 } v334, v329 -> v333;
-      { v72 } v9, v10, v11, v12 -> v336;
-      { v69 } v323 -> v337, v338, v339, v340, v341, v342, *;
-      { v91 } v331 -> v343, *;
-      { v63 } v35 -> v344, v345, *;
-      { v67 } v347, v337, v343, v15 -> v346;
-      { v88 } v338, v14 -> v348;
-      { v350 } v381 -> v349, *;
-      { v353 } v333 -> v351, v352;
-      { v355 } v124, v352 -> v354;
-      { v357 } v346 -> v356, *;
-      { v360 } v354 -> v358, v359;
-      { v362 } v126, v359 -> v361;
-      { v364 } v348 -> v363, *;
-      { v367 } v361 -> v365, v366;
-      { v369 } v128, v366 -> v368;
-      { v59 } v185 -> *, v370;
-      { v60 } v370, v13 -> v371;
-      { v64 } v317 -> v372, v373, v374, v375, v376, v377, v378, v379, v380, *;
-      { v85 } v344, v117, v382, v118, v119, v120, v408, v121, v122, v380, v16 -> v381;
-      v383 -> [1,0] v384;
-      v130 -> [1,0] v385;
-      v132 -> [1,0] v386;
-      v197 -> [1,0] v387;
-      v138 -> [1,0] v388;
-      v212 -> [1,0] v389;
-      v141 -> [1,0] v390;
-      v143 -> [1,0] v391;
-      v226 -> [1,0] v392;
-      v149 -> [1,0] v393;
-      v240 -> [1,0] v394;
-      v152 -> [1,0] v395;
-      v154 -> [1,0] v396;
-      v253 -> [1,0] v397;
-      v160 -> [1,0] v398;
-      v267 -> [1,0] v399;
-      v166 -> [1,0] v400;
-      v281 -> [1,0] v401;
-      v172 -> [1,0] v402;
-      v295 -> [1,0] v403;
-      v178 -> [1,0] v404;
-      v309 -> [1,0] v405;
-      v383 <- v21;     v184 <- v21;     v182 <- v21;
-      v74 <- v38;     v22 <- v38;
-      v75 <- v39;     v23 <- v39;
-      v76 <- v40;     v24 <- v40;
-      v89 <- v42;     v86 <- v42;     v25 <- v42;
-      v77 <- v45;     v26 <- v45;
-      v78 <- v46;     v27 <- v46;
-      v79 <- v47;     v28 <- v47;
-      v80 <- v49;     v29 <- v49;
-      v81 <- v50;     v30 <- v50;
-      v82 <- v51;     v31 <- v51;
-      v90 <- v52;     v87 <- v52;
-      v84 <- v58;     v33 <- v58;
-      v83 <- v68;     v32 <- v68;
-      v318 <- v98;     v316 <- v98;
-      v327 <- v100;     v324 <- v100;     v322 <- v100;
-      v335 <- v101;     v332 <- v101;     v330 <- v101;
-      v326 <- v103;     v102 <- v103;
-      v334 <- v106;     v105 <- v106;
-      v355 <- v114;     v353 <- v114;     v350 <- v114;
-      v362 <- v115;     v360 <- v115;     v357 <- v115;
-      v369 <- v116;     v367 <- v116;     v364 <- v116;
-      v201 <- v189;     v199 <- v189;     v196 <- v189;     v134 <- v189;
-      v204 <- v194;     v198 <- v194;
-      v214 <- v205;     v211 <- v205;
-      v217 <- v209;     v213 <- v209;
-      v230 <- v218;     v228 <- v218;     v225 <- v218;     v145 <- v218;
-      v232 <- v223;     v227 <- v223;
-      v242 <- v233;     v239 <- v233;
-      v244 <- v237;     v241 <- v237;
-      v257 <- v245;     v255 <- v245;     v252 <- v245;     v156 <- v245;
-      v259 <- v250;     v254 <- v250;
-      v271 <- v260;     v269 <- v260;     v266 <- v260;     v162 <- v260;
-      v273 <- v264;     v268 <- v264;
-      v285 <- v274;     v283 <- v274;     v280 <- v274;     v168 <- v274;
-      v287 <- v278;     v282 <- v278;
-      v299 <- v288;     v297 <- v288;     v294 <- v288;     v174 <- v288;
-      v301 <- v292;     v296 <- v292;
-      v311 <- v302;     v308 <- v302;
-      v313 <- v306;     v310 <- v306;
-      v181 <- v371;     v20 <- v371;
-      v382 <- v373;     v347 <- v373;
-      v188 <- v384;     v186 <- v384;
-      v190 <- v385;     v129 <- v385;
-      v191 <- v386;     v131 <- v386;
-      v195 <- v387;     v192 <- v387;     v133 <- v387;
-      v206 <- v388;     v137 <- v388;
-      v210 <- v389;     v207 <- v389;
-      v219 <- v390;     v140 <- v390;
-      v220 <- v391;     v142 <- v391;
-      v224 <- v392;     v221 <- v392;     v144 <- v392;
-      v234 <- v393;     v148 <- v393;
-      v238 <- v394;     v235 <- v394;
-      v246 <- v395;     v151 <- v395;
-      v247 <- v396;     v153 <- v396;
-      v251 <- v397;     v248 <- v397;     v155 <- v397;
-      v261 <- v398;     v159 <- v398;
-      v265 <- v399;     v262 <- v399;     v161 <- v399;
-      v275 <- v400;     v165 <- v400;
-      v279 <- v401;     v276 <- v401;     v167 <- v401;
-      v289 <- v402;     v171 <- v402;
-      v293 <- v403;     v290 <- v403;     v173 <- v403;
-      v303 <- v404;     v177 <- v404;
-      v307 <- v405;     v304 <- v405;
-    iport406 -> v406;
-    iport407 -> v407;
-    iport408 -> v408;
-    v2 -> oport2;
-    v243 -> oport243;
-    v312 -> oport312;
-    v377 -> oport377;
+      dataflow_cluser {
+        v54 <- { int((v292), 12), int(1, 1) };
+        v55 <- (1 + (v292));
+      };
+      v57 <- (1 ^ (v56));
+      v59 <- (1 ^ (v58));
+      v62 <- ((v60) | (v61));
+      v63 <- ((v120) ^ 1);
+      v65 <- (1 ^ (v64));
+      v66 <- ((v135) ^ 1);
+      v68 <- (1 ^ (v67));
+      v70 <- (1 ^ (v69));
+      v73 <- ((v71) | (v72));
+      v74 <- ((v149) ^ 1);
+      v76 <- (1 ^ (v75));
+      v77 <- ((v163) ^ 1);
+      v79 <- (1 ^ (v78));
+      v81 <- (1 ^ (v80));
+      v84 <- ((v82) | (v83));
+      v85 <- ((v176) ^ 1);
+      v87 <- (1 ^ (v86));
+      v90 <- ((v88) | (v89));
+      v91 <- ((v190) ^ 1);
+      v93 <- (1 ^ (v92));
+      v96 <- ((v94) | (v95));
+      v97 <- ((v204) ^ 1);
+      v99 <- (1 ^ (v98));
+      v102 <- ((v100) | (v101));
+      v103 <- ((v218) ^ 1);
+      v105 <- (1 ^ (v104));
+      v106 <- ((v232) ^ 1);
+      { v109 } v108 -> *, v107;
+      { v111 } v295 -> *, v110;
+      { v113 } v7, v107 -> v112;
+      { v115 } v6, v110 -> v114;
+      { v119 } v117, v118 -> v116;
+      { v123 } v122 -> v120, v121;
+      { v126 } v63, v125 -> v124;
+      { v62 } v128 -> *, v127;
+      { v131 } v142 -> v129, v130;
+      { v134 } v127, v133 -> v132;
+      { v138 } v137 -> v135, v136;
+      { v141 } v66, v140 -> v139;
+      { v144 } v334 -> v142, v143;
+      { v148 } v146, v147 -> v145;
+      { v152 } v151 -> v149, v150;
+      { v155 } v74, v154 -> v153;
+      { v73 } v157 -> *, v156;
+      { v159 } v276, v283 -> v158;
+      { v162 } v156, v161 -> v160;
+      { v166 } v165 -> v163, v164;
+      { v169 } v77, v168 -> v167;
+      { v171 } v158, v290 -> v170;
+      { v175 } v173, v174 -> v172;
+      { v179 } v178 -> v176, v177;
+      { v182 } v85, v181 -> v180;
+      { v84 } v184 -> *, v183;
+      { v186 } v14, v38 -> v185;
+      { v189 } v183, v188 -> v187;
+      { v193 } v192 -> v190, v191;
+      { v196 } v91, v195 -> v194;
+      { v90 } v198 -> *, v197;
+      { v200 } v185, v40 -> v199;
+      { v203 } v197, v202 -> v201;
+      { v207 } v206 -> v204, v205;
+      { v210 } v97, v209 -> v208;
+      { v96 } v212 -> *, v211;
+      { v214 } v199, v50 -> v213;
+      { v217 } v211, v216 -> v215;
+      { v221 } v220 -> v218, v219;
+      { v224 } v103, v223 -> v222;
+      { v102 } v226 -> *, v225;
+      { v228 } v213, v52 -> v227;
+      { v231 } v225, v230 -> v229;
+      { v235 } v234 -> v232, v233;
+      { v238 } v106, v237 -> v236;
+      { v240 } v227, v54 -> v239;
+      { v32 } v9, v10, v11, v12 -> v241;
+      { v243 } v114 -> *, v242;
+      { v245 } v129, v0 -> v244;
+      { v34 } v242, v13 -> v246;
+      { v249 } v246 -> v247, v248;
+      { v251 } v130, v1 -> v250;
+      { v253 } v37, v248 -> v252;
+      { v256 } v252 -> v254, v255;
+      { v258 } v143, v2 -> v257;
+      { v260 } v39, v255 -> v259;
+      { v30 } v15, v16, v17, v18 -> v261;
+      { v29 } v250 -> v262, v263, v264, v265, v266, v267, *;
+      { v269 } v257 -> v268, *;
+      { v25 } v22 -> v270, v271, *;
+      { v26 } v273, v262, v268, v4 -> v272;
+      { v275 } v263, v5 -> v274;
+      { v277 } v308 -> v276, *;
+      { v280 } v259 -> v278, v279;
+      { v282 } v51, v279 -> v281;
+      { v284 } v272 -> v283, *;
+      { v287 } v281 -> v285, v286;
+      { v289 } v53, v286 -> v288;
+      { v291 } v274 -> v290, *;
+      { v294 } v288 -> v292, v293;
+      { v296 } v55, v293 -> v295;
+      { v23 } v112 -> *, v297;
+      { v24 } v297, v19 -> v298;
+      { v28 } v244 -> v299, v300, v301, v302, v303, v304, v305, v306, v307, *;
+      { v27 } v270, v44, v309, v45, v46, v47, v335, v48, v49, v307, v3 -> v308;
+      v310 -> [1,0] v311;
+      v57 -> [1,0] v312;
+      v59 -> [1,0] v313;
+      v124 -> [1,0] v314;
+      v65 -> [1,0] v315;
+      v139 -> [1,0] v316;
+      v68 -> [1,0] v317;
+      v70 -> [1,0] v318;
+      v153 -> [1,0] v319;
+      v76 -> [1,0] v320;
+      v167 -> [1,0] v321;
+      v79 -> [1,0] v322;
+      v81 -> [1,0] v323;
+      v180 -> [1,0] v324;
+      v87 -> [1,0] v325;
+      v194 -> [1,0] v326;
+      v93 -> [1,0] v327;
+      v208 -> [1,0] v328;
+      v99 -> [1,0] v329;
+      v222 -> [1,0] v330;
+      v105 -> [1,0] v331;
+      v236 -> [1,0] v332;
+      v310 <- v21;     v111 <- v21;     v109 <- v21;
+      v275 <- v31;     v269 <- v31;
+      v245 <- v33;     v243 <- v33;
+      v253 <- v35;     v251 <- v35;     v249 <- v35;
+      v260 <- v36;     v258 <- v36;     v256 <- v36;
+      v282 <- v41;     v280 <- v41;     v277 <- v41;
+      v289 <- v42;     v287 <- v42;     v284 <- v42;
+      v296 <- v43;     v294 <- v43;     v291 <- v43;
+      v128 <- v116;     v126 <- v116;     v123 <- v116;     v61 <- v116;
+      v131 <- v121;     v125 <- v121;
+      v141 <- v132;     v138 <- v132;
+      v144 <- v136;     v140 <- v136;
+      v157 <- v145;     v155 <- v145;     v152 <- v145;     v72 <- v145;
+      v159 <- v150;     v154 <- v150;
+      v169 <- v160;     v166 <- v160;
+      v171 <- v164;     v168 <- v164;
+      v184 <- v172;     v182 <- v172;     v179 <- v172;     v83 <- v172;
+      v186 <- v177;     v181 <- v177;
+      v198 <- v187;     v196 <- v187;     v193 <- v187;     v89 <- v187;
+      v200 <- v191;     v195 <- v191;
+      v212 <- v201;     v210 <- v201;     v207 <- v201;     v95 <- v201;
+      v214 <- v205;     v209 <- v205;
+      v226 <- v215;     v224 <- v215;     v221 <- v215;     v101 <- v215;
+      v228 <- v219;     v223 <- v219;
+      v238 <- v229;     v235 <- v229;
+      v240 <- v233;     v237 <- v233;
+      v108 <- v298;     v20 <- v298;
+      v309 <- v300;     v273 <- v300;
+      v115 <- v311;     v113 <- v311;
+      v117 <- v312;     v56 <- v312;
+      v118 <- v313;     v58 <- v313;
+      v122 <- v314;     v119 <- v314;     v60 <- v314;
+      v133 <- v315;     v64 <- v315;
+      v137 <- v316;     v134 <- v316;
+      v146 <- v317;     v67 <- v317;
+      v147 <- v318;     v69 <- v318;
+      v151 <- v319;     v148 <- v319;     v71 <- v319;
+      v161 <- v320;     v75 <- v320;
+      v165 <- v321;     v162 <- v321;
+      v173 <- v322;     v78 <- v322;
+      v174 <- v323;     v80 <- v323;
+      v178 <- v324;     v175 <- v324;     v82 <- v324;
+      v188 <- v325;     v86 <- v325;
+      v192 <- v326;     v189 <- v326;     v88 <- v326;
+      v202 <- v327;     v92 <- v327;
+      v206 <- v328;     v203 <- v328;     v94 <- v328;
+      v216 <- v329;     v98 <- v329;
+      v220 <- v330;     v217 <- v330;     v100 <- v330;
+      v230 <- v331;     v104 <- v331;
+      v234 <- v332;     v231 <- v332;
+    iport333 -> v333;
+    iport334 -> v334;
+    iport335 -> v335;
+    v8 -> oport8;
+    v170 -> oport170;
+    v239 -> oport239;
+    v304 -> oport304;
     }
     }
 

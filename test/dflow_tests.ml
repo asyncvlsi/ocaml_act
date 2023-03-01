@@ -37,24 +37,18 @@ let%expect_test "expression chains" =
      (Const 1))
     ((stmt
       ((MultiAssign
-        ((((id 4) (bitwidth 8)) (Div (Var ((id 2) (bitwidth 8))) (Const 2)))
-         (((id 5) (bitwidth 8)) (Div (Var ((id 4) (bitwidth 8))) (Const 2)))
-         (((id 6) (bitwidth 8)) (Div (Var ((id 5) (bitwidth 8))) (Const 2)))))))
+        ((((id 6) (bitwidth 8))
+          (Div (Div (Div (Var ((id 2) (bitwidth 8))) (Const 2)) (Const 2))
+           (Const 2)))))))
      (iports ((((id 0) (bitwidth 8)) ((id 2) (bitwidth 8)))))
      (oports ((((id 1) (bitwidth 8)) ((id 6) (bitwidth 8))))))
-    defproc proc_0(chan!(int<8>) iport3; chan?(int<8>) oport2) {
+    defproc proc_0(chan!(int<8>) iport1; chan?(int<8>) oport0) {
       chan(int<8>) v0;
       chan(int<8>) v1;
-      chan(int<8>) v2;
-      chan(int<8>) v3;
     dataflow {
-      dataflow_cluser {
-        v0 <- ((v3) / 2);
-        v1 <- ((v0) / 2);
-        v2 <- ((v1) / 2);
-      };
-    iport3 -> v3;
-    v2 -> oport2;
+      v0 <- ((((v1) / 2) / 2) / 2);
+    iport1 -> v1;
+    v0 -> oport0;
     }
     }
 
@@ -105,22 +99,18 @@ let%expect_test "expression branches" =
      (Const 1))
     ((stmt
       ((MultiAssign
-        ((((id 4) (bitwidth 8)) (Div (Var ((id 2) (bitwidth 8))) (Const 2)))
-         (((id 6) (bitwidth 8))
-          (Div (Var ((id 4) (bitwidth 8))) (Var ((id 4) (bitwidth 8)))))))))
+        ((((id 6) (bitwidth 8))
+          (Div (Div (Var ((id 2) (bitwidth 8))) (Const 2))
+           (Div (Var ((id 2) (bitwidth 8))) (Const 2))))))))
      (iports ((((id 0) (bitwidth 8)) ((id 2) (bitwidth 8)))))
      (oports ((((id 1) (bitwidth 8)) ((id 6) (bitwidth 8))))))
-    defproc proc_0(chan!(int<8>) iport2; chan?(int<8>) oport1) {
+    defproc proc_0(chan!(int<8>) iport1; chan?(int<8>) oport0) {
       chan(int<8>) v0;
       chan(int<8>) v1;
-      chan(int<8>) v2;
     dataflow {
-      dataflow_cluser {
-        v0 <- ((v2) / 2);
-        v1 <- ((v0) / (v0));
-      };
-    iport2 -> v2;
-    v1 -> oport1;
+      v0 <- (((v1) / 2) / ((v1) / 2));
+    iport1 -> v1;
+    v0 -> oport0;
     }
     }
 

@@ -25,7 +25,7 @@ type 'v t =
   | Log2OneHot of 'v t
 [@@deriving sexp, compare, equal, hash]
 
-let map_var_nodes e ~f =
+let bind_vars e ~f =
   let rec h e =
     match e with
     | Var v -> f v
@@ -53,7 +53,7 @@ let map_var_nodes e ~f =
   in
   h e
 
-let map_vars e ~f = map_var_nodes e ~f:(fun v -> Var (f v))
+let map_vars e ~f = bind_vars e ~f:(fun v -> Var (f v))
 
 let var_ids e =
   let rec f e =

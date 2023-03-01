@@ -788,96 +788,152 @@ let cluster_same_reads { Proc.stmt = dflows; iports; oports } =
   in
 
   { Proc.stmt = multi_assigns @ non_assigns; oports; iports }
-
-let connected_components verts edges =
-  let verts = Map.of_key_set verts ~f:Union_find.create in
-  List.iter edges ~f:(fun (a, b) ->
-      Union_find.union (Map.find_exn verts a) (Map.find_exn verts b));
-  let clusters =
-    Map.to_alist verts
-    |> List.fold ~init:[] ~f:(fun clusters (_, id_class) ->
-           match
-             List.find clusters ~f:(fun cluster ->
-                 Union_find.same_class cluster id_class)
-           with
-           | Some _ -> clusters
-           | None -> id_class :: clusters)
-    |> List.mapi ~f:(fun i cluster -> (cluster, i))
-  in
-  let cluster_of_vert =
-    Map.map verts ~f:(fun id_class ->
-        List.find_exn clusters ~f:(fun (cluster, _) ->
-            Union_find.same_class cluster id_class)
-        |> snd)
-  in
-  cluster_of_vert
+(* let connected_components verts edges = let verts = Map.of_key_set verts
+   ~f:Union_find.create in List.iter edges ~f:(fun (a, b) -> Union_find.union
+   (Map.find_exn verts a) (Map.find_exn verts b)); let clusters = Map.to_alist
+   verts |> List.fold ~init:[] ~f:(fun clusters (_, id_class) -> match List.find
+   clusters ~f:(fun cluster -> Union_find.same_class cluster id_class) with |
+   Some _ -> clusters | None -> id_class :: clusters) |> List.mapi ~f:(fun i
+   cluster -> (cluster, i)) in let vert_clusters = Map.map verts ~f:(fun
+   id_class -> List.find_exn clusters ~f:(fun (cluster, _) ->
+   Union_find.same_class cluster id_class) |> snd) |> Map.to_alist |> List.map
+   ~f:(fun (vert, id) -> (id, vert)) |> Int.Map.of_alist_multi |> Map.data |>
+   List.map ~f:(fun cluster -> (* The topologically sort the cluster, so that
+   `(a,b) in edges` implies that `a is before b` in the returned list *) (* TODO
+   *) cluster) in vert_clusters *)
 
 (* Transofmation #2 *)
+(* let cluster_fuse_chains { Proc.stmt = dflows; iports; oports } = let dflows =
+   List.mapi dflows ~f:(fun id dflow -> (id, dflow)) in let multi_assigns,
+   non_assigns = List.partition_map dflows ~f:(fun (id, dflow) -> match dflow
+   with | MultiAssign multi_assign -> First (id, multi_assign) | _ -> Second
+   dflow) in
+
+   let cluster_of_output = List.concat_map multi_assigns ~f:(fun (cluster_id,
+   multi_assign) -> List.map multi_assign ~f:fst |> Var.Set.of_list |>
+   Set.to_list |> List.map ~f:(fun dflow_id -> (dflow_id, cluster_id))) |>
+   Var.Map.of_alist_exn in (* let read_cluster_of_id = Map.map multi_assigns
+   ~f:(fun multi_assign -> List.concat_map multi_assign ~f:(fun (_, e) ->
+   Expr.var_ids) |> List.filter_map ~f:(Map.find id_of_output) |>
+   Int.Set.of_list) in *) let read_ct_of_cluster = List.map dflows ~f:(fun (_,
+   dflow) -> (match dflow with | MultiAssign assigns -> List.concat_map assigns
+   ~f:(fun (_, e) -> Expr.var_ids e) | Split (g, v, os) -> (v :: Guard.ids g) @
+   List.filter_opt os | Merge (g, ins, v) -> (v :: Guard.ids g) @ ins |
+   Copy_init (dst, src, _) -> [ dst; src ]) |> List.filter_map ~f:(Map.find
+   cluster_of_output) |> Int.Set.of_list) |> List.concat_map ~f:Set.to_list |>
+   List.map ~f:(fun v -> (v, ())) |> Int.Map.of_alist_multi |> Map.map
+   ~f:List.length in
+
+   let fuses = List.concat_map multi_assigns ~f:(fun (id_i, _) ->
+   List.filter_map multi_assigns ~f:(fun (id_o, multi_assign) -> let
+   reads_of_id_o = List.concat_map multi_assign ~f:(fun (_, e) -> Expr.var_ids
+   e) |> List.filter_map ~f:(Map.find cluster_of_output) |> Int.Set.of_list in
+   let o_only_reader_of_i = Int.equal 1 (Map.find read_ct_of_cluster id_i |>
+   Option.value ~default:0) && Set.mem reads_of_id_o id_i in let
+   o_only_reads_of_i = List.equal Int.equal (Set.to_list reads_of_id_o) [ id_i ]
+   in if o_only_reader_of_i || o_only_reads_of_i then Some (id_i, id_o) else
+   None)) in let clusters = let ids = List.map multi_assigns ~f:fst |>
+   Int.Set.of_list in connected_components ids fuses in
+
+   let multi_assign_of_id = Int.Map.of_alist_exn multi_assigns in let
+   multi_assigns = List.map clusters ~f:(fun cluster -> let multi_assigns =
+   List.map cluster ~f:(Map.find_exn multi_assign_of_id) in (* TODO currently
+   this is incorrect. We must rewrite later mutliassigns to use the epression of
+   preceding multiassigns (instead of the raw variables) *) MultiAssign
+   (List.concat multi_assigns)) in { Proc.stmt = multi_assigns @ non_assigns;
+   oports; iports } *)
+
 let cluster_fuse_chains { Proc.stmt = dflows; iports; oports } =
-  let dflows = List.mapi dflows ~f:(fun id dflow -> (id, dflow)) in
+  (* TODO improve the performance of this code! *)
   let multi_assigns, non_assigns =
-    List.partition_map dflows ~f:(fun (id, dflow) ->
+    List.partition_map dflows ~f:(fun dflow ->
         match dflow with
-        | MultiAssign multi_assign -> First (id, multi_assign)
+        | MultiAssign multi_assign -> First multi_assign
         | _ -> Second dflow)
   in
+  let do_one_fuse multi_assigns =
+    let multi_assigns =
+      List.mapi multi_assigns ~f:(fun i multi_assign -> (i, multi_assign))
+    in
+    let cluster_of_output =
+      List.concat_map multi_assigns ~f:(fun (cluster_id, multi_assign) ->
+          let multi_assign : (Var.t * Var.t Expr.t) list = multi_assign in
+          List.map multi_assign ~f:fst
+          |> Var.Set.of_list |> Set.to_list
+          |> List.map ~f:(fun dflow_id -> (dflow_id, cluster_id)))
+      |> Var.Map.of_alist_exn
+    in
+    (* let read_cluster_of_id = Map.map multi_assigns ~f:(fun multi_assign ->
+       List.concat_map multi_assign ~f:(fun (_, e) -> Expr.var_ids) |>
+       List.filter_map ~f:(Map.find id_of_output) |> Int.Set.of_list) in *)
+    let read_ct_of_cluster =
+      List.map dflows ~f:(fun dflow ->
+          (match dflow with
+          | MultiAssign assigns ->
+              List.concat_map assigns ~f:(fun (_, e) -> Expr.var_ids e)
+          | Split (g, v, os) -> (v :: Guard.ids g) @ List.filter_opt os
+          | Merge (g, ins, v) -> (v :: Guard.ids g) @ ins
+          | Copy_init (dst, src, _) -> [ dst; src ])
+          |> List.filter_map ~f:(Map.find cluster_of_output)
+          |> Int.Set.of_list)
+      |> List.concat_map ~f:Set.to_list
+      |> List.map ~f:(fun v -> (v, ()))
+      |> Int.Map.of_alist_multi |> Map.map ~f:List.length
+    in
 
-  let cluster_of_output =
-    List.concat_map multi_assigns ~f:(fun (cluster_id, multi_assign) ->
-        List.map multi_assign ~f:fst
-        |> Var.Set.of_list |> Set.to_list
-        |> List.map ~f:(fun dflow_id -> (dflow_id, cluster_id)))
-    |> Var.Map.of_alist_exn
+    let fuses =
+      List.concat_map multi_assigns ~f:(fun (id_i, _) ->
+          List.filter_map multi_assigns ~f:(fun (id_o, multi_assign) ->
+              let reads_of_id_o =
+                List.concat_map multi_assign ~f:(fun (_, e) -> Expr.var_ids e)
+                |> List.filter_map ~f:(Map.find cluster_of_output)
+                |> Int.Set.of_list
+              in
+              let o_only_reader_of_i =
+                Int.equal 1
+                  (Map.find read_ct_of_cluster id_i |> Option.value ~default:0)
+                && Set.mem reads_of_id_o id_i
+              in
+              let o_only_reads_of_i =
+                List.equal Int.equal (Set.to_list reads_of_id_o) [ id_i ]
+              in
+              if o_only_reader_of_i || o_only_reads_of_i then Some (id_i, id_o)
+              else None))
+    in
+    match fuses with
+    | [] -> (List.map multi_assigns ~f:snd, false)
+    | (i, o) :: _ ->
+        let unchanged =
+          List.filter_map multi_assigns ~f:(fun (id, multi_assign) ->
+              if Int.equal i id || Int.equal o id then None
+              else Some multi_assign)
+        in
+        let multi_assign_of_id = Int.Map.of_alist_exn multi_assigns in
+        let i = Map.find_exn multi_assign_of_id i in
+        let o = Map.find_exn multi_assign_of_id o in
+        (* rewrite uses of variables produced in i in o *)
+        let imap = Var.Map.of_alist_exn i in
+        let o =
+          List.map o ~f:(fun (ov, oe) ->
+              ( ov,
+                Expr.bind_vars oe ~f:(fun v ->
+                    match Map.find imap v with Some e -> e | None -> Var v) ))
+        in
+        let joined = i @ o in
+        (joined :: unchanged, true)
   in
-  (* let read_cluster_of_id = Map.map multi_assigns ~f:(fun multi_assign ->
-     List.concat_map multi_assign ~f:(fun (_, e) -> Expr.var_ids) |>
-     List.filter_map ~f:(Map.find id_of_output) |> Int.Set.of_list) in *)
-  let read_ct_of_cluster =
-    List.map dflows ~f:(fun (_, dflow) ->
-        (match dflow with
-        | MultiAssign assigns ->
-            List.concat_map assigns ~f:(fun (_, e) -> Expr.var_ids e)
-        | Split (g, v, os) -> (v :: Guard.ids g) @ List.filter_opt os
-        | Merge (g, ins, v) -> (v :: Guard.ids g) @ ins
-        | Copy_init (dst, src, _) -> [ dst; src ])
-        |> List.filter_map ~f:(Map.find cluster_of_output)
-        |> Int.Set.of_list)
-    |> List.concat_map ~f:Set.to_list
-    |> List.map ~f:(fun v -> (v, ()))
-    |> Int.Map.of_alist_multi |> Map.map ~f:List.length
-  in
-
-  let fuses =
-    List.concat_map multi_assigns ~f:(fun (id_i, _) ->
-        List.filter_map multi_assigns ~f:(fun (id_o, multi_assign) ->
-            let reads_of_id_o =
-              List.concat_map multi_assign ~f:(fun (_, e) -> Expr.var_ids e)
-              |> List.filter_map ~f:(Map.find cluster_of_output)
-              |> Int.Set.of_list
-            in
-            let o_only_reader_of_i =
-              Int.equal 1
-                (Map.find read_ct_of_cluster id_i |> Option.value ~default:0)
-              && Set.mem reads_of_id_o id_i
-            in
-            let o_only_reads_of_i =
-              List.equal Int.equal (Set.to_list reads_of_id_o) [ id_i ]
-            in
-            if o_only_reader_of_i || o_only_reads_of_i then Some (id_i, id_o)
-            else None))
-  in
-  let cluster_of_id =
-    let ids = List.map multi_assigns ~f:fst |> Int.Set.of_list in
-    connected_components ids fuses
-  in
-
+  let multi_assigns = ref multi_assigns in
+  while
+    let ma, was_change = do_one_fuse !multi_assigns in
+    multi_assigns := ma;
+    was_change
+  do
+    ()
+  done;
   let multi_assigns =
-    List.map multi_assigns ~f:(fun (id, multi_assign) ->
-        let cluster_id = Map.find_exn cluster_of_id id in
-        (cluster_id, multi_assign))
-    |> Int.Map.of_alist_multi |> Map.map ~f:List.concat |> Map.data
-    |> List.map ~f:(fun multi_assign -> MultiAssign multi_assign)
+    List.map !multi_assigns ~f:(fun assigns -> MultiAssign assigns)
   in
+
   { Proc.stmt = multi_assigns @ non_assigns; oports; iports }
 
 let normalize_guards (proc : Proc.t) =
