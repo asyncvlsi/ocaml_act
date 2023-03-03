@@ -35,6 +35,18 @@ let%expect_test "expression chains" =
        (Assign ((id 7) (bitwidth 8)) (Div (Var ((id 6) (bitwidth 8))) (Const 2)))
        (Send ((id 1) (bitwidth 8)) (Var ((id 7) (bitwidth 8))))))
      (Const 1))
+    procs
+    ((Loop (Op ((id 2) (bitwidth 8)))))
+    pre_synth
+    (Loop (Op ((id 2) (bitwidth 8))))
+    synth
+    (Loop (Op ((id 2) (bitwidth 8))))
+    procs
+    ((Loop (Op ((id 7) (bitwidth 8)))))
+    pre_synth
+    (Loop (Op ((id 7) (bitwidth 8))))
+    synth
+    (Loop (Op ((id 7) (bitwidth 8))))
     ((stmt
       ((MultiAssign
         ((((id 6) (bitwidth 8))
@@ -97,6 +109,18 @@ let%expect_test "expression branches" =
         (Div (Var ((id 5) (bitwidth 8))) (Var ((id 6) (bitwidth 8)))))
        (Send ((id 1) (bitwidth 8)) (Var ((id 7) (bitwidth 8))))))
      (Const 1))
+    procs
+    ((Loop (Op ((id 2) (bitwidth 8)))))
+    pre_synth
+    (Loop (Op ((id 2) (bitwidth 8))))
+    synth
+    (Loop (Op ((id 2) (bitwidth 8))))
+    procs
+    ((Loop (Op ((id 7) (bitwidth 8)))))
+    pre_synth
+    (Loop (Op ((id 7) (bitwidth 8))))
+    synth
+    (Loop (Op ((id 7) (bitwidth 8))))
     ((stmt
       ((MultiAssign
         ((((id 6) (bitwidth 8))

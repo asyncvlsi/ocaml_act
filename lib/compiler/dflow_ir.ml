@@ -119,13 +119,19 @@ module Chan_end = struct
 end
 
 module Rui = struct
+  module Ored_guard = struct
+    type t = Var.t Nonempty_list.t [@@deriving sexp]
+  end
+
   module Proc = struct
     type t =
       | Op of Var.t
       | Seq of t list
-      | SelectImm of (* `Or`ed together *) (Var.t list * t) list * Var.t list
+      | SelectImm of
+          (* `Or`ed together *) (Ored_guard.t * t) list * Ored_guard.t option
       | DoWhile of t * Var.t
       | Loop of t
+    [@@deriving sexp]
   end
 
   let optimize rui =
@@ -150,45 +156,166 @@ module Rui = struct
                    | Some rui -> Either.First (g, rui)
                    | None -> Either.Second g)
           in
-          let else_guards = else_guards @ List.concat more_none_guards in
-          match some_branches with
-          | [] -> None
-          | [ (_, rui) ] -> Some rui
-          | some_branches -> Some (SelectImm (some_branches, else_guards)))
+          let else_guards =
+            Nonempty_list.concat (Option.to_list else_guards @ more_none_guards)
+          in
+          match (some_branches, else_guards) with
+          | [], _ -> None
+          | [ (_, n) ], None -> Some n
+          | some_branches, _ -> Some (SelectImm (some_branches, else_guards)))
       | DoWhile (rui, g) ->
           Option.map (f rui) ~f:(fun rui -> Proc.DoWhile (rui, g))
-      | Loop rui -> Option.map (f rui) ~f:(fun rui -> Proc.Loop rui)
+      | Loop rui -> (
+          match f rui with
+          | None -> None
+          | Some (SelectImm ([ (_, n) ], _)) -> Some (Loop n)
+          | Some rui -> Some (Loop rui))
+    in
+    let%bind.Option rui = f rui in
+    (* a top-level do-while loop may be repleaced with a loop because each
+       channel is read infinitely many times *)
+    let rui =
+      match rui with
+      | Proc.Op v -> Proc.Op v
+      | Seq ruis -> Seq ruis
+      | SelectImm (some_branches, else_guards) ->
+          SelectImm (some_branches, else_guards)
+      | DoWhile (rui, _) -> Loop rui
+      | Loop rui -> Loop rui
     in
     f rui
 
-  module Synth = struct
+  module Pre_synth = struct
     (* TODO Add direct support for "Op-seq"s and for "conditionaled Op-seq"s *)
     type t =
       | Op of Var.t
+      (* A sequence consisting of Op!op and [ g -> Op!op [] else -> skip ] *)
+      | Opt_guarded_op_seq of
+          (* guard *) (Ored_guard.t option * (* alias *) Var.t) list
       | Seq2 of t * t
       | SelectImm of
           (*branch ORed guards*)
-          (Var.t list * t) list
+          (Ored_guard.t * t) list
           * (* else guards *)
-          Var.t list
+          Ored_guard.t option
       | DoWhile of t * Var.t
       | Loop of t
+    [@@deriving sexp_of]
   end
+
+  let glom l ~f:is_glomable =
+    List.folding_map
+      ~init:(0, List.hd_exn l |> is_glomable)
+      l
+      ~f:(fun (i, last_is_m) e ->
+        let is_m = is_glomable e in
+        let i = if (not is_m) || ((not last_is_m) && is_m) then i + 1 else i in
+        ((i, is_m), (i, e)))
+    |> Int.Map.of_alist_multi |> Map.data
 
   let rec flatten rui =
     match rui with
-    | Proc.Op v -> Synth.Op v
-    | Seq ruis -> (
-        match ruis with
-        | [] -> failwith "unreachable"
-        | rui :: ruis ->
-            List.fold ~init:(flatten rui) ruis ~f:(fun pref rui ->
-                Seq2 (pref, flatten rui)))
+    | Proc.Op v -> Pre_synth.Op v
+    | Seq ruis ->
+        (* first, go through and join segments that can be implemented as a
+           Opt_guarded_op_seq *)
+        let ruis =
+          glom ruis ~f:(fun rui ->
+              match rui with
+              | Proc.Op _ | Proc.SelectImm ([ (_, Op _) ], _) -> true
+              | _ -> false)
+          |> List.concat_map ~f:(fun l ->
+                 if List.length l < 2 then List.map l ~f:flatten
+                 else
+                   let l =
+                     List.map l ~f:(fun rui ->
+                         match rui with
+                         | Proc.Op alias -> (None, alias)
+                         | Proc.SelectImm ([ (g, Op alias) ], _) ->
+                             (Some g, alias)
+                         | _ -> failwith "unreachable")
+                   in
+                   [ Pre_synth.Opt_guarded_op_seq l ])
+        in
+        List.reduce_exn ruis ~f:(fun a b -> Seq2 (a, b))
     | SelectImm (on_branches, else_guards) ->
         SelectImm
           (List.map on_branches ~f:(fun (g, e) -> (g, flatten e)), else_guards)
     | DoWhile (rui, g) -> DoWhile (flatten rui, g)
     | Loop rui -> Loop (flatten rui)
+
+  module Synth = struct
+    (* TODO Add direct support for "Op-seq"s and for "conditionaled Op-seq"s *)
+    type t =
+      | Op of Var.t
+      (* A sequence consisting of Op!op and [ g -> Op!op [] else -> skip ] *)
+      | Opt_guarded_op_seq of (* guard *) (Var.t option * (*alias *) Var.t) list
+      | Seq2 of t * t
+      | SelectImm of (Var.t * t) list * Var.t option
+      | DoWhile of t * Var.t
+      | Loop of t
+    [@@deriving sexp_of]
+  end
+
+  let lower presynth ~new_chan =
+    let new_ored_guard guards =
+      match Nonempty_list.to_list guards with
+      | [] -> failwith "unreachable"
+      | [ g ] -> (g, [])
+      | guards ->
+          let v = new_chan 1 in
+          let expr =
+            List.map guards ~f:(fun v -> Expr.Var v)
+            |> List.reduce_exn ~f:(fun a b -> Expr.BitOr (a, b))
+          in
+          let ctrl_proc = MultiAssign [ (v, expr) ] in
+          (v, [ ctrl_proc ])
+    in
+    let rec lower n =
+      match n with
+      | Pre_synth.Op v -> (Synth.Op v, [])
+      | Opt_guarded_op_seq l ->
+          let l, dflows =
+            List.map l ~f:(fun (gs, alias) ->
+                let g, dflows =
+                  match gs with
+                  | Some gs ->
+                      let g, dflows = new_ored_guard gs in
+                      (Some g, dflows)
+                  | None -> (None, [])
+                in
+                ((g, alias), dflows))
+            |> List.unzip
+          in
+          (Opt_guarded_op_seq l, List.concat dflows)
+      | Seq2 (a, b) ->
+          let a, a_dflows = lower a in
+          let b, b_dflows = lower b in
+          (Seq2 (a, b), a_dflows @ b_dflows)
+      | SelectImm (on_branches, else_guards) ->
+          let on_branches, dflows =
+            List.map on_branches ~f:(fun (gs, n) ->
+                let g, dflows = new_ored_guard gs in
+                let n, more_dflows = lower n in
+                ((g, n), dflows @ more_dflows))
+            |> List.unzip
+          in
+          let else_guard, more_dflows =
+            match else_guards with
+            | None -> (None, [])
+            | Some else_guards ->
+                let g, dflows = new_ored_guard else_guards in
+                (Some g, dflows)
+          in
+          (SelectImm (on_branches, else_guard), List.concat dflows @ more_dflows)
+      | DoWhile (rui, g) ->
+          let rui, dflows = lower rui in
+          (DoWhile (rui, g), dflows)
+      | Loop rui ->
+          let rui, dflows = lower rui in
+          (Loop rui, dflows)
+    in
+    lower presynth
 
   let merge_bool_guard s (b1, b2) v = [ Merge (Idx s, [ b1; b2 ], v) ]
   let split_bool_guard s v (b1, b2) = [ Split (Idx s, v, [ b1; b2 ]) ]
@@ -204,6 +331,73 @@ module Rui = struct
       ]
     in
     ((alias, ctrl), dflow)
+
+  let synth_opt_guarded_op_seq guarded_aliases ~new_chan ~dir =
+    let ct = List.length guarded_aliases in
+    let ct_const = Expr.Const (CInt.of_int ct) in
+    let n_width = Int.ceil_log2 (ct + 1) in
+
+    let a_chan = new_chan (List.hd_exn guarded_aliases |> snd).Var.bitwidth in
+    let b_chan = new_chan 1 in
+
+    let n = new_chan n_width in
+
+    (* [n=0 -> G0?g [] n=1 -> G1?g [] ... [] n=L -> skip]; *)
+    let g = new_chan 1 in
+    let dflow1 =
+      let dflows, gis =
+        List.map guarded_aliases ~f:(fun (g_chan, _) ->
+            match g_chan with
+            | Some g_chan -> ([], g_chan)
+            | None ->
+                let gi = new_chan 1 in
+                ([ assign gi Expr.(Const CInt.one) ], gi))
+        |> List.unzip
+      in
+      let gL = new_chan 1 in
+      let assign_L = assign gL (Const CInt.zero) in
+      let gis = gis @ [ gL ] in
+      [ Merge (Idx n, gis, g); assign_L ] @ List.concat dflows
+    in
+
+    (* [(g=0 | n=L) -> skip [] g=1 -> A?x; [n=0 -> A0!x [] ... n=L-1 ->
+       A{L-1}!x]]; OR *)
+    (* [(g=0 | n=L) -> skip [] g=1 -> [n=0 -> A0?x [] ... n=L-1 -> A{L-1}?x]];
+       A!x; *)
+    let dflow2 =
+      let n1 = new_chan n_width in
+      let sg = new_chan 1 in
+      let op_proc =
+        match dir with
+        | `Send ->
+            let ais = List.map guarded_aliases ~f:snd in
+            Merge (Idx n, ais, a_chan)
+        | `Read ->
+            let ais =
+              List.map guarded_aliases ~f:(fun (_, alias) -> Some alias)
+            in
+            Split (Idx n, a_chan, ais)
+      in
+      let sg_expr = Expr.(BitOr (Eq0 (Var g), Eq (Var n, ct_const))) in
+      [ MultiAssign [ (sg, sg_expr) ]; op_proc ]
+      @ split_bool_guard sg n (None, Some n1)
+    in
+
+    (* B!((n<L)&g); n := ( n=L ? 0 : n+1 ); *)
+    let n' = new_chan n_width in
+    let dflow3 =
+      let b_expr = Expr.(BitAnd (Var g, Lt (Var n, ct_const))) in
+      let n_expr =
+        Expr.(
+          Sub_no_wrap
+            (Add (Var n, Const CInt.one), Mul (ct_const, Eq (Var n, ct_const))))
+      in
+      [ MultiAssign [ (b_chan, b_expr) ]; MultiAssign [ (n', n_expr) ] ]
+    in
+
+    (* finally, we must wrap `n` back around to the top *)
+    let dflow_wrap = [ Copy_init (n, n', CInt.zero) ] in
+    ((a_chan, b_chan), dflow1 @ dflow2 @ dflow3 @ dflow_wrap)
 
   let synth_seq2 ~a1 ~b1 ~a2 ~b2 ~new_chan ~dir =
     assert (Int.equal a1.Var.bitwidth a2.Var.bitwidth);
@@ -361,50 +555,33 @@ module Rui = struct
     let synth rui = synth rui ~dir ~new_chan in
     match rui with
     | Synth.Op alias -> synth_op alias ~new_chan ~dir
+    | Opt_guarded_op_seq guarded_aliases ->
+        let alias, dflows =
+          synth_opt_guarded_op_seq guarded_aliases ~new_chan ~dir
+        in
+        (alias, dflows)
     | Seq2 (rui1, rui2) ->
         let (a1, b1), dflows1 = synth rui1 in
         let (a2, b2), dflows2 = synth rui2 in
         let alias, more_dflows = synth_seq2 ~a1 ~b1 ~a2 ~b2 ~new_chan ~dir in
         (alias, dflows1 @ dflows2 @ more_dflows)
-    | SelectImm (some_branches, else_guards) ->
-        let new_ored_guard guards =
-          let v = new_chan 1 in
-          let expr =
-            List.map guards ~f:(fun v -> Expr.Var v)
-            |> List.reduce_exn ~f:(fun a b -> Expr.BitOr (a, b))
-          in
-          let ctrl_proc = MultiAssign [ (v, expr) ] in
-          (v, [ ctrl_proc ])
-        in
+    | SelectImm (some_branches, else_guard) ->
         let some_branches, dflows =
-          List.map some_branches ~f:(fun (guards, rui) ->
+          List.map some_branches ~f:(fun (guard, rui) ->
               let alias, dflows = synth rui in
-              let g, more_dflows =
-                match guards with
-                | [] -> failwith "unreachable"
-                | [ g ] -> (g, [])
-                | guards -> new_ored_guard guards
-              in
-              ((g, alias), dflows @ more_dflows))
+              ((guard, alias), dflows))
           |> List.unzip
         in
-        let else_, more_dflows =
-          match else_guards with
-          | [] -> (None, [])
-          | [ g ] -> (Some g, [])
-          | guards ->
-              let g, dflows = new_ored_guard guards in
-              (Some g, dflows)
-        in
+        let else_ = else_guard in
         let guards = List.map some_branches ~f:fst @ Option.to_list else_ in
         let ab_list =
           List.map some_branches ~f:(fun (_, alias) -> Some alias)
           @ (Option.map else_ ~f:(fun _ -> None) |> Option.to_list)
         in
-        let alias, even_more_dflows =
+        let alias, more_dflows =
           synth_select_imm guards ab_list ~new_chan ~dir
         in
-        (alias, List.concat dflows @ more_dflows @ even_more_dflows)
+        (alias, List.concat dflows @ more_dflows)
     | DoWhile (rui, g) ->
         let alias, dflows = synth rui in
         let alias, more_dflows = synth_do_while alias g ~new_chan ~dir in
@@ -416,13 +593,20 @@ module Rui = struct
 
   let synthasize_rui rui ~new_chan ~dir =
     let rui = optimize rui in
+    print_s [%sexp ("procs" : string)];
+    print_s [%sexp (rui : Proc.t option)];
     let rui =
       match rui with
       | None -> failwith "unreachable channel -  TODO"
       | Some rui -> flatten rui
     in
-    let alias, ctrl_procs = synth rui ~new_chan ~dir in
-    (alias, ctrl_procs)
+    print_s [%sexp ("pre_synth" : string)];
+    print_s [%sexp (rui : Pre_synth.t)];
+    let rui, dflows = lower rui ~new_chan in
+    print_s [%sexp ("synth" : string)];
+    print_s [%sexp (rui : Synth.t)];
+    let alias, more_dflows = synth rui ~new_chan ~dir in
+    (alias, dflows @ more_dflows)
 end
 
 let dflow_of_stf proc =
@@ -520,9 +704,11 @@ let dflow_of_stf proc =
                    List.zip_exn guards ctrl_proc_maps
                    |> List.partition_map ~f:(fun (g, ctrl_proc_map) ->
                           match Map.find ctrl_proc_map k with
-                          | Some ctrl_proc -> Either.First ([ g ], ctrl_proc)
+                          | Some ctrl_proc ->
+                              Either.First (Nonempty_list.singleton g, ctrl_proc)
                           | None -> Either.Second g)
                  in
+                 let else_guards = Nonempty_list.of_list_opt else_guards in
                  Rui.Proc.SelectImm (some_branches, else_guards))
         in
         let dflows =
