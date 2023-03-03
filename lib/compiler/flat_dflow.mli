@@ -7,9 +7,13 @@ module Var : sig
   include Hashable.S with type t := t
 end
 
+module FBlock : sig
+  include Fblock.S with type var := Var.t
+end
+
 module Stmt : sig
   type t =
-    | MultiAssign of (Var.t * Var.t Expr.t) list
+    | MultiAssign of FBlock.t
     | Split of Var.t * Var.t * Var.t option list
     | Merge of Var.t * Var.t list * Var.t
     | Copy_init of (*dst *) Var.t * (*src*) Var.t * Act.CInt.t

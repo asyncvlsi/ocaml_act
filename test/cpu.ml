@@ -1004,38 +1004,38 @@ let%expect_test "fibonacci" =
     synth
     (Loop (Op ((id 219) (bitwidth 8))))
     ((stmt
-      ((MultiAssign ((((id 288) (bitwidth 8)) (Const 0))))
-       (MultiAssign ((((id 289) (bitwidth 8)) (Const 0))))
-       (MultiAssign ((((id 290) (bitwidth 8)) (Const 0))))
-       (MultiAssign ((((id 291) (bitwidth 8)) (Const 0))))
-       (MultiAssign ((((id 296) (bitwidth 8)) (Const 0))))
-       (MultiAssign ((((id 309) (bitwidth 8)) (Const 0))))
-       (MultiAssign ((((id 0) (bitwidth 12)) (Const 0))))
-       (MultiAssign ((((id 1) (bitwidth 1)) (Const 0))))
-       (MultiAssign ((((id 18) (bitwidth 13)) (Const 0))))
-       (MultiAssign ((((id 38) (bitwidth 8)) (Const 0))))
-       (MultiAssign ((((id 41) (bitwidth 8)) (Const 1))))
-       (MultiAssign ((((id 43) (bitwidth 8)) (Const 2))))
-       (MultiAssign ((((id 44) (bitwidth 8)) (Const 3))))
-       (MultiAssign ((((id 61) (bitwidth 12)) (Const 1))))
-       (MultiAssign ((((id 64) (bitwidth 13)) (Const 2))))
-       (MultiAssign ((((id 108) (bitwidth 8)) (Const 0))))
-       (MultiAssign ((((id 110) (bitwidth 8)) (Const 1))))
-       (MultiAssign ((((id 112) (bitwidth 8)) (Const 2))))
-       (MultiAssign ((((id 114) (bitwidth 8)) (Const 3))))
-       (MultiAssign ((((id 208) (bitwidth 1)) (Const 1))))
+      ((MultiAssign ((ins ()) (es ((((id 288) (bitwidth 8)) (Const 0))))))
+       (MultiAssign ((ins ()) (es ((((id 289) (bitwidth 8)) (Const 0))))))
+       (MultiAssign ((ins ()) (es ((((id 290) (bitwidth 8)) (Const 0))))))
+       (MultiAssign ((ins ()) (es ((((id 291) (bitwidth 8)) (Const 0))))))
+       (MultiAssign ((ins ()) (es ((((id 296) (bitwidth 8)) (Const 0))))))
+       (MultiAssign ((ins ()) (es ((((id 309) (bitwidth 8)) (Const 0))))))
+       (MultiAssign ((ins ()) (es ((((id 0) (bitwidth 12)) (Const 0))))))
+       (MultiAssign ((ins ()) (es ((((id 1) (bitwidth 1)) (Const 0))))))
+       (MultiAssign ((ins ()) (es ((((id 18) (bitwidth 13)) (Const 0))))))
+       (MultiAssign ((ins ()) (es ((((id 38) (bitwidth 8)) (Const 0))))))
+       (MultiAssign ((ins ()) (es ((((id 41) (bitwidth 8)) (Const 1))))))
+       (MultiAssign ((ins ()) (es ((((id 43) (bitwidth 8)) (Const 2))))))
+       (MultiAssign ((ins ()) (es ((((id 44) (bitwidth 8)) (Const 3))))))
+       (MultiAssign ((ins ()) (es ((((id 61) (bitwidth 12)) (Const 1))))))
+       (MultiAssign ((ins ()) (es ((((id 64) (bitwidth 13)) (Const 2))))))
+       (MultiAssign ((ins ()) (es ((((id 108) (bitwidth 8)) (Const 0))))))
+       (MultiAssign ((ins ()) (es ((((id 110) (bitwidth 8)) (Const 1))))))
+       (MultiAssign ((ins ()) (es ((((id 112) (bitwidth 8)) (Const 2))))))
+       (MultiAssign ((ins ()) (es ((((id 114) (bitwidth 8)) (Const 3))))))
+       (MultiAssign ((ins ()) (es ((((id 208) (bitwidth 1)) (Const 1))))))
        (MultiAssign
-        ((((id 2) (bitwidth 1)) (Eq (Var ((id 3) (bitwidth 1))) (Const 0)))))
+        ((ins (((id 3) (bitwidth 1))))
+         (es ((((id 2) (bitwidth 1)) (Eq (Var 0) (Const 0)))))))
        (MultiAssign
-        ((((id 21) (bitwidth 4))
-          (Clip (RShift (Var ((id 19) (bitwidth 8))) (Const 4)) 4))
-         (((id 344) (bitwidth 1))
-          (Log2OneHot
-           (Concat
-            (((Eq (Const 0) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((BitOr
-               (BitOr
-                (BitOr
+        ((ins (((id 19) (bitwidth 8))))
+         (es
+          ((((id 21) (bitwidth 4)) (Clip (RShift (Var 0) (Const 4)) 4))
+           (((id 344) (bitwidth 1))
+            (Log2OneHot
+             (Concat
+              (((Eq (Const 0) (BitAnd (Const 15) (Var 0))) 1)
+               ((BitOr
                  (BitOr
                   (BitOr
                    (BitOr
@@ -1047,40 +1047,27 @@ let%expect_test "fibonacci" =
                          (BitOr
                           (BitOr
                            (BitOr
-                            (Eq (Const 1)
-                             (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-                            (Eq (Const 2)
-                             (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                           (Eq (Const 3)
-                            (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                          (Eq (Const 4)
-                           (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                         (Eq (Const 5)
-                          (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                        (Eq (Const 6)
-                         (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                       (Eq (Const 7)
-                        (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                      (Eq (Const 8)
-                       (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                     (Eq (Const 9)
-                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                    (Eq (Const 10)
-                     (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                   (Eq (Const 11)
-                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                  (Eq (Const 12)
-                   (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                 (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-               (Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)))))
-         (((id 359) (bitwidth 1))
-          (Log2OneHot
-           (Concat
-            (((BitOr
-               (BitOr
-                (BitOr
+                            (BitOr
+                             (BitOr (Eq (Const 1) (BitAnd (Const 15) (Var 0)))
+                              (Eq (Const 2) (BitAnd (Const 15) (Var 0))))
+                             (Eq (Const 3) (BitAnd (Const 15) (Var 0))))
+                            (Eq (Const 4) (BitAnd (Const 15) (Var 0))))
+                           (Eq (Const 5) (BitAnd (Const 15) (Var 0))))
+                          (Eq (Const 6) (BitAnd (Const 15) (Var 0))))
+                         (Eq (Const 7) (BitAnd (Const 15) (Var 0))))
+                        (Eq (Const 8) (BitAnd (Const 15) (Var 0))))
+                       (Eq (Const 9) (BitAnd (Const 15) (Var 0))))
+                      (Eq (Const 10) (BitAnd (Const 15) (Var 0))))
+                     (Eq (Const 11) (BitAnd (Const 15) (Var 0))))
+                    (Eq (Const 12) (BitAnd (Const 15) (Var 0))))
+                   (Eq (Const 13) (BitAnd (Const 15) (Var 0))))
+                  (Eq (Const 14) (BitAnd (Const 15) (Var 0))))
+                 (Eq (Const 15) (BitAnd (Const 15) (Var 0))))
+                1)))))
+           (((id 359) (bitwidth 1))
+            (Log2OneHot
+             (Concat
+              (((BitOr
                  (BitOr
                   (BitOr
                    (BitOr
@@ -1092,257 +1079,30 @@ let%expect_test "fibonacci" =
                          (BitOr
                           (BitOr
                            (BitOr
-                            (Eq (Const 1)
-                             (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-                            (Eq (Const 2)
-                             (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                           (Eq (Const 3)
-                            (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                          (Eq (Const 4)
-                           (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                         (Eq (Const 5)
-                          (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                        (Eq (Const 6)
-                         (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                       (Eq (Const 7)
-                        (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                      (Eq (Const 8)
-                       (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                     (Eq (Const 9)
-                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                    (Eq (Const 10)
-                     (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                   (Eq (Const 11)
-                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                  (Eq (Const 12)
-                   (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                 (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-               (Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)
-             ((Eq (Const 0) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)))))
-         (((id 346) (bitwidth 2))
-          (Log2OneHot
-           (Concat
-            (((Eq (Const 2) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 3) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((BitOr
-               (BitOr
-                (BitOr
-                 (BitOr
-                  (BitOr
-                   (BitOr
-                    (BitOr
-                     (BitOr
-                      (BitOr
-                       (BitOr
-                        (BitOr
-                         (BitOr
-                          (BitOr
-                           (Eq (Const 0)
-                            (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-                           (Eq (Const 1)
-                            (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                          (Eq (Const 4)
-                           (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                         (Eq (Const 5)
-                          (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                        (Eq (Const 6)
-                         (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                       (Eq (Const 7)
-                        (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                      (Eq (Const 8)
-                       (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                     (Eq (Const 9)
-                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                    (Eq (Const 10)
-                     (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                   (Eq (Const 11)
-                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                  (Eq (Const 12)
-                   (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                 (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-               (Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)))))
-         (((id 348) (bitwidth 2))
-          (Log2OneHot
-           (Concat
-            (((Eq (Const 4) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 5) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 6) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((BitOr
-               (BitOr
-                (BitOr
-                 (BitOr
-                  (BitOr
-                   (BitOr
-                    (BitOr
-                     (BitOr
-                      (BitOr
-                       (BitOr
-                        (BitOr
-                         (BitOr
-                          (Eq (Const 0)
-                           (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-                          (Eq (Const 1)
-                           (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                         (Eq (Const 2)
-                          (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                        (Eq (Const 3)
-                         (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                       (Eq (Const 7)
-                        (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                      (Eq (Const 8)
-                       (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                     (Eq (Const 9)
-                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                    (Eq (Const 10)
-                     (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                   (Eq (Const 11)
-                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                  (Eq (Const 12)
-                   (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                 (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-               (Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)))))
-         (((id 345) (bitwidth 4))
-          (Log2OneHot
-           (Concat
-            (((Eq (Const 2) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 3) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 4) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 9) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 10) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 11) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((BitOr
-               (Eq (Const 5) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-               (Eq (Const 6) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)
-             ((BitOr
-               (BitOr
-                (BitOr
-                 (BitOr
-                  (Eq (Const 0) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-                  (Eq (Const 1) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                 (Eq (Const 7) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                (Eq (Const 8) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-               (Eq (Const 12) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)))))
-         (((id 347) (bitwidth 4))
-          (Log2OneHot
-           (Concat
-            (((Eq (Const 3) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 4) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 9) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 10) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 11) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 12) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((BitOr
-               (Eq (Const 5) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-               (Eq (Const 6) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)
-             ((BitOr
-               (BitOr
-                (BitOr
-                 (BitOr
-                  (BitOr
-                   (Eq (Const 0)
-                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-                   (Eq (Const 1)
-                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                  (Eq (Const 2) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                 (Eq (Const 7) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                (Eq (Const 8) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-               (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)))))
-         (((id 349) (bitwidth 3))
-          (Log2OneHot
-           (Concat
-            (((Eq (Const 5) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 6) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 9) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 10) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 11) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((BitOr
-               (BitOr
-                (BitOr
-                 (BitOr
-                  (BitOr
-                   (BitOr
-                    (BitOr
-                     (BitOr
-                      (BitOr
-                       (Eq (Const 0)
-                        (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-                       (Eq (Const 1)
-                        (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                      (Eq (Const 2)
-                       (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                     (Eq (Const 3)
-                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                    (Eq (Const 4)
-                     (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                   (Eq (Const 7)
-                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                  (Eq (Const 8) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                 (Eq (Const 12) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-               (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)))))
-         (((id 361) (bitwidth 2))
-          (Log2OneHot
-           (Concat
-            (((BitOr
-               (BitOr
-                (BitOr
-                 (BitOr
-                  (Eq (Const 0) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-                  (Eq (Const 1) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                 (Eq (Const 7) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                (Eq (Const 8) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-               (Eq (Const 12) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)
-             ((BitOr
-               (BitOr
-                (BitOr
-                 (BitOr
-                  (BitOr
-                   (BitOr
-                    (BitOr
-                     (Eq (Const 2)
-                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-                     (Eq (Const 3)
-                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                    (Eq (Const 9)
-                     (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                   (Eq (Const 10)
-                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                  (Eq (Const 11)
-                   (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                 (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-               (Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)
-             ((BitOr
-               (Eq (Const 4) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-               (Eq (Const 5) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)
-             ((Eq (Const 6) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)))))
-         (((id 350) (bitwidth 1))
-          (Log2OneHot
-           (Concat
-            (((Eq (Const 6) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))) 1)
-             ((BitOr
-               (BitOr
-                (BitOr
+                            (BitOr
+                             (BitOr (Eq (Const 1) (BitAnd (Const 15) (Var 0)))
+                              (Eq (Const 2) (BitAnd (Const 15) (Var 0))))
+                             (Eq (Const 3) (BitAnd (Const 15) (Var 0))))
+                            (Eq (Const 4) (BitAnd (Const 15) (Var 0))))
+                           (Eq (Const 5) (BitAnd (Const 15) (Var 0))))
+                          (Eq (Const 6) (BitAnd (Const 15) (Var 0))))
+                         (Eq (Const 7) (BitAnd (Const 15) (Var 0))))
+                        (Eq (Const 8) (BitAnd (Const 15) (Var 0))))
+                       (Eq (Const 9) (BitAnd (Const 15) (Var 0))))
+                      (Eq (Const 10) (BitAnd (Const 15) (Var 0))))
+                     (Eq (Const 11) (BitAnd (Const 15) (Var 0))))
+                    (Eq (Const 12) (BitAnd (Const 15) (Var 0))))
+                   (Eq (Const 13) (BitAnd (Const 15) (Var 0))))
+                  (Eq (Const 14) (BitAnd (Const 15) (Var 0))))
+                 (Eq (Const 15) (BitAnd (Const 15) (Var 0))))
+                1)
+               ((Eq (Const 0) (BitAnd (Const 15) (Var 0))) 1)))))
+           (((id 346) (bitwidth 2))
+            (Log2OneHot
+             (Concat
+              (((Eq (Const 2) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 3) (BitAnd (Const 15) (Var 0))) 1)
+               ((BitOr
                  (BitOr
                   (BitOr
                    (BitOr
@@ -1354,166 +1114,322 @@ let%expect_test "fibonacci" =
                          (BitOr
                           (BitOr
                            (BitOr
-                            (Eq (Const 0)
-                             (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-                            (Eq (Const 1)
-                             (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                           (Eq (Const 2)
-                            (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                          (Eq (Const 3)
-                           (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                         (Eq (Const 4)
-                          (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                        (Eq (Const 5)
-                         (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                       (Eq (Const 7)
-                        (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                      (Eq (Const 8)
-                       (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                     (Eq (Const 9)
-                      (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                    (Eq (Const 10)
-                     (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                   (Eq (Const 11)
-                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                  (Eq (Const 12)
-                   (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                 (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-               (Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)))))
-         (((id 360) (bitwidth 2))
-          (Log2OneHot
-           (Concat
-            (((BitOr
-               (BitOr
-                (BitOr
-                 (Eq (Const 0) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-                 (Eq (Const 1) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                (Eq (Const 2) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-               (Eq (Const 13) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)
-             ((BitOr
-               (BitOr
-                (BitOr
-                 (Eq (Const 3) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-                 (Eq (Const 4) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                (Eq (Const 12) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-               (Eq (Const 14) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)
-             ((BitOr
-               (BitOr
-                (BitOr
+                            (BitOr (Eq (Const 0) (BitAnd (Const 15) (Var 0)))
+                             (Eq (Const 1) (BitAnd (Const 15) (Var 0))))
+                            (Eq (Const 4) (BitAnd (Const 15) (Var 0))))
+                           (Eq (Const 5) (BitAnd (Const 15) (Var 0))))
+                          (Eq (Const 6) (BitAnd (Const 15) (Var 0))))
+                         (Eq (Const 7) (BitAnd (Const 15) (Var 0))))
+                        (Eq (Const 8) (BitAnd (Const 15) (Var 0))))
+                       (Eq (Const 9) (BitAnd (Const 15) (Var 0))))
+                      (Eq (Const 10) (BitAnd (Const 15) (Var 0))))
+                     (Eq (Const 11) (BitAnd (Const 15) (Var 0))))
+                    (Eq (Const 12) (BitAnd (Const 15) (Var 0))))
+                   (Eq (Const 13) (BitAnd (Const 15) (Var 0))))
+                  (Eq (Const 14) (BitAnd (Const 15) (Var 0))))
+                 (Eq (Const 15) (BitAnd (Const 15) (Var 0))))
+                1)))))
+           (((id 348) (bitwidth 2))
+            (Log2OneHot
+             (Concat
+              (((Eq (Const 4) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 5) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 6) (BitAnd (Const 15) (Var 0))) 1)
+               ((BitOr
                  (BitOr
                   (BitOr
-                   (Eq (Const 5)
-                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-                   (Eq (Const 7)
-                    (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                  (Eq (Const 9) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                 (Eq (Const 10) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-                (Eq (Const 11) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-               (Eq (Const 15) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)
-             ((BitOr
-               (Eq (Const 6) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8)))))
-               (Eq (Const 8) (BitAnd (Const 15) (Var ((id 19) (bitwidth 8))))))
-              1)))))))
+                   (BitOr
+                    (BitOr
+                     (BitOr
+                      (BitOr
+                       (BitOr
+                        (BitOr
+                         (BitOr
+                          (BitOr
+                           (BitOr (Eq (Const 0) (BitAnd (Const 15) (Var 0)))
+                            (Eq (Const 1) (BitAnd (Const 15) (Var 0))))
+                           (Eq (Const 2) (BitAnd (Const 15) (Var 0))))
+                          (Eq (Const 3) (BitAnd (Const 15) (Var 0))))
+                         (Eq (Const 7) (BitAnd (Const 15) (Var 0))))
+                        (Eq (Const 8) (BitAnd (Const 15) (Var 0))))
+                       (Eq (Const 9) (BitAnd (Const 15) (Var 0))))
+                      (Eq (Const 10) (BitAnd (Const 15) (Var 0))))
+                     (Eq (Const 11) (BitAnd (Const 15) (Var 0))))
+                    (Eq (Const 12) (BitAnd (Const 15) (Var 0))))
+                   (Eq (Const 13) (BitAnd (Const 15) (Var 0))))
+                  (Eq (Const 14) (BitAnd (Const 15) (Var 0))))
+                 (Eq (Const 15) (BitAnd (Const 15) (Var 0))))
+                1)))))
+           (((id 345) (bitwidth 4))
+            (Log2OneHot
+             (Concat
+              (((Eq (Const 2) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 3) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 4) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 9) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 10) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 11) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 13) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 14) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 15) (BitAnd (Const 15) (Var 0))) 1)
+               ((BitOr (Eq (Const 5) (BitAnd (Const 15) (Var 0)))
+                 (Eq (Const 6) (BitAnd (Const 15) (Var 0))))
+                1)
+               ((BitOr
+                 (BitOr
+                  (BitOr
+                   (BitOr (Eq (Const 0) (BitAnd (Const 15) (Var 0)))
+                    (Eq (Const 1) (BitAnd (Const 15) (Var 0))))
+                   (Eq (Const 7) (BitAnd (Const 15) (Var 0))))
+                  (Eq (Const 8) (BitAnd (Const 15) (Var 0))))
+                 (Eq (Const 12) (BitAnd (Const 15) (Var 0))))
+                1)))))
+           (((id 347) (bitwidth 4))
+            (Log2OneHot
+             (Concat
+              (((Eq (Const 3) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 4) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 9) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 10) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 11) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 12) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 14) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 15) (BitAnd (Const 15) (Var 0))) 1)
+               ((BitOr (Eq (Const 5) (BitAnd (Const 15) (Var 0)))
+                 (Eq (Const 6) (BitAnd (Const 15) (Var 0))))
+                1)
+               ((BitOr
+                 (BitOr
+                  (BitOr
+                   (BitOr
+                    (BitOr (Eq (Const 0) (BitAnd (Const 15) (Var 0)))
+                     (Eq (Const 1) (BitAnd (Const 15) (Var 0))))
+                    (Eq (Const 2) (BitAnd (Const 15) (Var 0))))
+                   (Eq (Const 7) (BitAnd (Const 15) (Var 0))))
+                  (Eq (Const 8) (BitAnd (Const 15) (Var 0))))
+                 (Eq (Const 13) (BitAnd (Const 15) (Var 0))))
+                1)))))
+           (((id 349) (bitwidth 3))
+            (Log2OneHot
+             (Concat
+              (((Eq (Const 5) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 6) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 9) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 10) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 11) (BitAnd (Const 15) (Var 0))) 1)
+               ((Eq (Const 15) (BitAnd (Const 15) (Var 0))) 1)
+               ((BitOr
+                 (BitOr
+                  (BitOr
+                   (BitOr
+                    (BitOr
+                     (BitOr
+                      (BitOr
+                       (BitOr
+                        (BitOr (Eq (Const 0) (BitAnd (Const 15) (Var 0)))
+                         (Eq (Const 1) (BitAnd (Const 15) (Var 0))))
+                        (Eq (Const 2) (BitAnd (Const 15) (Var 0))))
+                       (Eq (Const 3) (BitAnd (Const 15) (Var 0))))
+                      (Eq (Const 4) (BitAnd (Const 15) (Var 0))))
+                     (Eq (Const 7) (BitAnd (Const 15) (Var 0))))
+                    (Eq (Const 8) (BitAnd (Const 15) (Var 0))))
+                   (Eq (Const 12) (BitAnd (Const 15) (Var 0))))
+                  (Eq (Const 13) (BitAnd (Const 15) (Var 0))))
+                 (Eq (Const 14) (BitAnd (Const 15) (Var 0))))
+                1)))))
+           (((id 361) (bitwidth 2))
+            (Log2OneHot
+             (Concat
+              (((BitOr
+                 (BitOr
+                  (BitOr
+                   (BitOr (Eq (Const 0) (BitAnd (Const 15) (Var 0)))
+                    (Eq (Const 1) (BitAnd (Const 15) (Var 0))))
+                   (Eq (Const 7) (BitAnd (Const 15) (Var 0))))
+                  (Eq (Const 8) (BitAnd (Const 15) (Var 0))))
+                 (Eq (Const 12) (BitAnd (Const 15) (Var 0))))
+                1)
+               ((BitOr
+                 (BitOr
+                  (BitOr
+                   (BitOr
+                    (BitOr
+                     (BitOr
+                      (BitOr (Eq (Const 2) (BitAnd (Const 15) (Var 0)))
+                       (Eq (Const 3) (BitAnd (Const 15) (Var 0))))
+                      (Eq (Const 9) (BitAnd (Const 15) (Var 0))))
+                     (Eq (Const 10) (BitAnd (Const 15) (Var 0))))
+                    (Eq (Const 11) (BitAnd (Const 15) (Var 0))))
+                   (Eq (Const 13) (BitAnd (Const 15) (Var 0))))
+                  (Eq (Const 14) (BitAnd (Const 15) (Var 0))))
+                 (Eq (Const 15) (BitAnd (Const 15) (Var 0))))
+                1)
+               ((BitOr (Eq (Const 4) (BitAnd (Const 15) (Var 0)))
+                 (Eq (Const 5) (BitAnd (Const 15) (Var 0))))
+                1)
+               ((Eq (Const 6) (BitAnd (Const 15) (Var 0))) 1)))))
+           (((id 350) (bitwidth 1))
+            (Log2OneHot
+             (Concat
+              (((Eq (Const 6) (BitAnd (Const 15) (Var 0))) 1)
+               ((BitOr
+                 (BitOr
+                  (BitOr
+                   (BitOr
+                    (BitOr
+                     (BitOr
+                      (BitOr
+                       (BitOr
+                        (BitOr
+                         (BitOr
+                          (BitOr
+                           (BitOr
+                            (BitOr
+                             (BitOr (Eq (Const 0) (BitAnd (Const 15) (Var 0)))
+                              (Eq (Const 1) (BitAnd (Const 15) (Var 0))))
+                             (Eq (Const 2) (BitAnd (Const 15) (Var 0))))
+                            (Eq (Const 3) (BitAnd (Const 15) (Var 0))))
+                           (Eq (Const 4) (BitAnd (Const 15) (Var 0))))
+                          (Eq (Const 5) (BitAnd (Const 15) (Var 0))))
+                         (Eq (Const 7) (BitAnd (Const 15) (Var 0))))
+                        (Eq (Const 8) (BitAnd (Const 15) (Var 0))))
+                       (Eq (Const 9) (BitAnd (Const 15) (Var 0))))
+                      (Eq (Const 10) (BitAnd (Const 15) (Var 0))))
+                     (Eq (Const 11) (BitAnd (Const 15) (Var 0))))
+                    (Eq (Const 12) (BitAnd (Const 15) (Var 0))))
+                   (Eq (Const 13) (BitAnd (Const 15) (Var 0))))
+                  (Eq (Const 14) (BitAnd (Const 15) (Var 0))))
+                 (Eq (Const 15) (BitAnd (Const 15) (Var 0))))
+                1)))))
+           (((id 360) (bitwidth 2))
+            (Log2OneHot
+             (Concat
+              (((BitOr
+                 (BitOr
+                  (BitOr (Eq (Const 0) (BitAnd (Const 15) (Var 0)))
+                   (Eq (Const 1) (BitAnd (Const 15) (Var 0))))
+                  (Eq (Const 2) (BitAnd (Const 15) (Var 0))))
+                 (Eq (Const 13) (BitAnd (Const 15) (Var 0))))
+                1)
+               ((BitOr
+                 (BitOr
+                  (BitOr (Eq (Const 3) (BitAnd (Const 15) (Var 0)))
+                   (Eq (Const 4) (BitAnd (Const 15) (Var 0))))
+                  (Eq (Const 12) (BitAnd (Const 15) (Var 0))))
+                 (Eq (Const 14) (BitAnd (Const 15) (Var 0))))
+                1)
+               ((BitOr
+                 (BitOr
+                  (BitOr
+                   (BitOr
+                    (BitOr (Eq (Const 5) (BitAnd (Const 15) (Var 0)))
+                     (Eq (Const 7) (BitAnd (Const 15) (Var 0))))
+                    (Eq (Const 9) (BitAnd (Const 15) (Var 0))))
+                   (Eq (Const 10) (BitAnd (Const 15) (Var 0))))
+                  (Eq (Const 11) (BitAnd (Const 15) (Var 0))))
+                 (Eq (Const 15) (BitAnd (Const 15) (Var 0))))
+                1)
+               ((BitOr (Eq (Const 6) (BitAnd (Const 15) (Var 0)))
+                 (Eq (Const 8) (BitAnd (Const 15) (Var 0))))
+                1)))))))))
        (MultiAssign
-        ((((id 352) (bitwidth 1))
-          (Log2OneHot
-           (Concat
-            (((Ge (Var ((id 54) (bitwidth 8))) (Const 1)) 1)
-             ((Eq0 (Ge (Var ((id 54) (bitwidth 8))) (Const 1))) 1)))))
-         (((id 353) (bitwidth 1))
-          (Log2OneHot
-           (Concat
-            (((Eq0 (Ge (Var ((id 54) (bitwidth 8))) (Const 1))) 1)
-             ((Ge (Var ((id 54) (bitwidth 8))) (Const 1)) 1)))))
-         (((id 354) (bitwidth 1))
-          (Log2OneHot
-           (Concat
-            (((Ge (Var ((id 54) (bitwidth 8))) (Const 2)) 1)
-             ((Eq0 (Ge (Var ((id 54) (bitwidth 8))) (Const 2))) 1)))))
-         (((id 355) (bitwidth 1))
-          (Log2OneHot
-           (Concat
-            (((Ge (Var ((id 54) (bitwidth 8))) (Const 3)) 1)
-             ((Eq0 (Ge (Var ((id 54) (bitwidth 8))) (Const 3))) 1)))))))
+        ((ins (((id 54) (bitwidth 8))))
+         (es
+          ((((id 352) (bitwidth 1))
+            (Log2OneHot
+             (Concat
+              (((Ge (Var 0) (Const 1)) 1) ((Eq0 (Ge (Var 0) (Const 1))) 1)))))
+           (((id 353) (bitwidth 1))
+            (Log2OneHot
+             (Concat
+              (((Eq0 (Ge (Var 0) (Const 1))) 1) ((Ge (Var 0) (Const 1)) 1)))))
+           (((id 354) (bitwidth 1))
+            (Log2OneHot
+             (Concat
+              (((Ge (Var 0) (Const 2)) 1) ((Eq0 (Ge (Var 0) (Const 2))) 1)))))
+           (((id 355) (bitwidth 1))
+            (Log2OneHot
+             (Concat
+              (((Ge (Var 0) (Const 3)) 1) ((Eq0 (Ge (Var 0) (Const 3))) 1)))))))))
        (MultiAssign
-        ((((id 73) (bitwidth 12)) (Add (Var ((id 69) (bitwidth 12))) (Const 1)))
-         (((id 77) (bitwidth 13))
-          (LShift (Add (Var ((id 69) (bitwidth 12))) (Const 1)) (Const 1)))))
+        ((ins (((id 69) (bitwidth 12))))
+         (es
+          ((((id 73) (bitwidth 12)) (Add (Var 0) (Const 1)))
+           (((id 77) (bitwidth 13)) (LShift (Add (Var 0) (Const 1)) (Const 1)))))))
        (MultiAssign
-        ((((id 86) (bitwidth 12)) (Add (Var ((id 82) (bitwidth 12))) (Const 1)))
-         (((id 90) (bitwidth 13))
-          (LShift (Add (Var ((id 82) (bitwidth 12))) (Const 1)) (Const 1)))))
+        ((ins (((id 82) (bitwidth 12))))
+         (es
+          ((((id 86) (bitwidth 12)) (Add (Var 0) (Const 1)))
+           (((id 90) (bitwidth 13)) (LShift (Add (Var 0) (Const 1)) (Const 1)))))))
        (MultiAssign
-        ((((id 356) (bitwidth 1))
-          (Log2OneHot
-           (Concat
-            (((Ge (Var ((id 124) (bitwidth 8))) (Const 1)) 1)
-             ((Eq0 (Ge (Var ((id 124) (bitwidth 8))) (Const 1))) 1)))))
-         (((id 357) (bitwidth 1))
-          (Log2OneHot
-           (Concat
-            (((Ge (Var ((id 124) (bitwidth 8))) (Const 2)) 1)
-             ((Eq0 (Ge (Var ((id 124) (bitwidth 8))) (Const 2))) 1)))))
-         (((id 358) (bitwidth 1))
-          (Log2OneHot
-           (Concat
-            (((Ge (Var ((id 124) (bitwidth 8))) (Const 3)) 1)
-             ((Eq0 (Ge (Var ((id 124) (bitwidth 8))) (Const 3))) 1)))))))
+        ((ins (((id 124) (bitwidth 8))))
+         (es
+          ((((id 356) (bitwidth 1))
+            (Log2OneHot
+             (Concat
+              (((Ge (Var 0) (Const 1)) 1) ((Eq0 (Ge (Var 0) (Const 1))) 1)))))
+           (((id 357) (bitwidth 1))
+            (Log2OneHot
+             (Concat
+              (((Ge (Var 0) (Const 2)) 1) ((Eq0 (Ge (Var 0) (Const 2))) 1)))))
+           (((id 358) (bitwidth 1))
+            (Log2OneHot
+             (Concat
+              (((Ge (Var 0) (Const 3)) 1) ((Eq0 (Ge (Var 0) (Const 3))) 1)))))))))
        (MultiAssign
-        ((((id 209) (bitwidth 8))
-          (BitOr (Var ((id 207) (bitwidth 4)))
-           (Clip (LShift (Clip (Var ((id 156) (bitwidth 8))) 4) (Const 4)) 8)))))
+        ((ins (((id 156) (bitwidth 8)) ((id 207) (bitwidth 4))))
+         (es
+          ((((id 209) (bitwidth 8))
+            (BitOr (Var 1) (Clip (LShift (Clip (Var 0) 4) (Const 4)) 8)))))))
        (MultiAssign
-        ((((id 210) (bitwidth 8))
-          (Eq (Var ((id 160) (bitwidth 8))) (Var ((id 168) (bitwidth 8)))))))
+        ((ins (((id 160) (bitwidth 8)) ((id 168) (bitwidth 8))))
+         (es ((((id 210) (bitwidth 8)) (Eq (Var 0) (Var 1)))))))
        (MultiAssign
-        ((((id 211) (bitwidth 8))
-          (Clip (Add (Var ((id 161) (bitwidth 8))) (Var ((id 169) (bitwidth 8))))
-           8))))
+        ((ins (((id 161) (bitwidth 8)) ((id 169) (bitwidth 8))))
+         (es ((((id 211) (bitwidth 8)) (Clip (Add (Var 0) (Var 1)) 8))))))
        (MultiAssign
-        ((((id 212) (bitwidth 8))
-          (Clip
-           (Add (BitOr (Clip (Var ((id 170) (bitwidth 8))) 8) (Const 256))
-            (Clip (Var ((id 162) (bitwidth 8))) 8))
-           8))))
+        ((ins (((id 162) (bitwidth 8)) ((id 170) (bitwidth 8))))
+         (es
+          ((((id 212) (bitwidth 8))
+            (Clip (Add (BitOr (Clip (Var 1) 8) (Const 256)) (Clip (Var 0) 8)) 8))))))
        (MultiAssign
-        ((((id 214) (bitwidth 8)) (Eq (Const 0) (Var ((id 164) (bitwidth 8)))))))
+        ((ins (((id 164) (bitwidth 8))))
+         (es ((((id 214) (bitwidth 8)) (Eq (Const 0) (Var 0)))))))
        (MultiAssign
-        ((((id 215) (bitwidth 8))
-          (BitOr (Ne (Const 0) (Var ((id 165) (bitwidth 8))))
-           (Ne (Const 0) (Var ((id 171) (bitwidth 8))))))))
+        ((ins (((id 165) (bitwidth 8)) ((id 171) (bitwidth 8))))
+         (es
+          ((((id 215) (bitwidth 8))
+            (BitOr (Ne (Const 0) (Var 0)) (Ne (Const 0) (Var 1))))))))
        (MultiAssign
-        ((((id 230) (bitwidth 13))
-          (Concat (((Const 1) 1) ((Var ((id 224) (bitwidth 12))) 12))))
-         (((id 226) (bitwidth 12))
-          (Add (Const 1) (Var ((id 224) (bitwidth 12)))))))
+        ((ins (((id 224) (bitwidth 12))))
+         (es
+          ((((id 230) (bitwidth 13)) (Concat (((Const 1) 1) ((Var 0) 12))))
+           (((id 226) (bitwidth 12)) (Add (Const 1) (Var 0)))))))
        (MultiAssign
-        ((((id 241) (bitwidth 13))
-          (Concat (((Const 1) 1) ((Var ((id 235) (bitwidth 12))) 12))))
-         (((id 237) (bitwidth 12))
-          (Add (Const 1) (Var ((id 235) (bitwidth 12)))))))
+        ((ins (((id 235) (bitwidth 12))))
+         (es
+          ((((id 241) (bitwidth 13)) (Concat (((Const 1) 1) ((Var 0) 12))))
+           (((id 237) (bitwidth 12)) (Add (Const 1) (Var 0)))))))
        (MultiAssign
-        ((((id 251) (bitwidth 13))
-          (Concat (((Const 1) 1) ((Var ((id 246) (bitwidth 12))) 12))))
-         (((id 248) (bitwidth 12))
-          (Add (Const 1) (Var ((id 246) (bitwidth 12)))))))
+        ((ins (((id 246) (bitwidth 12))))
+         (es
+          ((((id 251) (bitwidth 13)) (Concat (((Const 1) 1) ((Var 0) 12))))
+           (((id 248) (bitwidth 12)) (Add (Const 1) (Var 0)))))))
        (MultiAssign
-        ((((id 263) (bitwidth 2))
-          (Add (Add (Var ((id 258) (bitwidth 2))) (Const 1))
-           (Mul (Const 3) (Eq (Var ((id 258) (bitwidth 2))) (Const 3)))))))
+        ((ins (((id 258) (bitwidth 2))))
+         (es
+          ((((id 263) (bitwidth 2))
+            (Add (Add (Var 0) (Const 1)) (Mul (Const 3) (Eq (Var 0) (Const 3)))))))))
        (MultiAssign
-        ((((id 278) (bitwidth 2))
-          (Add (Add (Var ((id 273) (bitwidth 2))) (Const 1))
-           (Mul (Const 3) (Eq (Var ((id 273) (bitwidth 2))) (Const 3)))))))
+        ((ins (((id 273) (bitwidth 2))))
+         (es
+          ((((id 278) (bitwidth 2))
+            (Add (Add (Var 0) (Const 1)) (Mul (Const 3) (Eq (Var 0) (Const 3)))))))))
        (MultiAssign
-        ((((id 287) (bitwidth 3))
-          (Add (Add (Var ((id 282) (bitwidth 3))) (Const 1))
-           (Mul (Const 6) (Eq (Var ((id 282) (bitwidth 3))) (Const 6)))))))
+        ((ins (((id 282) (bitwidth 3))))
+         (es
+          ((((id 287) (bitwidth 3))
+            (Add (Add (Var 0) (Const 1)) (Mul (Const 6) (Eq (Var 0) (Const 6)))))))))
        (Split (Idx ((id 2) (bitwidth 1))) ((id 3) (bitwidth 1))
         (() (((id 5) (bitwidth 1)))))
        (Split (Idx ((id 2) (bitwidth 1))) ((id 9) (bitwidth 12))

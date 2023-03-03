@@ -12,9 +12,11 @@ module Var = struct
   include T
 end
 
+module FBlock = Fblock.Make (Var)
+
 module Stmt = struct
   type t =
-    | MultiAssign of (Var.t * Var.t Expr.t) list
+    | MultiAssign of FBlock.t
     | Split of Var.t * Var.t * Var.t option list
     | Merge of Var.t * Var.t list * Var.t
     | Copy_init of (*dst *) Var.t * (*src*) Var.t * Act.CInt.t
@@ -56,17 +58,13 @@ let of_dflow_ir { Dflow_ir.Proc.stmt = dflows; iports; oports } =
   let dflows =
     List.map dflows ~f:(fun dflow ->
         match dflow with
-        | Dflow_ir.Stmt.MultiAssign l ->
-            let reads =
-              List.concat_map l ~f:(fun (_, e) -> Expr.var_ids e)
-              |> Dflow_ir.Var.Set.of_list
-              |> Map.of_key_set ~f:of_v_read
+        | Dflow_ir.Stmt.MultiAssign fblock ->
+            let fblock =
+              FBlock.map_ins_and_outs fblock
+                ~map_in:(fun i -> of_v_read i)
+                ~map_out:(fun i -> of_v_write i)
             in
-            let l =
-              List.map l ~f:(fun (dst, e) ->
-                  (of_v_write dst, Expr.map_vars e ~f:(Map.find_exn reads)))
-            in
-            Stmt.MultiAssign l
+            Stmt.MultiAssign fblock
         | Split (g, i, os) -> (
             match g with
             | Idx g ->
@@ -121,11 +119,13 @@ let flatten_copies { Proc.stmt = dflows; iports; oports } =
   let dflows =
     List.filter_map dflows ~f:(fun dflow ->
         match dflow with
-        | Stmt.MultiAssign l ->
-            Some
-              (Stmt.MultiAssign
-                 (List.map l ~f:(fun (dst, e) ->
-                      (of_v dst, Expr.map_vars e ~f:of_v))))
+        | Stmt.MultiAssign fblock ->
+            let fblock =
+              FBlock.map_ins_and_outs fblock
+                ~map_in:(fun i -> of_v i)
+                ~map_out:(fun i -> of_v i)
+            in
+            Some (Stmt.MultiAssign fblock)
         | Split (g, i, os) ->
             Some (Split (of_v g, of_v i, List.map os ~f:(Option.map ~f:of_v)))
         | Merge (g, ins, o) ->
@@ -147,8 +147,7 @@ let var_ids { Proc.stmt = dflows; iports; oports } =
   [
     List.concat_map dflows ~f:(fun dflow ->
         match dflow with
-        | Stmt.MultiAssign l ->
-            List.concat_map l ~f:(fun (dst, e) -> dst :: Expr.var_ids e)
+        | Stmt.MultiAssign fblock -> FBlock.ins fblock @ FBlock.outs fblock
         | Split (g, i, os) -> g :: i :: List.filter_opt os
         | Merge (g, ins, o) -> g :: o :: ins
         | Copy_init (dst, src, _) -> [ dst; src ]
@@ -175,10 +174,13 @@ let pack_var_names proc =
   let dflows =
     List.map proc.stmt ~f:(fun dflow ->
         match dflow with
-        | Stmt.MultiAssign l ->
-            Stmt.MultiAssign
-              (List.map l ~f:(fun (dst, e) ->
-                   (of_v dst, Expr.map_vars e ~f:of_v)))
+        | Stmt.MultiAssign fblock ->
+            let fblock =
+              FBlock.map_ins_and_outs fblock
+                ~map_in:(fun i -> of_v i)
+                ~map_out:(fun i -> of_v i)
+            in
+            Stmt.MultiAssign fblock
         | Split (g, i, os) ->
             Split (of_v g, of_v i, List.map os ~f:(Option.map ~f:of_v))
         | Merge (g, ins, o) -> Merge (of_v g, List.map ins ~f:of_v, of_v o)

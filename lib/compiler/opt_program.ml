@@ -227,17 +227,45 @@ module Dflow_exporter = struct
       let vvo o = match o with Some v -> vv v | None -> "*" in
       List.map ns ~f:(fun n ->
           match n with
-          | MultiAssign assigns -> (
-              match assigns with
-              | [] -> ""
-              | [ (dst, e) ] -> [%string "  v%{dst.id#Int} <- %{ee e};"]
-              | assigns ->
-                  let exprs =
-                    List.map assigns ~f:(fun (dst, e) ->
-                        [%string "  v%{dst.id#Int} <- %{ee e};"])
-                    |> String.concat ~sep:"\n  "
-                  in
-                  [%string "  dataflow_cluser {\n  %{exprs}\n  };"])
+          | MultiAssign fblock ->
+              let open Flat_dflow in
+              let es = FBlock.expr_list fblock in
+              assert (not (List.is_empty es));
+              let ins_set = FBlock.ins fblock |> Var.Set.of_list in
+              let e_ins_set =
+                List.concat_map es ~f:(fun (_, e) -> Expr.var_ids e)
+                |> Var.Set.of_list
+              in
+              assert (Set.diff e_ins_set ins_set |> Set.is_empty);
+              if Set.equal ins_set e_ins_set && List.length es |> Int.equal 1
+              then
+                let dst, e = List.hd_exn es in
+                [%string "  v%{dst.id#Int} <- %{ee e};"]
+              else
+                let extra_ins = Set.diff ins_set e_ins_set in
+                let es =
+                  match es with
+                  | [] -> failwith "unreachable"
+                  | (dst, e) :: es ->
+                      let extra_e =
+                        Set.to_list extra_ins
+                        |> List.map ~f:(fun v ->
+                               Expr.(BitAnd (Const CInt.zero, Var v)))
+                        |> List.reduce ~f:(fun a b -> Expr.BitAnd (a, b))
+                      in
+                      let e =
+                        match extra_e with
+                        | Some extra_e -> Expr.BitOr (e, extra_e)
+                        | None -> e
+                      in
+                      (dst, e) :: es
+                in
+                let exprs =
+                  List.map es ~f:(fun (dst, e) ->
+                      [%string "  v%{dst.id#Int} <- %{ee e};"])
+                  |> String.concat ~sep:"\n  "
+                in
+                [%string "  dataflow_cluser {\n  %{exprs}\n  };"]
           | Split (g, v, os) ->
               let os = List.map os ~f:vvo |> String.concat ~sep:", " in
               [%string "  { v%{g.id#Int} } v%{v.id#Int} -> %{os};"]

@@ -7,6 +7,13 @@ module Var : sig
   include Hashable.S with type t := t
 end
 
+module FBlock : sig
+  include
+    Fblock.S
+      with type var := Var.t
+       and type comparator_witness = Var.comparator_witness
+end
+
 module Stmt : sig
   module Guard : sig
     type t = One_hot of Var.t | Idx of Var.t | Bits of Var.t list
@@ -16,7 +23,7 @@ module Stmt : sig
   end
 
   type t =
-    | MultiAssign of (Var.t * Var.t Expr.t) list
+    | MultiAssign of FBlock.t
     | Split of Guard.t * Var.t * Var.t option list
     | Merge of Guard.t * Var.t list * Var.t
     | Copy_init of (*dst *) Var.t * (*src*) Var.t * Act.CInt.t
