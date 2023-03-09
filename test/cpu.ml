@@ -523,11 +523,9 @@ let%expect_test "fibonacci" =
   let ir = cpu my_instrs ~ichan:ichan.r ~ochan:ochan.w in
   ();
 
-  let str =
-    Compiler.compile_chp ir ~user_sendable_ports:[ ichan.w.u ]
-      ~user_readable_ports:[ ochan.r.u ] ~to_:`Dataflow
-  in
-  printf "%s" str;
+  Compiler.compile_chp ir ~user_sendable_ports:[ ichan.w.u ]
+    ~user_readable_ports:[ ochan.r.u ] ~to_:`Dataflow
+  |> Compiler.export_print;
 
   [%expect
     {|

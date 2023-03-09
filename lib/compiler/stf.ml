@@ -552,7 +552,7 @@ let eliminate_doubled_vars n =
             |> List.iter ~f:(fun in_v ->
                    List.iter splits ~f:(fun split ->
                        List.iter split.out_vs ~f:(fun out_v ->
-                           if Option.equal Var.equal (Some  in_v) out_v then
+                           if Option.equal Var.equal (Some in_v) out_v then
                              Hashtbl.set renames ~key:merge.out_v
                                ~data:(of_v split.in_v)))));
 

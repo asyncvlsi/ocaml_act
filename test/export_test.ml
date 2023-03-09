@@ -19,11 +19,9 @@ let%expect_test "test1" =
           ];
       ]
   in
-  let chp =
-    Compiler.compile_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
-      ~to_:`Chp
-  in
-  printf "%s" chp;
+  Compiler.compile_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
+    ~to_:`Chp
+  |> Compiler.export_print;
   [%expect
     {|
     defproc proc_0() {
@@ -42,11 +40,10 @@ let%expect_test "test1" =
     proc_0 proc_0_ ();
 
     } |}];
-  let chp =
-    Compiler.compile_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
-      ~to_:`Chp
-  in
-  printf "%s" chp;
+
+  Compiler.compile_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
+    ~to_:`Chp
+  |> Compiler.export_print;
   [%expect
     {|
     defproc proc_0() {
@@ -90,11 +87,10 @@ let%expect_test "test2" =
         Chp.log1 var1 ~f:(fun v -> [%string "%{v#CInt}\n"]);
       ]
   in
-  let chp =
-    Compiler.compile_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
-      ~to_:`Chp
-  in
-  printf "%s" chp;
+
+  Compiler.compile_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
+    ~to_:`Chp
+  |> Compiler.export_print;
   [%expect
     {|
     defproc proc_0() {
@@ -130,11 +126,9 @@ let%expect_test "test3" =
         Chp.log "done\n";
       ]
   in
-  let chp =
-    Compiler.compile_chp ir ~user_sendable_ports:[ chan.w.u ]
-      ~user_readable_ports:[] ~to_:`Chp
-  in
-  printf "%s" chp;
+  Compiler.compile_chp ir ~user_sendable_ports:[ chan.w.u ]
+    ~user_readable_ports:[] ~to_:`Chp
+  |> Compiler.export_print;
   [%expect
     {|
     defproc proc_0(chan!(int<9>) C0) {
@@ -169,11 +163,9 @@ let%expect_test "test3" =
         Chp.log "done\n";
       ]
   in
-  let chp =
-    Compiler.compile_chp ir ~user_sendable_ports:[ chan1.w.u ]
-      ~user_readable_ports:[ chan2.r.u ] ~to_:`Chp
-  in
-  printf "%s" chp;
+  Compiler.compile_chp ir ~user_sendable_ports:[ chan1.w.u ]
+    ~user_readable_ports:[ chan2.r.u ] ~to_:`Chp
+  |> Compiler.export_print;
   [%expect
     {|
     defproc proc_0(chan!(int<32>) C0; chan?(int<32>) C1) {
@@ -213,11 +205,9 @@ let%expect_test "test4" =
         Chp.log "done\n";
       ]
   in
-  let chp =
-    Compiler.compile_chp ir ~user_sendable_ports:[ chan1.w.u ]
-      ~user_readable_ports:[ chan2.r.u ] ~to_:`Chp
-  in
-  printf "%s" chp;
+  Compiler.compile_chp ir ~user_sendable_ports:[ chan1.w.u ]
+    ~user_readable_ports:[ chan2.r.u ] ~to_:`Chp
+  |> Compiler.export_print;
   [%expect
     {|
       defproc proc_0(chan!(int<32>) C0; chan?(int<32>) C1) {
@@ -245,11 +235,9 @@ let%expect_test "test5" =
   let ir =
     Chp.loop [ Chp.read chan1.r var1; Chp.send chan2.w Expr.(var var1) ]
   in
-  let chp =
-    Compiler.compile_chp ir ~user_sendable_ports:[ chan1.w.u ]
-      ~user_readable_ports:[ chan2.r.u ] ~to_:`Chp
-  in
-  printf "%s" chp;
+  Compiler.compile_chp ir ~user_sendable_ports:[ chan1.w.u ]
+    ~user_readable_ports:[ chan2.r.u ] ~to_:`Chp
+  |> Compiler.export_print;
   [%expect
     {|
     defproc proc_0(chan!(int<32>) C0; chan?(int<32>) C1) {
@@ -317,11 +305,10 @@ let%expect_test "test_buff 1" =
   let i = Chan.W.create dtype in
   let o = Chan.R.create dtype in
   let ir = block11 i o ~f:(fun i o -> buff ~depth:1 ~dtype i o) in
-  let chp =
-    Compiler.compile_chp ir ~user_sendable_ports:[ i.u ]
-      ~user_readable_ports:[ o.u ] ~to_:`Chp
-  in
-  printf "%s" chp;
+
+  Compiler.compile_chp ir ~user_sendable_ports:[ i.u ]
+    ~user_readable_ports:[ o.u ] ~to_:`Chp
+  |> Compiler.export_print;
   [%expect
     {|
     defproc proc_0(chan!(int<32>) C0; chan?(int<32>) C3) {
@@ -351,11 +338,10 @@ let%expect_test "test_buff 2" =
   let i = Chan.W.create dtype in
   let o = Chan.R.create dtype in
   let ir = block11 i o ~f:(fun i o -> buff ~depth:2 ~dtype i o) in
-  let chp =
-    Compiler.compile_chp ir ~user_sendable_ports:[ i.u ]
-      ~user_readable_ports:[ o.u ] ~to_:`Chp
-  in
-  printf "%s" chp;
+
+  Compiler.compile_chp ir ~user_sendable_ports:[ i.u ]
+    ~user_readable_ports:[ o.u ] ~to_:`Chp
+  |> Compiler.export_print;
   [%expect
     {|
     defproc proc_0(chan!(int<32>) C0; chan?(int<32>) C9) {
@@ -407,11 +393,9 @@ let%expect_test "mem" =
         Chp.log1 var1 ~f:CInt.to_string;
       ]
   in
-  let chp =
-    Compiler.compile_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
-      ~to_:`Chp
-  in
-  printf "%s" chp;
+  Compiler.compile_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
+    ~to_:`Chp
+  |> Compiler.export_print;
   [%expect
     {|
     defproc proc_0(chan!(int<32>) C0; chan?(int<3>) C1) {
@@ -467,11 +451,9 @@ let%expect_test "mem" =
         Chp.log1 var1 ~f:CInt.to_string;
       ]
   in
-  let chp =
-    Compiler.compile_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
-      ~to_:`Chp
-  in
-  printf "%s" chp;
+  Compiler.compile_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
+    ~to_:`Chp
+  |> Compiler.export_print;
   [%expect
     {|
     defproc proc_0(chan!(int<32>) C0; chan?(int<3>) C1) {
@@ -536,11 +518,9 @@ let%expect_test "mem" =
           ];
       ]
   in
-  let chp =
-    Compiler.compile_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
-      ~to_:`Chp
-  in
-  printf "%s" chp;
+  Compiler.compile_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
+    ~to_:`Chp
+  |> Compiler.export_print;
   [%expect
     {|
     defproc proc_0(chan!(int<32>) C0; chan?(int<3>) C1) {
@@ -612,11 +592,9 @@ let%expect_test "test probes" =
           ];
       ]
   in
-  let chp =
-    Compiler.compile_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
-      ~to_:`Chp
-  in
-  printf "%s" chp;
+  Compiler.compile_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
+    ~to_:`Chp
+  |> Compiler.export_print;
   [%expect
     {|
     defproc proc_0() {
@@ -699,11 +677,10 @@ end
 
 let%expect_test "mini cpu" =
   let ir, op, arg0, arg1, result = Mini_alu.alu in
-  let chp =
-    Compiler.compile_chp ir ~user_sendable_ports:[ op.u; arg0.u; arg1.u ]
-      ~user_readable_ports:[ result.u ] ~to_:`Chp
-  in
-  printf "%s" chp;
+
+  Compiler.compile_chp ir ~user_sendable_ports:[ op.u; arg0.u; arg1.u ]
+    ~user_readable_ports:[ result.u ] ~to_:`Chp
+  |> Compiler.export_print;
   [%expect
     {|
     defproc proc_0(chan!(int<2>) C0; chan!(int<8>) C1; chan!(int<8>) C2; chan?(int<8>) C3) {

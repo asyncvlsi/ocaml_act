@@ -1,6 +1,36 @@
 open! Core
 module CInt = Act.CInt
 
+module Process = struct
+  type t =
+    | Chp of Flat_chp.Proc.t
+    | Dflow of Flat_dflow.Proc.t
+    | Mem of Program.Mem_proc.t
+  [@@deriving sexp_of]
+end
+
+type t = {
+  processes : Process.t list;
+  top_iports : (Interproc_chan.t * Act.Internal_rep.Chan.U.t) list;
+  top_oports : (Interproc_chan.t * Act.Internal_rep.Chan.U.t) list;
+}
+[@@deriving sexp_of]
+
+let of_prog (prog : Program.t) =
+  (* First export each process *)
+  {
+    processes =
+      List.map prog.processes ~f:(fun proc ->
+          match proc.k with
+          | Chp chp_proc -> (
+              match chp_proc.dflowable with
+              | false -> Process.Chp chp_proc
+              | true -> Dflow (Flat_dflow.of_chp chp_proc))
+          | Mem mem_proc -> Mem mem_proc);
+    top_iports = prog.top_iports;
+    top_oports = prog.top_oports;
+  }
+
 module Chp_exporter = struct
   module Var = Flat_chp.Var
   module Chan = Flat_chp.Chan
@@ -317,10 +347,9 @@ module Dflow_exporter = struct
        }\n\
        }"]
 
-  let export (chp_proc : Flat_chp.Proc.t) ~name =
-    let dflow = Flat_dflow.of_chp chp_proc in
-    let s = export_proc dflow ~name in
-    let io_ports = List.map ~f:fst (dflow.iports @ dflow.oports) in
+  let export (dflow_proc : Flat_dflow.Proc.t) ~name =
+    let s = export_proc dflow_proc ~name in
+    let io_ports = List.map ~f:fst (dflow_proc.iports @ dflow_proc.oports) in
     (s, (name, io_ports))
 end
 
@@ -372,16 +401,14 @@ module Mem_exporter = struct
     (s, (name, io_ports))
 end
 
-let export_program (prog : Program.t) =
+let export (prog : t) =
   (* First export each process *)
   let procs_decls, procs =
     List.mapi prog.processes ~f:(fun i proc ->
         let name = [%string "proc_%{i#Int}"] in
-        match proc.k with
-        | Chp chp_proc -> (
-            match chp_proc.dflowable with
-            | false -> Chp_exporter.export chp_proc ~name
-            | true -> Dflow_exporter.export chp_proc ~name)
+        match proc with
+        | Chp chp_proc -> Chp_exporter.export chp_proc ~name
+        | Dflow dflow_proc -> Dflow_exporter.export dflow_proc ~name
         | Mem mem_proc -> Mem_exporter.export mem_proc ~name)
     |> List.unzip
   in
