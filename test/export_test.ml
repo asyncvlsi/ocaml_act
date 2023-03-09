@@ -638,7 +638,7 @@ let%expect_test "test probes" =
 module Op : sig
   type t = Add | Mul | And | Or [@@deriving sexp, equal, hash, compare]
 
-  include Enum.S with type t := t
+  include CEnum.S with type t := t
 end = struct
   module T = struct
     type t = Add | Mul | And | Or [@@deriving sexp, equal, hash, compare]
@@ -653,7 +653,7 @@ end = struct
   end
 
   include T
-  include Enum.Make (T)
+  include CEnum.Make (T)
 end
 
 module Mini_alu = struct

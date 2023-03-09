@@ -52,7 +52,7 @@ module Instr = struct
   end
 
   include T
-  include Enum.Make (T)
+  include CEnum.Make (T)
 end
 
 let cpu instrs ~ochan ~ichan =

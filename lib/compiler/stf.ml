@@ -546,6 +546,16 @@ let eliminate_doubled_vars n =
     | Read (chan, v) -> Read (chan, v)
     | Seq ns -> Seq (List.map ns ~f:of_n)
     | Par (splits, ns, merges) ->
+        (* any split that passes directly to a merge is a repeated var *)
+        List.iter merges ~f:(fun merge ->
+            List.filter_opt merge.in_vs
+            |> List.iter ~f:(fun in_v ->
+                   List.iter splits ~f:(fun split ->
+                       List.iter split.out_vs ~f:(fun out_v ->
+                           if Option.equal Var.equal (Some  in_v) out_v then
+                             Hashtbl.set renames ~key:merge.out_v
+                               ~data:(of_v split.in_v)))));
+
         (* TODO handle repeated splits/merges for same varaible *)
         let splits =
           List.map splits ~f:(fun split ->

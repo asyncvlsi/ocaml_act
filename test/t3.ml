@@ -8,4 +8,4 @@ module T = struct
 end
 
 include T
-include Enum.Make (T)
+include CEnum.Make (T)

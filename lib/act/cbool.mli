@@ -1,11 +1,11 @@
 open! Core
-include Enum.S with type t = Cbool0.t
+include C_enum.S with type t = Cbool0.t
 include Comparable with type t := t
 include Hashable with type t := t
 include Stringable with type t := t
 
 module E : sig
-  include Enum.E_S with type elt := t
+  include C_enum.E_S with type elt := t
 
   val true_ : t
   val false_ : t
@@ -18,7 +18,7 @@ module E : sig
 end
 
 module Chp : sig
-  include Enum.Chp_S with type elt := t
+  include C_enum.Chp_S with type elt := t
 
   type t = Chp.t
 
