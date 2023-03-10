@@ -1,10 +1,10 @@
 open! Core
 
-type 'a t
+type 'a t [@@deriving sexp_of]
 
 module Ir : sig
   type 'a outer = 'a t
-  type 'a t
+  type 'a t [@@deriving sexp_of]
 
   val create :
     equal:('a -> 'a -> bool) ->
@@ -18,6 +18,7 @@ module Ir : sig
     'a outer
 
   val dummy_val : Any.t t
+  val wrap : 'a t -> 'a outer
   val unwrap : 'a outer -> 'a t
   val untype : 'a t -> Any.t t
   val untype' : 'a outer -> Any.t t

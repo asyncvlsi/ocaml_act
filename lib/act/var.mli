@@ -39,6 +39,8 @@ module Ir : sig
   type 'a t = { u : U.t } [@@deriving sexp_of]
 
   val unwrap : 'a outer -> 'a t
+  val wrap : 'a t -> 'a outer
+  val wrap' : U.t -> 'a outer
   val untype : 'a t -> U.t
   val untype' : 'a outer -> U.t
 end

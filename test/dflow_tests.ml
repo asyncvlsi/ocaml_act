@@ -25,41 +25,17 @@ let%expect_test "expression chains" =
 
   [%expect
     {|
-    (DoWhile ()
-     (Seq
-      ((Read ((id 0) (bitwidth 8)) ((id 4) (bitwidth 8)))
-       (Assign ((id 5) (bitwidth 8)) (Div (Var ((id 4) (bitwidth 8))) (Const 2)))
-       (Assign ((id 6) (bitwidth 8)) (Div (Var ((id 5) (bitwidth 8))) (Const 2)))
-       (Assign ((id 7) (bitwidth 8)) (Div (Var ((id 6) (bitwidth 8))) (Const 2)))
-       (Send ((id 1) (bitwidth 8)) (Var ((id 7) (bitwidth 8))))))
-     (Const 1))
-    procs
-    ((Loop (Op ((id 2) (bitwidth 8)))))
-    pre_synth
-    (Loop (Op ((id 2) (bitwidth 8))))
-    synth
-    (Loop (Op ((id 2) (bitwidth 8))))
-    procs
-    ((Loop (Op ((id 7) (bitwidth 8)))))
-    pre_synth
-    (Loop (Op ((id 7) (bitwidth 8))))
-    synth
-    (Loop (Op ((id 7) (bitwidth 8))))
-    ((stmt
-      ((MultiAssign
-        ((ins (((id 2) (bitwidth 8))))
-         (es
-          ((((id 6) (bitwidth 8))
-            (Div (Div (Div (Var 0) (Const 2)) (Const 2)) (Const 2)))))))))
-     (iports ((((id 0) (bitwidth 8)) ((id 2) (bitwidth 8)))))
-     (oports ((((id 1) (bitwidth 8)) ((id 6) (bitwidth 8))))))
-    defproc proc_0(chan!(int<8>) iport1; chan?(int<8>) oport0) {
+    defproc proc_0(chan!(int<8>) iport3; chan?(int<8>) oport2) {
       chan(int<8>) v0;
       chan(int<8>) v1;
+      chan(int<8>) v2;
+      chan(int<8>) v3;
     dataflow {
       v0 <- ((((v1) / 2) / 2) / 2);
-    iport1 -> v1;
-    v0 -> oport0;
+      v3 -> [1] v1;
+      v0 -> [1] v2;
+    iport3 -> v3;
+    v2 -> oport2;
     }
     }
 
@@ -97,42 +73,17 @@ let%expect_test "expression branches" =
 
   [%expect
     {|
-    (DoWhile ()
-     (Seq
-      ((Read ((id 0) (bitwidth 8)) ((id 4) (bitwidth 8)))
-       (Assign ((id 5) (bitwidth 8)) (Div (Var ((id 4) (bitwidth 8))) (Const 2)))
-       (Assign ((id 6) (bitwidth 8)) (Div (Var ((id 4) (bitwidth 8))) (Const 2)))
-       (Assign ((id 7) (bitwidth 8))
-        (Div (Var ((id 5) (bitwidth 8))) (Var ((id 6) (bitwidth 8)))))
-       (Send ((id 1) (bitwidth 8)) (Var ((id 7) (bitwidth 8))))))
-     (Const 1))
-    procs
-    ((Loop (Op ((id 2) (bitwidth 8)))))
-    pre_synth
-    (Loop (Op ((id 2) (bitwidth 8))))
-    synth
-    (Loop (Op ((id 2) (bitwidth 8))))
-    procs
-    ((Loop (Op ((id 7) (bitwidth 8)))))
-    pre_synth
-    (Loop (Op ((id 7) (bitwidth 8))))
-    synth
-    (Loop (Op ((id 7) (bitwidth 8))))
-    ((stmt
-      ((MultiAssign
-        ((ins (((id 2) (bitwidth 8))))
-         (es
-          ((((id 6) (bitwidth 8))
-            (Div (Div (Var 0) (Const 2)) (Div (Var 0) (Const 2))))))))))
-     (iports ((((id 0) (bitwidth 8)) ((id 2) (bitwidth 8)))))
-     (oports ((((id 1) (bitwidth 8)) ((id 6) (bitwidth 8))))))
-    defproc proc_0(chan!(int<8>) iport1; chan?(int<8>) oport0) {
+    defproc proc_0(chan!(int<8>) iport3; chan?(int<8>) oport2) {
       chan(int<8>) v0;
       chan(int<8>) v1;
+      chan(int<8>) v2;
+      chan(int<8>) v3;
     dataflow {
       v0 <- (((v1) / 2) / ((v1) / 2));
-    iport1 -> v1;
-    v0 -> oport0;
+      v3 -> [1] v1;
+      v0 -> [1] v2;
+    iport3 -> v3;
+    v2 -> oport2;
     }
     }
 

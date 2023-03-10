@@ -55,14 +55,19 @@ module Ir : sig
     include Hashable with type t := t
   end
 
+  val wrap_any : U.t -> Any.t t
+  val wrap_'a : U.t -> 'a t
+
   type 'a t = { u : U.t } [@@deriving sexp_of]
 
   val unwrap_r : 'a R.t -> U.t
   val unwrap_w : 'a W.t -> U.t
-  val wrap_ru : U.t -> R.U.t
-  val wrap_wu : U.t -> W.U.t
   val unwrap_ru : R.U.t -> U.t
   val unwrap_wu : W.U.t -> U.t
+  val wrap_ru : U.t -> R.U.t
+  val wrap_wu : U.t -> W.U.t
+  val wrap_r : U.t -> Any.t R.t
+  val wrap_w : U.t -> Any.t W.t
   val r_of_w : 'a W.t -> 'a R.t
   val w_of_r : 'a R.t -> 'a W.t
   val ru_of_wu : W.U.t -> R.U.t

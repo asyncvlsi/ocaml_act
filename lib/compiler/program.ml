@@ -1,21 +1,10 @@
 open! Core
 module CInt = Act.CInt
 
-module Mem_proc = struct
-  type t = {
-    init : CInt.t array;
-    idx_bits : int;
-    cell_bits : int;
-    cmd_chan : Interproc_chan.t;
-    read_chan : Interproc_chan.t;
-    write_chan : Interproc_chan.t option;
-  }
-  [@@deriving sexp_of]
-end
-
 module Process = struct
   module K = struct
-    type t = Chp of Flat_chp.Proc.t | Mem of Mem_proc.t [@@deriving sexp_of]
+    type t = Chp of Flat_chp.Proc.t | Mem of Flat_mem.Proc.t
+    [@@deriving sexp_of]
   end
 
   type t = { k : K.t } [@@deriving sexp_of]
@@ -109,7 +98,7 @@ let of_process (process : Act.Internal_rep.Process.t) =
            in
            let mem_proc =
              {
-               Mem_proc.init;
+               Flat_mem.Proc.init;
                idx_bits;
                cell_bits;
                cmd_chan;

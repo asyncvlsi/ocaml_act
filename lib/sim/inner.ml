@@ -230,6 +230,7 @@ module E = struct
       | Jump_if_false
       | Mem_idx
       | Write_mem_value
+    [@@deriving sexp_of]
   end
 
   type t =
@@ -256,14 +257,15 @@ module E = struct
     | User_send_did_not_complete of Enqueuer_idx.t * int
     | Stuck
     | Time_out
+  [@@deriving sexp_of]
 end
 
 module Var_spec = struct
-  type t = { bitwidth : int; init : CInt.t option }
+  type t = { bitwidth : int; init : CInt.t option } [@@deriving sexp_of]
 end
 
 module Chan_spec = struct
-  type t = { bitwidth : int }
+  type t = { bitwidth : int } [@@deriving sexp_of]
 end
 
 module Mem_spec = struct
@@ -272,14 +274,15 @@ module Mem_spec = struct
     idx_helper_reg : Var_id.t;
     init : CInt.t array;
   }
+  [@@deriving sexp_of]
 end
 
 module Enqueuer_spec = struct
-  type t = { var_id : Var_id.t }
+  type t = { var_id : Var_id.t } [@@deriving sexp_of]
 end
 
 module Dequeuer_spec = struct
-  type t = { var_id : Var_id.t }
+  type t = { var_id : Var_id.t } [@@deriving sexp_of]
 end
 
 module Setup = struct
@@ -294,6 +297,7 @@ module Setup = struct
     dequeuer_specs : Dequeuer_spec.t array;
     seed : int;
   }
+  [@@deriving sexp_of]
 end
 
 module State = struct
@@ -306,9 +310,10 @@ module State = struct
     dequeuer_table : Dequeuer_buff.t array;
     rng : (Random.State.t[@sexp.opaque]);
   }
+  [@@deriving sexp_of]
 end
 
-type t = { setup : Setup.t; mutable s : State.t }
+type t = { setup : Setup.t; mutable s : State.t } [@@deriving sexp_of]
 
 let set_enqueuer t ~enqueuer_idx ~is_done ~idx ~to_send ~push_pc =
   let enqueuer = t.s.enqueuer_table.(enqueuer_idx) in

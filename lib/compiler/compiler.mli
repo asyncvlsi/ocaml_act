@@ -16,3 +16,4 @@ val compile :
 
 val export : Compiled_program.t -> string
 val export_print : Compiled_program.t -> unit
+val sim : ?seed:int -> Compiled_program.t -> Sim.t

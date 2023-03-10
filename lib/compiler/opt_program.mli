@@ -4,7 +4,7 @@ module Process : sig
   type t =
     | Chp of Flat_chp.Proc.t
     | Dflow of Flat_dflow.Proc.t
-    | Mem of Program.Mem_proc.t
+    | Mem of Flat_mem.Proc.t
   [@@deriving sexp_of]
 end
 

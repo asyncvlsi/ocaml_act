@@ -5,7 +5,7 @@ module Process = struct
   type t =
     | Chp of Flat_chp.Proc.t
     | Dflow of Flat_dflow.Proc.t
-    | Mem of Program.Mem_proc.t
+    | Mem of Flat_mem.Proc.t
   [@@deriving sexp_of]
 end
 
@@ -313,8 +313,12 @@ module Dflow_exporter = struct
           | Sink _ ->
               (* TODO is this right? *)
               ""
-          | Copy_init (dst, src, init) ->
-              [%string "  v%{src.id#Int} -> [1,%{init#CInt}] v%{dst.id#Int};"])
+          | Buff1 (dst, src, init) -> (
+              match init with
+              | Some init ->
+                  [%string
+                    "  v%{src.id#Int} -> [1,%{init#CInt}] v%{dst.id#Int};"]
+              | None -> [%string "  v%{src.id#Int} -> [1] v%{dst.id#Int};"]))
       |> String.concat ~sep:"\n"
     in
 
@@ -354,7 +358,7 @@ module Dflow_exporter = struct
 end
 
 module Mem_exporter = struct
-  let export (mem : Program.Mem_proc.t) ~name =
+  let export (mem : Flat_mem.Proc.t) ~name =
     let init = mem.init in
     let vars_inits =
       Array.mapi init ~f:(fun i vl -> [%string "v[%{i#Int}] := %{vl#CInt};"])

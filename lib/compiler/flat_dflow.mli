@@ -16,7 +16,7 @@ module Stmt : sig
     | MultiAssign of FBlock.t
     | Split of Var.t * Var.t * Var.t option list
     | Merge of Var.t * Var.t list * Var.t
-    | Copy_init of (*dst *) Var.t * (*src*) Var.t * Act.CInt.t
+    | Buff1 of (*dst *) Var.t * (*src*) Var.t * Act.CInt.t option
     | Clone of Var.t * Var.t list
     | Sink of Var.t
   [@@deriving sexp_of]

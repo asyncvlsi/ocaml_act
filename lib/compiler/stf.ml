@@ -137,10 +137,6 @@ let stf_of_dflowable_chp_proc proc =
               Hashtbl.keys stf_id_of_raw_read_id)
           |> Flat_chp.Var.Set.of_list
         in
-        (* print_s [%sexp (("pre_split stf_id_of_raw_read_id",
-           stf_id_of_raw_read_id): string * Var.t Var.Table.t )]; *)
-        (* print_s [%sexp (("pre_split stf_id_of_id", stf_id_of_id): string *
-           Var.t Var.Table.t)]; *)
         let splits =
           Set.to_list raw_read_ids
           |> List.map ~f:(fun raw_read_id ->
@@ -161,10 +157,6 @@ let stf_of_dflowable_chp_proc proc =
                  let out_v = write_v write_id in
                  { Par_merge.in_vs; out_v })
         in
-        (* print_s [%sexp (("splits", raw_read_ids, splits): string * Var.Set.t
-           * Stmt.Par_split.t list)]; *)
-        (* print_s [%sexp (("merges", merges): string * Stmt.Par_merge.t
-           list)]; *)
         Par (splits, stmts, merges)
     | Nondeterm_select _ -> failwith "STF does not support Nondeterm_select"
     | SelectImm (gaurds, branches) ->
@@ -600,21 +592,29 @@ let eliminate_doubled_vars n =
   in
   of_n n
 
-let propigate_constants n =
+let propigate_constants ?(max_ct = 16) n =
   let module Lat = Cint_value_lattice in
   let any l = List.exists l ~f:Fn.id in
   let iter_any l ~f = List.map l ~f |> any in
   let map_or_false v ~f = match v with Some v -> f v | None -> false in
+
+  (* include a count on each updated varaible. Otherwise, this may take a huge
+     number of iterations *)
   let table = Var.Table.create () in
-  let get v = Hashtbl.find_exn table v in
+  let get v = Hashtbl.find_exn table v |> fst in
   let put v new_vl =
     match Hashtbl.find table v with
-    | Some prev ->
-        let new_vl = Lat.union prev new_vl in
-        Hashtbl.set table ~key:v ~data:new_vl;
+    | Some (prev, ct) ->
+        let new_vl, new_ct =
+          if ct < max_ct then
+            let new_vl = Lat.union prev new_vl in
+            (new_vl, ct + 1)
+          else (Lat.create_bitwidth v.bitwidth, max_ct)
+        in
+        Hashtbl.set table ~key:v ~data:(new_vl, new_ct);
         not (Lat.equal prev new_vl)
     | None ->
-        Hashtbl.set table ~key:v ~data:new_vl;
+        Hashtbl.set table ~key:v ~data:(new_vl, 0);
         true
   in
   let expr_val e = Lat.eval_expr e ~of_var:get in
@@ -675,7 +675,7 @@ let propigate_constants n =
           let b1 = stabilize_stmt ns in
           let b2 =
             iter_any phis ~f:(fun phi ->
-                map_or_false phi.body_in_v ~f:(fun body_out_v ->
+                map_or_false phi.body_out_v ~f:(fun body_out_v ->
                     iter_any
                       [ phi.body_in_v; phi.out_v ]
                       ~f:(map_or_false ~f:(fun v -> put v (get body_out_v)))))
@@ -785,5 +785,4 @@ let optimize_proc proc =
     |> eliminate_doubled_vars |> flatten |> eliminate_dead_variables |> flatten
   in
   validate stmt;
-  print_s [%sexp (stmt : Stmt.t)];
   { Proc.stmt; iports = proc.iports; oports = proc.oports }

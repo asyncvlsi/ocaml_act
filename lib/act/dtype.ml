@@ -10,10 +10,11 @@ type 'a t = {
   layout : Layout.t;
   expr_tag : 'a Expr_tag.t;
 }
+[@@deriving sexp_of]
 
 module Ir = struct
   type 'a outer = 'a t
-  type nonrec 'a t = 'a t
+  type nonrec 'a t = 'a t [@@deriving sexp_of]
 
   let create ~equal ~sexp_of_t ~max_layout_of ~cint_of ~of_cint
       ~of_cint_assert_expr_fn ~layout ~expr_tag =
@@ -50,6 +51,7 @@ module Ir = struct
   let untype (t : 'a t) : Any.t t = Obj.magic t
   let untype' t = untype t
   let unwrap t = t
+  let wrap t = t
   let equal_ (t : 'a t) (a : 'a) (b : 'a) = t.equal a b
   let sexp_of_t_ (t : 'a t) (a : 'a) = t.sexp_of_t a
   let cint_of_value (t : 'a t) (a : 'a) = t.cint_of a

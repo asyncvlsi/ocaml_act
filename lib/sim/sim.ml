@@ -14,7 +14,7 @@ module Var_id_src = struct
 end
 
 module Var_buff_info = struct
-  type t = { src : Var_id_src.t; dtype : Any.t Ir.DType.t }
+  type t = { src : Var_id_src.t; dtype : Any.t Ir.DType.t } [@@deriving sexp_of]
 end
 
 module Chan_buff_info = struct
@@ -40,6 +40,7 @@ module Queued_user_op = struct
     value : CInt.t;
     call_site : Code_pos.t;
   }
+  [@@deriving sexp_of]
 end
 
 type t = {
@@ -59,6 +60,7 @@ type t = {
   (* per-wait state *)
   queued_user_ops : Queued_user_op.t Queue.t;
 }
+[@@deriving sexp_of]
 
 let resolve_step_err t e ~line_numbers ~to_send ~to_read =
   (* Now this is a map of form Enquere_idx.t -> CInt.t With_origin.t *)
@@ -581,12 +583,15 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
         match stmts with
         | [] -> push_instr loc Nop
         | stmts -> List.map stmts ~f:convert_stmt |> List.last_exn)
-    | Par (loc, stmts) ->
-        let split, starts, merge = push_branches loc stmts in
-        edit_instr loc split (Par starts);
-        edit_instr loc merge
-          (ParJoin (Inner.Par_join.create ~max_ct:(List.length stmts)));
-        merge
+    | Par (loc, stmts) -> (
+        match stmts with
+        | [] -> push_instr loc Nop
+        | stmts ->
+            let split, starts, merge = push_branches loc stmts in
+            edit_instr loc split (Par starts);
+            edit_instr loc merge
+              (ParJoin (Inner.Par_join.create ~max_ct:(List.length stmts)));
+            merge)
     | SelectImm (loc, branches, else_) -> (
         match else_ with
         | Some else_ ->

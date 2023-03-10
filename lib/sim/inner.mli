@@ -144,6 +144,7 @@ module E : sig
     | User_send_did_not_complete of Enqueuer_idx.t * int
     | Stuck
     | Time_out
+  [@@deriving sexp_of]
 end
 
 module Var_spec : sig
@@ -170,7 +171,7 @@ module Dequeuer_spec : sig
   type t = { var_id : Var_id.t }
 end
 
-type t
+type t [@@deriving sexp_of]
 
 val create :
   assem:N.t array ->

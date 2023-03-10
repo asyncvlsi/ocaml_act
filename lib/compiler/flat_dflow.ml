@@ -19,7 +19,7 @@ module Stmt = struct
     | MultiAssign of FBlock.t
     | Split of Var.t * Var.t * Var.t option list
     | Merge of Var.t * Var.t list * Var.t
-    | Copy_init of (*dst *) Var.t * (*src*) Var.t * Act.CInt.t
+    | Buff1 of (*dst *) Var.t * (*src*) Var.t * Act.CInt.t option
     | Clone of Var.t * Var.t list
     | Sink of Var.t
   [@@deriving sexp_of]
@@ -78,8 +78,7 @@ let of_dflow_ir { Dflow_ir.Proc.stmt = dflows; iports; oports } =
             | Idx g ->
                 Merge (of_v_read g, List.map ins ~f:of_v_read, of_v_write o)
             | _ -> failwith "TODO")
-        | Copy_init (dst, src, init) ->
-            Copy_init (of_v_write dst, of_v_read src, init))
+        | Buff1 (dst, src, init) -> Buff1 (of_v_write dst, of_v_read src, init))
   in
   let iports = List.map iports ~f:(fun (x, i) -> (x, of_v_write i)) in
   let oports = List.map oports ~f:(fun (x, o) -> (x, of_v_read o)) in
@@ -130,8 +129,7 @@ let flatten_copies { Proc.stmt = dflows; iports; oports } =
             Some (Split (of_v g, of_v i, List.map os ~f:(Option.map ~f:of_v)))
         | Merge (g, ins, o) ->
             Some (Merge (of_v g, List.map ins ~f:of_v, of_v o))
-        | Copy_init (dst, src, init) ->
-            Some (Copy_init (of_v dst, of_v src, init))
+        | Buff1 (dst, src, init) -> Some (Buff1 (of_v dst, of_v src, init))
         | Clone (src, dsts) -> (
             match dsts with
             | [] -> failwith "Invalid copy"
@@ -150,7 +148,7 @@ let var_ids { Proc.stmt = dflows; iports; oports } =
         | Stmt.MultiAssign fblock -> FBlock.ins fblock @ FBlock.outs fblock
         | Split (g, i, os) -> g :: i :: List.filter_opt os
         | Merge (g, ins, o) -> g :: o :: ins
-        | Copy_init (dst, src, _) -> [ dst; src ]
+        | Buff1 (dst, src, _) -> [ dst; src ]
         | Clone (src, dsts) -> src :: dsts
         | Sink v -> [ v ]);
     List.map iports ~f:snd;
@@ -184,7 +182,7 @@ let pack_var_names proc =
         | Split (g, i, os) ->
             Split (of_v g, of_v i, List.map os ~f:(Option.map ~f:of_v))
         | Merge (g, ins, o) -> Merge (of_v g, List.map ins ~f:of_v, of_v o)
-        | Copy_init (dst, src, init) -> Copy_init (of_v dst, of_v src, init)
+        | Buff1 (dst, src, init) -> Buff1 (of_v dst, of_v src, init)
         | Clone (src, dsts) -> Clone (of_v src, List.map dsts ~f:of_v)
         | Sink v -> Sink (of_v v))
   in
@@ -196,6 +194,4 @@ let optimize_proc proc = flatten_copies proc |> pack_var_names
 
 let of_chp (chp : Flat_chp.Proc.t) =
   assert chp.dflowable;
-  Stf.stf_of_dflowable_chp_proc chp
-  |> Stf.optimize_proc |> Dflow_ir.dflow_of_stf |> Dflow_ir.optimize_proc
-  |> of_dflow_ir |> optimize_proc
+  Stf.stf_of_dflowable_chp_proc chp |> Stf.optimize_proc  |> Dflow_ir.dflow_of_stf  |> Dflow_ir.optimize_proc |> of_dflow_ir |> optimize_proc

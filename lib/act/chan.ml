@@ -85,6 +85,9 @@ let create ?loc (dtype : 'a Dtype.t) : 'a t =
   { r = c; w = c }
 
 module Ir = struct
+  let wrap_'a (t : Chan_.U.t) : 'a t = { r = { u = t }; w = { u = t } }
+  let wrap_any (t : Chan_.U.t) : Any.t t = wrap_'a t
+
   include Chan_
 
   let unwrap_r t = t.u
@@ -93,6 +96,8 @@ module Ir = struct
   let unwrap_wu t = t
   let wrap_ru t = t
   let wrap_wu t = t
+  let wrap_r t = { R.u = t }
+  let wrap_w t = { W.u = t }
   let r_of_w t = t
   let w_of_r t = t
   let ru_of_wu t = t

@@ -73,6 +73,8 @@ module Ir = struct
 
   type 'a outer = 'a t
 
+  let wrap' (u : U.t) = { u }
+  let wrap (t : 'a t) = t
   let unwrap (t : 'a t) = t
   let untype (t : 'a t) : U.t = t.u
   let untype' = untype

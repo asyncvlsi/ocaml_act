@@ -46,7 +46,7 @@ module Stmt = struct
     | MultiAssign of FBlock.t
     | Split of Guard.t * Var.t * Var.t option list
     | Merge of Guard.t * Var.t list * Var.t
-    | Copy_init of (*dst *) Var.t * (*src*) Var.t * Act.CInt.t
+    | Buff1 of (*dst *) Var.t * (*src*) Var.t * Act.CInt.t option
   [@@deriving sexp_of]
 end
 
@@ -72,7 +72,7 @@ let validate proc =
           | MultiAssign fblock -> FBlock.ins fblock
           | Split (g, v, _) -> v :: Guard.ids g
           | Merge (g, ins, _) -> Guard.ids g @ ins
-          | Copy_init (_, src, _) -> [ src ]);
+          | Buff1 (_, src, _) -> [ src ]);
       List.map oports ~f:snd;
     ]
     |> List.concat |> Var.Set.of_list
@@ -85,7 +85,7 @@ let validate proc =
           | MultiAssign fblock -> FBlock.outs fblock
           | Split (_, _, os) -> List.filter_opt os
           | Merge (_, _, v) -> [ v ]
-          | Copy_init (dst, _, _) -> [ dst ]);
+          | Buff1 (dst, _, _) -> [ dst ]);
       List.map iports ~f:snd;
     ]
     |> List.concat
@@ -327,7 +327,7 @@ module Rui = struct
     let s_ = new_chan 1 in
     let dflow =
       [
-        Copy_init (ctrl, s_, CInt.zero);
+        Buff1 (ctrl, s_, Some CInt.zero);
         assign s_ (BitXor (Const CInt.one, Var ctrl));
       ]
     in
@@ -400,7 +400,7 @@ module Rui = struct
     in
 
     (* finally, we must wrap `n` back around to the top *)
-    let dflow_wrap = [ Copy_init (n, n', CInt.zero) ] in
+    let dflow_wrap = [ Buff1 (n, n', Some CInt.zero) ] in
     ((a_chan, b_chan), dflow1 @ dflow2 @ dflow3 @ dflow_wrap)
 
   let synth_seq2 ~a1 ~b1 ~a2 ~b2 ~new_chan ~dir =
@@ -442,7 +442,7 @@ module Rui = struct
       |> List.concat
     in
     (* finally, we must wrap `s` back around to the top *)
-    let dflow_wrap = [ Copy_init (s, s', CInt.zero) ] in
+    let dflow_wrap = [ Buff1 (s, s', Some CInt.zero) ] in
     ((a, b_chan), dflow1 @ dflow2 @ dflow3 @ dflow_wrap)
 
   let synth_select_imm guards aliases ~new_chan ~dir =
@@ -519,7 +519,7 @@ module Rui = struct
 
     (* finally, we must wrap `v` and `g` back around to the top *)
     let dflow_wrap =
-      [ Copy_init (v, v', CInt.zero); Copy_init (g, g', CInt.one) ]
+      [ Buff1 (v, v', Some CInt.zero); Buff1 (g, g', Some CInt.one) ]
     in
     let dflow = dflow1 @ dflow2 @ dflow3 @ dflow_wrap in
     ((a_chan, b_chan), dflow)
@@ -547,7 +547,7 @@ module Rui = struct
     in
 
     (* finally, we must wrap `g` back around to the top *)
-    let dflow_wrap = [ Copy_init (g, g', CInt.zero) ] in
+    let dflow_wrap = [ Buff1 (g, g', Some CInt.zero) ] in
     let dflows = dflow1 @ dflow2 @ dflow_wrap in
     ((alias, b_chan), dflows)
 
@@ -597,18 +597,12 @@ module Rui = struct
 
   let synthasize_rui rui ~new_chan ~dir =
     let rui = optimize rui in
-    print_s [%sexp ("procs" : string)];
-    print_s [%sexp (rui : Proc.t option)];
     let rui =
       match rui with
       | None -> failwith "unreachable channel -  TODO"
       | Some rui -> flatten rui
     in
-    print_s [%sexp ("pre_synth" : string)];
-    print_s [%sexp (rui : Pre_synth.t)];
     let rui, dflows = lower rui ~new_chan in
-    print_s [%sexp ("synth" : string)];
-    print_s [%sexp (rui : Synth.t)];
     let alias, more_dflows = synth rui ~new_chan ~dir in
     (alias, dflows @ more_dflows)
 end
@@ -642,17 +636,19 @@ let dflow_of_stf proc =
     | Assign (v, e) ->
         ([ MultiAssign (FBlock.create1 (of_v v) (of_e e)) ], Chan_end.Map.empty)
     | Send (c, e) ->
+        let tmp = new_chan c.bitwidth in
         let alias = new_chan c.bitwidth in
         let ctrl_proc_map =
           Chan_end.Map.singleton (Chan_end.Send c) (Rui.Proc.Op alias)
         in
-        ([ MultiAssign (FBlock.create1 alias (of_e e)) ], ctrl_proc_map)
+        ( [ MultiAssign (FBlock.create1 tmp (of_e e)); Buff1 (alias, tmp, None) ],
+          ctrl_proc_map )
     | Read (c, v) ->
         let alias = new_chan c.bitwidth in
         let ctrl_proc_map =
           Chan_end.Map.singleton (Chan_end.Read c) (Rui.Proc.Op alias)
         in
-        ([ MultiAssign (FBlock.create1 (of_v v) (Var alias)) ], ctrl_proc_map)
+        ([ Buff1 (of_v v, alias, None) ], ctrl_proc_map)
     | Seq stmts ->
         let stmts, ctrl_proc_maps = List.map stmts ~f:of_stmt |> List.unzip in
         (* This should preserve the order of the original maps? *)
@@ -729,7 +725,7 @@ let dflow_of_stf proc =
         (* TODO add special case for infinite loop *)
         let guard_proc, guard = of_e' guard in
         let prev_guard = new_alias guard in
-        let copy_init = Copy_init (prev_guard, guard, CInt.zero) in
+        let copy_init = Buff1 (prev_guard, guard, Some CInt.zero) in
         let phis =
           List.concat_map phis ~f:(fun phi ->
               let bitwidth =
@@ -796,7 +792,7 @@ let var_ids dflows iports oports =
         | MultiAssign fblock -> FBlock.ins fblock @ FBlock.outs fblock
         | Split (g, v, os) -> (v :: Guard.ids g) @ List.filter_opt os
         | Merge (g, ins, v) -> (v :: Guard.ids g) @ ins
-        | Copy_init (dst, src, _) -> [ dst; src ]);
+        | Buff1 (dst, src, _) -> [ dst; src ]);
     List.map iports ~f:snd;
     List.map oports ~f:snd;
   ]
@@ -816,7 +812,7 @@ let eliminate_dead_code proc =
             |> List.concat_map ~f:(fun o ->
                    (o, v) :: List.map (Guard.ids g) ~f:(fun g -> (o, g)))
         | Merge (g, ins, v) -> List.map (Guard.ids g @ ins) ~f:(fun i -> (v, i))
-        | Copy_init (dst, src, _) -> [ (dst, src) ])
+        | Buff1 (dst, src, _) -> [ (dst, src) ])
     |> Var.Map.of_alist_multi
   in
   let alive = Var.Table.create () in
@@ -855,9 +851,8 @@ let eliminate_dead_code proc =
             else None
         | Merge (g, ins, v) ->
             if Set.mem alive v then Some (Merge (g, ins, v)) else None
-        | Copy_init (dst, src, init) ->
-            if Set.mem alive dst then Some (Copy_init (dst, src, init))
-            else None)
+        | Buff1 (dst, src, init) ->
+            if Set.mem alive dst then Some (Buff1 (dst, src, init)) else None)
   in
   { Proc.stmt = dflows; oports; iports }
 
@@ -920,7 +915,7 @@ let eliminate_repeated_vars proc =
             Split (Guard.map ~f:of_v g, of_v v, List.map os ~f:of_vo)
         | Merge (g, ins, v) ->
             Merge (Guard.map ~f:of_v g, List.map ~f:of_v ins, of_v v)
-        | Copy_init (dst, src, init) -> Copy_init (of_v dst, of_v src, init))
+        | Buff1 (dst, src, init) -> Buff1 (of_v dst, of_v src, init))
   in
   let iports = List.map iports ~f:(fun (i, v) -> (i, of_v v)) in
   let oports = List.map oports ~f:(fun (i, v) -> (i, of_v v)) in
@@ -996,8 +991,8 @@ let cluster_same_reads { Proc.stmt = dflows; iports; oports } =
    Int.Set.of_list) in *) let read_ct_of_cluster = List.map dflows ~f:(fun (_,
    dflow) -> (match dflow with | MultiAssign assigns -> List.concat_map assigns
    ~f:(fun (_, e) -> Expr.var_ids e) | Split (g, v, os) -> (v :: Guard.ids g) @
-   List.filter_opt os | Merge (g, ins, v) -> (v :: Guard.ids g) @ ins |
-   Copy_init (dst, src, _) -> [ dst; src ]) |> List.filter_map ~f:(Map.find
+   List.filter_opt os | Merge (g, ins, v) -> (v :: Guard.ids g) @ ins | Buff1
+   (dst, src, _) -> [ dst; src ]) |> List.filter_map ~f:(Map.find
    cluster_of_output) |> Int.Set.of_list) |> List.concat_map ~f:Set.to_list |>
    List.map ~f:(fun v -> (v, ())) |> Int.Map.of_alist_multi |> Map.map
    ~f:List.length in
@@ -1043,7 +1038,7 @@ let cluster_fuse_chains { Proc.stmt = dflows; iports; oports } =
           | MultiAssign fblock -> FBlock.ins fblock
           | Split (g, v, os) -> (v :: Guard.ids g) @ List.filter_opt os
           | Merge (g, ins, v) -> (v :: Guard.ids g) @ ins
-          | Copy_init (dst, src, _) -> [ dst; src ])
+          | Buff1 (dst, src, _) -> [ dst; src ])
           |> List.filter_map ~f:(Map.find cluster_of_output)
           |> Int.Set.of_list)
       |> List.concat_map ~f:Set.to_list
@@ -1107,7 +1102,7 @@ let normalize_guards (proc : Proc.t) =
       |> Set.to_list
       |> List.map ~f:(fun v -> v.id)
       |> List.max_elt ~compare:Int.compare
-      |> Option.value_exn
+      |> Option.value ~default:0
     in
     ref (biggest_id + 1)
   in
@@ -1121,7 +1116,7 @@ let normalize_guards (proc : Proc.t) =
     List.filter_map dflows ~f:(fun dflow ->
         match dflow with
         | MultiAssign _ -> None
-        | Copy_init _ -> None
+        | Buff1 _ -> None
         | Merge (g, _, _) -> Some g
         | Split (g, _, _) -> Some g)
     |> Guard.Set.of_list
@@ -1148,7 +1143,7 @@ let normalize_guards (proc : Proc.t) =
     List.map dflows ~f:(fun dflow ->
         match dflow with
         | MultiAssign assigns -> MultiAssign assigns
-        | Copy_init (dst, src, v) -> Copy_init (dst, src, v)
+        | Buff1 (dst, src, v) -> Buff1 (dst, src, v)
         | Merge (g, srcs, dst) -> Merge (Map.find_exn guards g, srcs, dst)
         | Split (g, src, dsts) -> Split (Map.find_exn guards g, src, dsts))
   in
@@ -1165,10 +1160,10 @@ let propogate_consts { Proc.stmt = dflows; iports; oports } =
    match dflow with | MultiAssign assigns -> let assigns = List.map assigns
    ~f:(fun (dst, e) -> let e = Expr.bind_vars e ~f:(fun v -> match Map.find
    const_vars v with | Some c -> Const c | None -> Var v) in (dst, e)) in [
-   MultiAssign assigns ] | Copy_init (dst, src, init) -> [ Copy_init (dst, src,
-   init) ] | Split (g, i, os) -> ( match g with | Bits gs -> ( match List.exists
-   gs ~f:(Map.mem const_vars) with | false -> [ Split (g, i, os) ] | true -> (
-   (* first remove null branches *) let not_dead = List.zip_exn gs os |>
+   MultiAssign assigns ] | Buff1 (dst, src, init) -> [ Buff1 (dst, src, init) ]
+   | Split (g, i, os) -> ( match g with | Bits gs -> ( match List.exists gs
+   ~f:(Map.mem const_vars) with | false -> [ Split (g, i, os) ] | true -> ( (*
+   first remove null branches *) let not_dead = List.zip_exn gs os |>
    List.filter ~f:(fun (g, _) -> let is_dead = Map.find const_vars g |>
    Option.map ~f:(CInt.eq CInt.zero) |> Option.value ~default:false in not
    is_dead) in let guarded_by_one = List.filter not_dead ~f:(fun (g, _) ->
@@ -1227,7 +1222,7 @@ let push_consts_throguh_split_merge { Proc.stmt = dflows; iports; oports } =
       |> Set.to_list
       |> List.map ~f:(fun v -> v.id)
       |> List.max_elt ~compare:Int.compare
-      |> Option.value_exn
+      |> Option.value ~default:0
     in
     ref (biggest_id + 1)
   in
@@ -1284,7 +1279,7 @@ let zip_coupled_split_merges { Proc.stmt = dflows; iports; oports } =
       |> Set.to_list
       |> List.map ~f:(fun v -> v.id)
       |> List.max_elt ~compare:Int.compare
-      |> Option.value_exn
+      |> Option.value ~default:0
     in
     ref (biggest_id + 1)
   in
@@ -1301,7 +1296,7 @@ let zip_coupled_split_merges { Proc.stmt = dflows; iports; oports } =
             FBlock.ins fblock |> Var.Set.of_list |> Set.to_list
         | Split (g, v, _) -> v :: Guard.ids g
         | Merge (g, ins, _) -> Guard.ids g @ ins
-        | Copy_init (dst, src, _) -> [ dst; src ])
+        | Buff1 (dst, src, _) -> [ dst; src ])
     |> List.map ~f:(fun v -> (v, ()))
     |> Var.Map.of_alist_multi |> Map.map ~f:List.length
   in
@@ -1419,7 +1414,7 @@ let zip_repeated_sink_splits { Proc.stmt = dflows; iports; oports } =
       |> Set.to_list
       |> List.map ~f:(fun v -> v.id)
       |> List.max_elt ~compare:Int.compare
-      |> Option.value_exn
+      |> Option.value ~default:0
     in
     ref (biggest_id + 1)
   in
@@ -1474,7 +1469,7 @@ let zip_repeated_merge_consts { Proc.stmt = dflows; iports; oports } =
       |> Set.to_list
       |> List.map ~f:(fun v -> v.id)
       |> List.max_elt ~compare:Int.compare
-      |> Option.value_exn
+      |> Option.value ~default:0
     in
     ref (biggest_id + 1)
   in
@@ -1530,7 +1525,8 @@ let zip_repeated_merge_consts { Proc.stmt = dflows; iports; oports } =
 
 let optimize_proc proc =
   let proc =
-    eliminate_dead_code proc |> eliminate_repeated_vars |> eliminate_dead_code
+    eliminate_dead_code proc |> eliminate_repeated_vars
+    (* in let _proc = proc *) |> eliminate_dead_code
     |> propogate_consts |> cluster_same_reads |> cluster_fuse_chains
     |> cluster_same_reads |> propogate_consts |> push_consts_throguh_split_merge
     |> eliminate_repeated_vars |> propogate_consts |> zip_coupled_split_merges
@@ -1541,5 +1537,4 @@ let optimize_proc proc =
     |> eliminate_dead_code
   in
   validate proc;
-  print_s [%sexp (proc : Proc.t)];
   proc

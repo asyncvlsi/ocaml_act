@@ -1,7 +1,7 @@
 open! Core
 open! Act
 
-type t
+type t [@@deriving sexp_of]
 
 val simulate_chp :
   ?seed:int ->
