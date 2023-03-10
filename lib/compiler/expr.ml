@@ -31,7 +31,7 @@ let bind_vars e ~f =
     | Var v -> f v
     | Const c -> Const c
     | Add (a, b) -> Add (h a, h b)
-    | Sub_no_wrap (a, b) -> Add (h a, h b)
+    | Sub_no_wrap (a, b) -> Sub_no_wrap (h a, h b)
     | Mul (a, b) -> Mul (h a, h b)
     | Div (a, b) -> Div (h a, h b)
     | Mod (a, b) -> Mod (h a, h b)

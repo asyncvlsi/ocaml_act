@@ -46,19 +46,15 @@ let export_print t =
   printf "%s" s
 
 let sim ?seed (t : Compiled_program.t) =
-  let of_interproc_chan c =
-    match
-      List.find t.top_iports ~f:(fun (interproc_chan, _) ->
-          Interproc_chan.equal interproc_chan c)
-    with
-    | Some (_, ir_chan) -> Some ir_chan
-    | None -> (
-        match
-          List.find t.top_oports ~f:(fun (interproc_chan, _) ->
-              Interproc_chan.equal interproc_chan c)
-        with
-        | Some (_, ir_chan) -> Some ir_chan
-        | None -> None)
+  let ir_chan_of_interproc_chan =
+    Interproc_chan.Table.of_alist_exn (t.top_iports @ t.top_oports)
+  in
+  let of_interproc_chan interproc_chan =
+    Hashtbl.find_or_add ir_chan_of_interproc_chan interproc_chan
+      ~default:(fun () ->
+        let dtype = Act.CInt.dtype ~bits:interproc_chan.bitwidth in
+        let interproc_chan = Act.Chan.create dtype in
+        Act_ir.Chan.unwrap_r interproc_chan.r)
   in
 
   let expr_k_of_expr e ~of_v ~bits_of_var =
@@ -110,18 +106,12 @@ let sim ?seed (t : Compiled_program.t) =
     let ir_chan_of_chan = Flat_chp.Chan.Table.create () in
     let of_c ?interproc_chan c =
       Hashtbl.find_or_add ir_chan_of_chan c ~default:(fun () ->
-          let interproc_chan =
-            Option.bind interproc_chan ~f:of_interproc_chan
-          in
-          let ir_chan =
-            match interproc_chan with
-            | Some ir_chan -> ir_chan
-            | None ->
-                let dtype = Act.CInt.dtype ~bits:c.bitwidth in
-                let c = Act.Chan.create dtype in
-                Act_ir.Chan.unwrap_r c.r
-          in
-          ir_chan)
+          match interproc_chan with
+          | Some interproc_chan -> of_interproc_chan interproc_chan
+          | None ->
+              let dtype = Act.CInt.dtype ~bits:c.bitwidth in
+              let c = Act.Chan.create dtype in
+              Act_ir.Chan.unwrap_r c.r)
     in
     List.iter chp.iports ~f:(fun (interproc_chan, chp_chan) ->
         let (_ : Act_ir.Chan.U.t) = of_c chp_chan ~interproc_chan in
@@ -180,18 +170,12 @@ let sim ?seed (t : Compiled_program.t) =
     let ir_chan_of_chan = Flat_dflow.Var.Table.create () in
     let of_c ?interproc_chan c =
       Hashtbl.find_or_add ir_chan_of_chan c ~default:(fun () ->
-          let interproc_chan =
-            Option.bind interproc_chan ~f:of_interproc_chan
-          in
-          let ir_chan =
-            match interproc_chan with
-            | Some ir_chan -> ir_chan
-            | None ->
-                let dtype = Act.CInt.dtype ~bits:c.bitwidth in
-                let c = Act.Chan.create dtype in
-                Act_ir.Chan.unwrap_r c.r
-          in
-          ir_chan)
+          match interproc_chan with
+          | Some interproc_chan -> of_interproc_chan interproc_chan
+          | None ->
+              let dtype = Act.CInt.dtype ~bits:c.bitwidth in
+              let c = Act.Chan.create dtype in
+              Act_ir.Chan.unwrap_r c.r)
     in
     List.iter dflow.iports ~f:(fun (interproc_chan, chp_chan) ->
         let (_ : Act_ir.Chan.U.t) = of_c chp_chan ~interproc_chan in
@@ -277,6 +261,7 @@ let sim ?seed (t : Compiled_program.t) =
               Act.Chp.send_var (of_c_w o) (utv tmp);
             ]
       | Buff1 (dst, src, init) -> (
+          assert (Int.equal dst.bitwidth src.bitwidth);
           match init with
           | Some init ->
               let tmp = new_var src.bitwidth ~init in
@@ -311,13 +296,7 @@ let sim ?seed (t : Compiled_program.t) =
     (* init : CInt.t array; idx_bits : int; cell_bits : int; cmd_chan :
        Interproc_chan.t; read_chan : Interproc_chan.t; write_chan :
        Interproc_chan.t option; *)
-    let of_c (c : Interproc_chan.t) =
-      match of_interproc_chan c with
-      | Some ir_chan -> ir_chan |> Act_ir.Chan.wrap_'a
-      | None ->
-          let dtype = Act.CInt.dtype ~bits:c.bitwidth in
-          Act.Chan.create dtype
-    in
+    let of_c c = of_interproc_chan c |> Act_ir.Chan.wrap_'a in
     let cmd_chan = (of_c mem.cmd_chan).r in
     let read_chan = (of_c mem.read_chan).w in
     let write_chan = Option.map mem.write_chan ~f:(fun c -> (of_c c).r) in

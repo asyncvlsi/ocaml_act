@@ -106,6 +106,18 @@ let validate proc =
       failwith "Some variable is written more than once");
   let writes = Var.Set.of_list writes in
   assert (Set.diff reads writes |> Set.is_empty);
+
+  (* Check that the bitwidths match as expected *)
+  List.iter dflows ~f:(fun dflow ->
+      match dflow with
+      | MultiAssign _ -> ()
+      | Split (_, _, _) -> ()
+      | Merge (_, _, _) -> ()
+      | Buff1 (dst, src, _) ->
+          if not (Int.equal dst.bitwidth src.bitwidth) then (
+            print_s [%sexp ((dst, src) : Var.t * Var.t)];
+            assert false));
+
   ()
 
 module Chan_end = struct
@@ -258,6 +270,10 @@ module Rui = struct
     [@@deriving sexp_of]
   end
 
+  module Alias_with_ctrl = struct
+    type t = { alias : Var.t; ctrl : Var.t } [@@deriving sexp_of, fields]
+  end
+
   let lower presynth ~new_chan =
     let new_ored_guard guards =
       match Nonempty_list.to_list guards with
@@ -331,7 +347,7 @@ module Rui = struct
         assign s_ (BitXor (Const CInt.one, Var ctrl));
       ]
     in
-    ((alias, ctrl), dflow)
+    ({ Alias_with_ctrl.alias; ctrl }, dflow)
 
   let synth_opt_guarded_op_seq guarded_aliases ~new_chan ~dir =
     let ct = List.length guarded_aliases in
@@ -358,12 +374,13 @@ module Rui = struct
       let gL = new_chan 1 in
       let assign_L = assign gL (Const CInt.zero) in
       let gis = gis @ [ gL ] in
+      assert (List.length gis |> Int.equal (ct + 1));
       [ Merge (Idx n, gis, g); assign_L ] @ List.concat dflows
     in
 
-    (* [(g=0 | n=L) -> skip [] g=1 -> A?x; [n=0 -> A0!x [] ... n=L-1 ->
-       A{L-1}!x]]; OR *)
-    (* [(g=0 | n=L) -> skip [] g=1 -> [n=0 -> A0?x [] ... n=L-1 -> A{L-1}?x]];
+    (* [(g=0 | n=L) -> skip [] else -> [n=0 -> A0!x [] ... n=L-1 -> A{L-1}!x]];
+       OR *)
+    (* [(g=0 | n=L) -> skip [] else -> [n=0 -> A0?x [] ... n=L-1 -> A{L-1}?x]];
        A!x; *)
     let dflow2 =
       let n1 = new_chan n_width in
@@ -372,48 +389,60 @@ module Rui = struct
         match dir with
         | `Send ->
             let ais = List.map guarded_aliases ~f:snd in
-            Merge (Idx n, ais, a_chan)
+            assert (List.length ais |> Int.equal ct);
+            Merge (Idx n1, ais, a_chan)
         | `Read ->
             let ais =
               List.map guarded_aliases ~f:(fun (_, alias) -> Some alias)
             in
-            Split (Idx n, a_chan, ais)
+            Split (Idx n1, a_chan, ais)
       in
       let sg_expr = Expr.(BitOr (Eq0 (Var g), Eq (Var n, ct_const))) in
       [ MultiAssign (FBlock.create1 sg sg_expr); op_proc ]
+      @ split_bool_guard sg n (Some n1, None)
+    in
+
+    (* [ (n=L | g=1) -> B!(n!=L) [] else -> skip ] *)
+    let dflow3 =
+      let n1 = new_chan n_width in
+      let sg = new_chan 1 in
+      let sg_expr = Expr.(BitOr (Var g, Eq (Var n, ct_const))) in
+      let b_expr = Expr.(Ne (Var n1, ct_const)) in
+      [
+        MultiAssign (FBlock.create1 sg sg_expr);
+        MultiAssign (FBlock.create1 b_chan b_expr);
+      ]
       @ split_bool_guard sg n (None, Some n1)
     in
 
-    (* B!((n<L)&g); n := ( n=L ? 0 : n+1 ); *)
+    (* n := ( n=L ? 0 : n+1 ); *)
     let n' = new_chan n_width in
-    let dflow3 =
-      let b_expr = Expr.(BitAnd (Var g, Lt (Var n, ct_const))) in
+    let dflow4 =
       let n_expr =
         Expr.(
-          Sub_no_wrap
-            (Add (Var n, Const CInt.one), Mul (ct_const, Eq (Var n, ct_const))))
+          BitOr
+            ( Mul (Eq (Var n, ct_const), Const CInt.zero),
+              Mul (Ne (Var n, ct_const), Add (Var n, Const CInt.one)) ))
       in
-      [
-        MultiAssign (FBlock.create1 b_chan b_expr);
-        MultiAssign (FBlock.create1 n' n_expr);
-      ]
+      [ MultiAssign (FBlock.create1 n' n_expr) ]
     in
 
     (* finally, we must wrap `n` back around to the top *)
     let dflow_wrap = [ Buff1 (n, n', Some CInt.zero) ] in
-    ((a_chan, b_chan), dflow1 @ dflow2 @ dflow3 @ dflow_wrap)
+    ( { Alias_with_ctrl.alias = a_chan; ctrl = b_chan },
+      dflow1 @ dflow2 @ dflow3 @ dflow4 @ dflow_wrap )
 
-  let synth_seq2 ~a1 ~b1 ~a2 ~b2 ~new_chan ~dir =
-    assert (Int.equal a1.Var.bitwidth a2.Var.bitwidth);
-    assert (Int.equal b1.Var.bitwidth 1);
-    assert (Int.equal b2.Var.bitwidth 1);
-    let a = new_chan a1.bitwidth in
+  let synth_seq2 ~(rui1 : Alias_with_ctrl.t) ~(rui2 : Alias_with_ctrl.t)
+      ~new_chan ~dir =
+    assert (Int.equal rui1.alias.bitwidth rui2.alias.bitwidth);
+    assert (Int.equal rui1.ctrl.bitwidth 1);
+    assert (Int.equal rui2.ctrl.bitwidth 1);
+    let a = new_chan rui1.alias.bitwidth in
     let b_chan = new_chan 1 in
-    let x_width = a.Var.bitwidth in
     let s = new_chan 1 in
     (* [ ~s -> b1?v [] s -> b2?v ] *)
     let v = new_chan 1 in
-    let dflow1 = merge_bool_guard s (b1, b2) v in
+    let dflow1 = merge_bool_guard s (rui1.ctrl, rui2.ctrl) v in
     (* [ ~ (s | v) -> skip [] (s | v) -> b!v ] *)
     let dflow2 =
       let g = new_chan 1 in
@@ -423,15 +452,15 @@ module Rui = struct
 
     (* EITHER [ ~v -> s := ~s [] v -> a?x; [ ~s -> a1!x [] s -> a2!x ] ] OR [ ~v
        -> s := ~s [] v -> [ ~s -> a1?x [] s -> a2?x ] a!x; ] *)
-    let s' = new_chan x_width in
+    let s' = new_chan 1 in
     let dflow3 =
       let s0 = new_chan 1 in
       let s1 = new_chan 1 in
       let s0' = new_chan 1 in
       let op_procs =
         match dir with
-        | `Read -> split_bool_guard s1 a (Some a1, Some a2)
-        | `Send -> merge_bool_guard s1 (a1, a2) a
+        | `Read -> split_bool_guard s1 a (Some rui1.alias, Some rui2.alias)
+        | `Send -> merge_bool_guard s1 (rui1.alias, rui2.alias) a
       in
       [
         split_bool_guard v s (Some s0, Some s1);
@@ -443,12 +472,14 @@ module Rui = struct
     in
     (* finally, we must wrap `s` back around to the top *)
     let dflow_wrap = [ Buff1 (s, s', Some CInt.zero) ] in
-    ((a, b_chan), dflow1 @ dflow2 @ dflow3 @ dflow_wrap)
+    ( { Alias_with_ctrl.alias = a; ctrl = b_chan },
+      dflow1 @ dflow2 @ dflow3 @ dflow_wrap )
 
   let synth_select_imm guards aliases ~new_chan ~dir =
     let ab_list = aliases in
     let a_chan =
-      new_chan (List.filter_opt aliases |> List.hd_exn |> snd).Var.bitwidth
+      new_chan
+        (List.filter_opt aliases |> List.hd_exn).Alias_with_ctrl.alias.bitwidth
     in
     let b_chan = new_chan 1 in
     let g_width = List.length guards in
@@ -482,7 +513,7 @@ module Rui = struct
             let dflow =
               match o with
               | None -> assign vi' (Const CInt.zero)
-              | Some (_, bi) -> assign vi' (Var bi)
+              | Some rui_i -> assign vi' (Var rui_i.ctrl)
             in
             (dflow, vi'))
         |> List.unzip
@@ -504,14 +535,16 @@ module Rui = struct
                   let dflow =
                     match o with
                     | None -> assign vi' (Const CInt.zero)
-                    | Some (ai, _) -> assign vi' (Var ai)
+                    | Some rui_i -> assign vi' (Var rui_i.alias)
                   in
                   (dflow, vi'))
               |> List.unzip
             in
             Merge (One_hot g1', ais, a_chan) :: dflows
         | `Read ->
-            let ais = List.map ab_list ~f:(Option.map ~f:fst) in
+            let ais =
+              List.map ab_list ~f:(Option.map ~f:Alias_with_ctrl.alias)
+            in
             [ Split (One_hot g1', a_chan, ais) ]
       in
       split_bool_guard v' g' (None, Some g1') @ op_procs
@@ -522,9 +555,9 @@ module Rui = struct
       [ Buff1 (v, v', Some CInt.zero); Buff1 (g, g', Some CInt.one) ]
     in
     let dflow = dflow1 @ dflow2 @ dflow3 @ dflow_wrap in
-    ((a_chan, b_chan), dflow)
+    ({ Alias_with_ctrl.alias = a_chan; ctrl = b_chan }, dflow)
 
-  let synth_do_while (alias, b1) guard_chan ~new_chan ~dir:_ =
+  let synth_do_while (rui : Alias_with_ctrl.t) guard_chan ~new_chan ~dir:_ =
     let b_chan = new_chan 1 in
     let v = new_chan 1 in
     let g = new_chan 1 in
@@ -533,7 +566,7 @@ module Rui = struct
     let dflow1 =
       let g1 = new_chan 1 in
       [
-        [ assign v (Var b1) ];
+        [ assign v (Var rui.ctrl) ];
         split_bool_guard v g (None, Some g1);
         merge_bool_guard v (guard_chan, g1) g';
       ]
@@ -549,26 +582,33 @@ module Rui = struct
     (* finally, we must wrap `g` back around to the top *)
     let dflow_wrap = [ Buff1 (g, g', Some CInt.zero) ] in
     let dflows = dflow1 @ dflow2 @ dflow_wrap in
-    ((alias, b_chan), dflows)
+    ({ Alias_with_ctrl.alias = rui.alias; ctrl = b_chan }, dflows)
 
-  let synth_loop (alias, _) ~new_chan ~dir:_ =
+  let synth_loop rui ~new_chan ~dir:_ =
     let b_chan = new_chan 1 in
-    ((alias, b_chan), [ assign b_chan (Const CInt.one) ])
+    ( { Alias_with_ctrl.alias = rui.Alias_with_ctrl.alias; ctrl = b_chan },
+      [ assign b_chan (Const CInt.one) ] )
 
   let rec synth rui ~dir ~new_chan =
     let synth rui = synth rui ~dir ~new_chan in
     match rui with
-    | Synth.Op alias -> synth_op alias ~new_chan ~dir
+    | Synth.Op alias ->
+        let rui, dflows = synth_op alias ~new_chan ~dir in
+        assert (Int.equal rui.alias.bitwidth alias.bitwidth);
+        assert (Int.equal rui.ctrl.bitwidth 1);
+        (rui, dflows)
     | Opt_guarded_op_seq guarded_aliases ->
         let alias, dflows =
           synth_opt_guarded_op_seq guarded_aliases ~new_chan ~dir
         in
         (alias, dflows)
     | Seq2 (rui1, rui2) ->
-        let (a1, b1), dflows1 = synth rui1 in
-        let (a2, b2), dflows2 = synth rui2 in
-        let alias, more_dflows = synth_seq2 ~a1 ~b1 ~a2 ~b2 ~new_chan ~dir in
-        (alias, dflows1 @ dflows2 @ more_dflows)
+        let rui1, dflows1 = synth rui1 in
+        let rui2, dflows2 = synth rui2 in
+        let rui, more_dflows = synth_seq2 ~rui1 ~rui2 ~new_chan ~dir in
+        assert (Int.equal rui.alias.bitwidth rui1.alias.bitwidth);
+        assert (Int.equal rui.ctrl.bitwidth 1);
+        (rui, dflows1 @ dflows2 @ more_dflows)
     | SelectImm (some_branches, else_guard) ->
         let some_branches, dflows =
           List.map some_branches ~f:(fun (guard, rui) ->
@@ -582,18 +622,22 @@ module Rui = struct
           List.map some_branches ~f:(fun (_, alias) -> Some alias)
           @ (Option.map else_ ~f:(fun _ -> None) |> Option.to_list)
         in
-        let alias, more_dflows =
-          synth_select_imm guards ab_list ~new_chan ~dir
-        in
-        (alias, List.concat dflows @ more_dflows)
-    | DoWhile (rui, g) ->
-        let alias, dflows = synth rui in
-        let alias, more_dflows = synth_do_while alias g ~new_chan ~dir in
-        (alias, dflows @ more_dflows)
-    | Loop rui ->
-        let alias, dflows = synth rui in
-        let alias, more_dflows = synth_loop alias ~new_chan ~dir in
-        (alias, dflows @ more_dflows)
+        let rui, more_dflows = synth_select_imm guards ab_list ~new_chan ~dir in
+        (* assert (Int.equal rui.alias.bitwidth alias.bitwidth); *)
+        assert (Int.equal rui.ctrl.bitwidth 1);
+        (rui, List.concat dflows @ more_dflows)
+    | DoWhile (rui1, g) ->
+        let rui1, dflows = synth rui1 in
+        let rui, more_dflows = synth_do_while rui1 g ~new_chan ~dir in
+        assert (Int.equal rui.alias.bitwidth rui1.alias.bitwidth);
+        assert (Int.equal rui.ctrl.bitwidth 1);
+        (rui, dflows @ more_dflows)
+    | Loop rui1 ->
+        let rui1, dflows = synth rui1 in
+        let rui, more_dflows = synth_loop rui1 ~new_chan ~dir in
+        assert (Int.equal rui.alias.bitwidth rui1.alias.bitwidth);
+        assert (Int.equal rui.ctrl.bitwidth 1);
+        (rui, dflows @ more_dflows)
 
   let synthasize_rui rui ~new_chan ~dir =
     let rui = optimize rui in
@@ -773,14 +817,29 @@ let dflow_of_stf proc =
   let dflow = dflow @ ctrl_procs in
   let iports =
     List.map proc.iports ~f:(fun (interproc, chan) ->
-        let chan, _ = Map.find_exn alias_map (Read chan) in
-        (interproc, chan))
+        let alias =
+          match Map.find alias_map (Read chan) with
+          | Some rui -> rui.alias
+          | None -> new_chan chan.bitwidth
+        in
+        (interproc, alias))
   in
-  let oports =
+  let oports, more_dflows =
     List.map proc.oports ~f:(fun (interproc, chan) ->
-        let chan, _ = Map.find_exn alias_map (Send chan) in
-        (interproc, chan))
+        (* TODO jsut create a dummy stream of zeros? This is techniqually an
+           invalid program, since each output must receive an infinite stream of
+           tokens, yet no tokens are available on this stream *)
+        let alias, dflows =
+          match Map.find alias_map (Send chan) with
+          | Some rui -> (rui.alias, [])
+          | None ->
+              let tmp = new_chan chan.bitwidth in
+              (tmp, [ MultiAssign (FBlock.create1 tmp (Expr.Const CInt.zero)) ])
+        in
+        ((interproc, alias), dflows))
+    |> List.unzip
   in
+  let dflow = dflow @ List.concat more_dflows in
   let proc = { Proc.stmt = dflow; iports; oports } in
   validate proc;
   proc

@@ -25,8 +25,7 @@ let%expect_test "test1" =
     |> Compiler.sim
   in
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
-  [%expect
-    {|
+  [%expect {|
     (Ok ()) |}]
 
 let i = Chan.create CInt.dtype_32
@@ -56,8 +55,7 @@ let%expect_test "simple buffer - chp" =
   Sim.read sim o.r (CInt.of_int 13579753);
   Sim.wait' sim ();
 
-  [%expect
-    {|
+  [%expect {|
     (Ok ())
     (Ok ())
     (Ok ())
@@ -67,7 +65,8 @@ let%expect_test "simple_buffer__dataflow" =
   let sim =
     Compiler.compile_chp ir ~user_sendable_ports:[ i.w.u ]
       ~user_readable_ports:[ o.r.u ] ~to_:`Dataflow
-       |> Compiler.sim in
+    |> Compiler.sim
+  in
   Sim.send sim i.w (CInt.of_int 4);
   Sim.read sim o.r (CInt.of_int 4);
   Sim.wait' sim ();
@@ -82,8 +81,7 @@ let%expect_test "simple_buffer__dataflow" =
   Sim.read sim o.r (CInt.of_int 13579753);
   Sim.wait' sim ();
 
-  [%expect
-    {|
+  [%expect {|
     (Ok ())
     (Ok ())
     (Ok ())
@@ -135,8 +133,7 @@ let%expect_test "colatz - chp" =
   Sim.read sim o.r (CInt.of_int 166);
   Sim.wait' ~max_steps:1000000 sim ();
 
-  [%expect
-    {|
+  [%expect {|
     (Ok ())
     (Ok ())
     (Ok ()) |}]
@@ -147,7 +144,6 @@ let%expect_test "colatz - dataflow" =
       ~user_readable_ports:[ o.r.u ] ~to_:`Dataflow
     |> Compiler.sim
   in
-  print_s [%sexp (o : CInt.t Act.Chan.t)];
   Sim.send sim i.w (CInt.of_int 4);
   Sim.read sim o.r (CInt.of_int 2);
   Sim.wait' ~max_steps:1000000 sim ();
@@ -160,25 +156,84 @@ let%expect_test "colatz - dataflow" =
   Sim.read sim o.r (CInt.of_int 166);
   Sim.wait' ~max_steps:1000000 sim ();
 
-  [%expect
-    {|
-    ((r ((u ((id 6) (d <opaque>))))) (w ((u ((id 6) (d <opaque>))))))
+  [%expect {|
     (Ok ())
     (Ok ())
     (Ok ()) |}]
-(* let%expect_test "test3" = let dtype = CInt.dtype ~bits:9 in let var =
-   Var.create dtype in let chan = Chan.create dtype in let ir = Chp.seq [
-   Chp.log "start\n"; Chp.read chan.r var; Chp.log "recv 1\n"; Chp.read chan.r
-   var; Chp.log "recv 2\n"; Chp.read chan.r var; Chp.log "done\n"; ] in let sim
-   = Sim.simulate_chp ir ~user_sendable_ports:[ chan.w.u ]
-   ~user_readable_ports:[] in Sim.wait' sim (); [%expect {| start (Ok ()) |}];
-   Sim.send sim chan.w (CInt.of_int 100); Sim.wait' sim (); [%expect {| recv 1
-   (Ok ()) |}]; Sim.send sim chan.w (CInt.of_int 200); Sim.wait' sim ();
-   [%expect {| recv 2 (Ok ()) |}]; Sim.wait' sim (); [%expect {| (Ok ()) |}];
-   Sim.send sim chan.w (CInt.of_int 300); Sim.wait' sim (); [%expect {| done (Ok
-   ()) |}]
 
-   let%expect_test "test3" = let var1 = Var.create CInt.dtype_32 in let chan1 =
+let i = Chan.create CInt.dtype_32
+let o = Chan.create CInt.dtype_32
+
+let ir =
+  let mem =
+    let arr = [| 1; 2; 3; 4 |] |> Array.map ~f:CInt.of_int in
+    Mem.create_ug_mem CInt.dtype_32 arr
+  in
+  let idx = Var.create CInt.dtype_32 in
+  let vl = Var.create CInt.dtype_32 in
+  Chp.loop
+    [
+      Chp.read i.r idx;
+      Chp.read_ug_mem mem ~idx:(Expr.var idx) ~dst:vl;
+      Chp.send_var o.w vl;
+    ]
+
+let%expect_test "simple mem read" =
+  let cp =
+    Compiler.compile_chp ir ~user_sendable_ports:[ i.w.u ]
+      ~user_readable_ports:[ o.r.u ] ~to_:`Dataflow
+  in
+  (* print_s [%sexp (cp : Compiler.Compiled_program.t)]; *)
+  let sim = cp |> Compiler.sim in
+  Sim.send sim i.w (CInt.of_int 1);
+  Sim.read sim o.r (CInt.of_int 2);
+  Sim.wait' sim ();
+  [%expect {|
+    (Ok ()) |}]
+
+let i = Chan.create CInt.dtype_32
+let o = Chan.create CInt.dtype_32
+
+let ir =
+  let mem =
+    let arr = [| 1; 2; 3; 4 |] |> Array.map ~f:CInt.of_int in
+    Mem.create_ug_mem CInt.dtype_32 arr
+  in
+  (* let idx = Var.create CInt.dtype_32 in *)
+  let vl = Var.create CInt.dtype_32 in
+  Chp.loop
+    [
+      Chp.read i.r vl;
+      Chp.write_ug_mem mem ~idx:Expr.zero ~value:(Expr.var vl);
+      Chp.read_ug_mem mem ~idx:Expr.zero ~dst:vl;
+      Chp.send_var o.w vl;
+    ]
+
+let%expect_test "simple mem read write" =
+  let cp =
+    Compiler.compile_chp ir ~user_sendable_ports:[ i.w.u ]
+      ~user_readable_ports:[ o.r.u ] ~to_:`Dataflow
+  in
+  (* print_s [%sexp (cp : Compiler.Compiled_program.t)]; *)
+  let sim = cp |> Compiler.sim in
+  (* Sim.send sim i.w (CInt.of_int 0); *)
+  Sim.send sim i.w (CInt.of_int 3);
+  Sim.read sim o.r (CInt.of_int 3);
+  Sim.wait' ~max_steps:100000 sim ();
+
+  (* Sim.send sim i.w (CInt.of_int 1); *)
+  (* Sim.send sim i.w (CInt.of_int 0); *)
+  (* Sim.send sim i.w (CInt.of_int 0); *)
+  (* Sim.wait' sim (); *)
+
+  (* Sim.send sim i.w (CInt.of_int 0); *)
+  (* Sim.send sim i.w (CInt.of_int 3); *)
+  (* Sim.read sim o.r (CInt.of_int 12); *)
+  (* Sim.wait' sim (); *)
+  [%expect {|
+    (Ok ()) |}]
+
+(* let%expect_test "test3" = let var1 = Var.create CInt.dtype_32 in let chan1 =
    Chan.create CInt.dtype_32 in let chan2 = Chan.create CInt.dtype_32 in let ir
    = Chp.seq [ Chp.log "start\n"; Chp.read chan1.r var1; Chp.log "recv 1\n";
    Chp.send chan2.w Expr.(var var1); Chp.log "send 1\n"; Chp.assert_ CInt.E.(var

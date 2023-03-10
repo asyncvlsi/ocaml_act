@@ -355,115 +355,115 @@ let%expect_test "test" =
     (Ok ())
     (Ok ()) |}]
 
+let fib_instrs =
+  [|
+    (* push return adress *)
+    push_first 54;
+    push_second 54;
+    push_first 0;
+    push_second 0;
+    (* [TOP; return_addr_high; return_addr_low]; *)
+    Instr.to_int Input;
+    (* [TOP; n; return_addr_high; return_addr_low]; *)
+    (* just slide into the function code! *)
+
+    (* BEGIN FUNCTION - fib *)
+    (* Input: [TOP; n; return_addr_high; return_addr_low]; Output: [TOP; fib(n)]
+       and pc = return_addr *)
+    Instr.to_int Dup;
+    Instr.to_int Dup;
+    (* [TOP; n; n; n; return_addr_high; return_addr_low]; *)
+    push_first 1;
+    push_second 1;
+    Instr.to_int Eq;
+    (* [TOP; n == 1; n; n; return_addr_high; return_addr_low]; *)
+    (* 10: *)
+    Instr.to_int Exch;
+    (* [TOP; n; n == 1; n; return_addr_high; return_addr_low]; *)
+    push_first 0;
+    push_second 0;
+    Instr.to_int Eq;
+    (* [TOP; n == 0; n == 1; n; return_addr_high; return_addr_low]; *)
+    Instr.to_int Bool_or;
+    Instr.to_int Bool_not;
+    (* [TOP; !(n == 1 || n == 0); n; return_addr_high; return_addr_low]; *)
+
+    (* skip all the rest of the code if n = 1 *)
+    push_first 52;
+    push_second 52;
+    push_first 0;
+    push_second 0;
+    (* 20: *) Instr.to_int JumpIfNot;
+    (* [TOP; n; return_addr_high; return_addr_low]; *)
+    Instr.to_int Dup;
+    push_first 1;
+    push_second 1;
+    Instr.to_int Sub;
+    (* [TOP; n-1; n; return_addr_high; return_addr_low]; *)
+    push_first 36;
+    push_second 36;
+    Instr.to_int Exch;
+    push_first 0;
+    push_second 0;
+    (* 30: *) Instr.to_int Exch;
+    (* [TOP; n-1; rec1_return_addr_high; rec1_return_addr_low; n;
+       return_addr_high; return_addr_low]; *)
+    (* push the start of the function *)
+    push_first 5;
+    push_second 5;
+    push_first 0;
+    push_second 0;
+    (* [TOP; func_start_high; func_start_low; n-1; rec1_return_addr_high;
+       rec1_return_addr_low; n; return_addr_high; return_addr_low]; *)
+    Instr.to_int Jump;
+    (* [TOP; fib(n-1); n; return_addr_high; return_addr_low]; *)
+
+    (* [TOP; fib(n-1); n; return_addr_high; return_addr_low]; *)
+    Instr.to_int Exch;
+    push_first 2;
+    push_second 2;
+    Instr.to_int Sub;
+    (* [TOP; n-2; fib(n-1);  return_addr_high; return_addr_low]; *)
+    (* 40: *)
+    push_first 51;
+    push_second 51;
+    Instr.to_int Exch;
+    push_first 0;
+    push_second 0;
+    Instr.to_int Exch;
+    (* [TOP; n-2; rec1_return_addr_high; rec1_return_addr_low; fib(n-1);
+       return_addr_high; return_addr_low]; *)
+    (* push the start of the function *)
+    push_first 5;
+    push_second 5;
+    push_first 0;
+    push_second 0;
+    (* [TOP; func_start_high; func_start_low; n-2; rec1_return_addr_high;
+       rec1_return_addr_low; fib(n-1); return_addr_high; return_addr_low]; *)
+    (* 50: *)
+    Instr.to_int Jump;
+    (* [TOP; fib(n-2); fib(n-1); return_addr_high; return_addr_low]; *)
+    Instr.to_int Add;
+    (* [TOP; fib(n); return_addr_high; return_addr_low]; *)
+
+    (* so now in either case it has fib(n) on the top of the stack. So reorder
+       the stack and return. *)
+    Instr.to_int Exch2;
+    (* [TOP; return_addr_high; return_addr_low]; fib(n); *)
+    Instr.to_int Jump;
+    (* final outputing code *)
+    Instr.to_int Output;
+    push_first 0;
+    push_second 0;
+    push_first 0;
+    push_second 0;
+    Instr.to_int Jump;
+  |]
+
 let%expect_test "fibonacci" =
-  let instrs =
-    [|
-      (* push return adress *)
-      push_first 54;
-      push_second 54;
-      push_first 0;
-      push_second 0;
-      (* [TOP; return_addr_high; return_addr_low]; *)
-      Instr.to_int Input;
-      (* [TOP; n; return_addr_high; return_addr_low]; *)
-      (* just slide into the function code! *)
-
-      (* BEGIN FUNCTION - fib *)
-      (* Input: [TOP; n; return_addr_high; return_addr_low]; Output: [TOP;
-         fib(n)] and pc = return_addr *)
-      Instr.to_int Dup;
-      Instr.to_int Dup;
-      (* [TOP; n; n; n; return_addr_high; return_addr_low]; *)
-      push_first 1;
-      push_second 1;
-      Instr.to_int Eq;
-      (* [TOP; n == 1; n; n; return_addr_high; return_addr_low]; *)
-      (* 10: *)
-      Instr.to_int Exch;
-      (* [TOP; n; n == 1; n; return_addr_high; return_addr_low]; *)
-      push_first 0;
-      push_second 0;
-      Instr.to_int Eq;
-      (* [TOP; n == 0; n == 1; n; return_addr_high; return_addr_low]; *)
-      Instr.to_int Bool_or;
-      Instr.to_int Bool_not;
-      (* [TOP; !(n == 1 || n == 0); n; return_addr_high; return_addr_low]; *)
-
-      (* skip all the rest of the code if n = 1 *)
-      push_first 52;
-      push_second 52;
-      push_first 0;
-      push_second 0;
-      (* 20: *) Instr.to_int JumpIfNot;
-      (* [TOP; n; return_addr_high; return_addr_low]; *)
-      Instr.to_int Dup;
-      push_first 1;
-      push_second 1;
-      Instr.to_int Sub;
-      (* [TOP; n-1; n; return_addr_high; return_addr_low]; *)
-      push_first 36;
-      push_second 36;
-      Instr.to_int Exch;
-      push_first 0;
-      push_second 0;
-      (* 30: *) Instr.to_int Exch;
-      (* [TOP; n-1; rec1_return_addr_high; rec1_return_addr_low; n;
-         return_addr_high; return_addr_low]; *)
-      (* push the start of the function *)
-      push_first 5;
-      push_second 5;
-      push_first 0;
-      push_second 0;
-      (* [TOP; func_start_high; func_start_low; n-1; rec1_return_addr_high;
-         rec1_return_addr_low; n; return_addr_high; return_addr_low]; *)
-      Instr.to_int Jump;
-      (* [TOP; fib(n-1); n; return_addr_high; return_addr_low]; *)
-
-      (* [TOP; fib(n-1); n; return_addr_high; return_addr_low]; *)
-      Instr.to_int Exch;
-      push_first 2;
-      push_second 2;
-      Instr.to_int Sub;
-      (* [TOP; n-2; fib(n-1);  return_addr_high; return_addr_low]; *)
-      (* 40: *)
-      push_first 51;
-      push_second 51;
-      Instr.to_int Exch;
-      push_first 0;
-      push_second 0;
-      Instr.to_int Exch;
-      (* [TOP; n-2; rec1_return_addr_high; rec1_return_addr_low; fib(n-1);
-         return_addr_high; return_addr_low]; *)
-      (* push the start of the function *)
-      push_first 5;
-      push_second 5;
-      push_first 0;
-      push_second 0;
-      (* [TOP; func_start_high; func_start_low; n-2; rec1_return_addr_high;
-         rec1_return_addr_low; fib(n-1); return_addr_high; return_addr_low]; *)
-      (* 50: *)
-      Instr.to_int Jump;
-      (* [TOP; fib(n-2); fib(n-1); return_addr_high; return_addr_low]; *)
-      Instr.to_int Add;
-      (* [TOP; fib(n); return_addr_high; return_addr_low]; *)
-
-      (* so now in either case it has fib(n) on the top of the stack. So reorder
-         the stack and return. *)
-      Instr.to_int Exch2;
-      (* [TOP; return_addr_high; return_addr_low]; fib(n); *)
-      Instr.to_int Jump;
-      (* final outputing code *)
-      Instr.to_int Output;
-      push_first 0;
-      push_second 0;
-      push_first 0;
-      push_second 0;
-      Instr.to_int Jump;
-    |]
-  in
   (* let t = Caml.Sys.time () in *)
   let sim, i, o =
-    test instrs ~create:(fun ir ~user_sendable_ports ~user_readable_ports ->
+    test fib_instrs ~create:(fun ir ~user_sendable_ports ~user_readable_ports ->
         Sim.simulate_chp ir ~user_sendable_ports ~user_readable_ports)
   in
   Sim.send sim i (CInt.of_int 0);
@@ -491,32 +491,69 @@ let%expect_test "fibonacci" =
     (Ok ())
     (Ok ())
     (Ok ())
-    (Ok ()) |}];
+    (Ok ()) |}]
 
-  (* Printf.printf "Execution time: %fs\n" (Caml.Sys.time () -. t); [%expect {|
-     |}]; *)
-
+let%expect_test "fibonacci - compiled dataflow" =
   (* let t = Caml.Sys.time () in *)
-  (* let sim, i, o = test instrs ~create:(fun ir ~user_sendable_ports
-     ~user_readable_ports -> Exporter.stf_sim ir ~user_sendable_ports
-     ~user_readable_ports) in Sim.send sim i (CInt.of_int 0); Sim.read sim o
-     (CInt.of_int 0); print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
-     Sim.send sim i (CInt.of_int 1); Sim.read sim o (CInt.of_int 1); print_s
-     [%sexp (Sim.wait sim () : unit Or_error.t)]; Sim.send sim i (CInt.of_int
-     2); Sim.read sim o (CInt.of_int 1); print_s [%sexp (Sim.wait sim
-     ~max_steps:10000 () : unit Or_error.t)]; Sim.send sim i (CInt.of_int 7);
-     Sim.read sim o (CInt.of_int 13); print_s [%sexp (Sim.wait sim
-     ~max_steps:1000000 () : unit Or_error.t)]; Sim.send sim i (CInt.of_int 8);
-     Sim.read sim o (CInt.of_int 21); print_s [%sexp (Sim.wait sim
-     ~max_steps:1000000 () : unit Or_error.t)]; Sim.send sim i (CInt.of_int 12);
-     Sim.read sim o (CInt.of_int 144); print_s [%sexp (Sim.wait sim
-     ~max_steps:1000000 () : unit Or_error.t)]; [%expect {| (Ok ()) (Ok ()) (Ok
-     ()) (Ok ()) (Ok ()) (Ok ()) |}]; *)
-  (* Printf.printf "Execution time: %fs\n" (Caml.Sys.time () -. t); [%expect {|
-     |}]; *)
+  let sim, i, o =
+    test fib_instrs ~create:(fun ir ~user_sendable_ports ~user_readable_ports ->
+        Compiler.compile_chp ir ~user_sendable_ports ~user_readable_ports
+          ~to_:`Dataflow
+        |> Compiler.sim)
+  in
+  Sim.send sim i (CInt.of_int 0);
+  Sim.read sim o (CInt.of_int 0);
+  print_s [%sexp (Sim.wait sim ~max_steps:10000000 () : unit Or_error.t)];
+  Sim.send sim i (CInt.of_int 1);
+  Sim.read sim o (CInt.of_int 1);
+  print_s [%sexp (Sim.wait sim ~max_steps:10000000 () : unit Or_error.t)];
+  Sim.send sim i (CInt.of_int 2);
+  Sim.read sim o (CInt.of_int 1);
+  print_s [%sexp (Sim.wait sim ~max_steps:10000000 () : unit Or_error.t)];
+  Sim.send sim i (CInt.of_int 7);
+  Sim.read sim o (CInt.of_int 13);
+  print_s [%sexp (Sim.wait sim ~max_steps:10000000 () : unit Or_error.t)];
+  Sim.send sim i (CInt.of_int 8);
+  Sim.read sim o (CInt.of_int 21);
+  print_s [%sexp (Sim.wait sim ~max_steps:10000000 () : unit Or_error.t)];
+  Sim.send sim i (CInt.of_int 12);
+  Sim.read sim o (CInt.of_int 144);
+  print_s [%sexp (Sim.wait sim ~max_steps:100000000 () : unit Or_error.t)];
+  [%expect
+    {|
+    (Ok ())
+    (Ok ())
+    (Ok ())
+    (Ok ())
+    (Ok ())
+    (Error "Simulation timed out. Maybe increase max_steps?") |}]
+
+(* Printf.printf "Execution time: %fs\n" (Caml.Sys.time () -. t); [%expect {|
+   |}]; *)
+
+(* let t = Caml.Sys.time () in *)
+(* let sim, i, o = test instrs ~create:(fun ir ~user_sendable_ports
+   ~user_readable_ports -> Exporter.stf_sim ir ~user_sendable_ports
+   ~user_readable_ports) in Sim.send sim i (CInt.of_int 0); Sim.read sim o
+   (CInt.of_int 0); print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
+   Sim.send sim i (CInt.of_int 1); Sim.read sim o (CInt.of_int 1); print_s
+   [%sexp (Sim.wait sim () : unit Or_error.t)]; Sim.send sim i (CInt.of_int 2);
+   Sim.read sim o (CInt.of_int 1); print_s [%sexp (Sim.wait sim ~max_steps:10000
+   () : unit Or_error.t)]; Sim.send sim i (CInt.of_int 7); Sim.read sim o
+   (CInt.of_int 13); print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit
+   Or_error.t)]; Sim.send sim i (CInt.of_int 8); Sim.read sim o (CInt.of_int
+   21); print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)];
+   Sim.send sim i (CInt.of_int 12); Sim.read sim o (CInt.of_int 144); print_s
+   [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)]; [%expect {|
+   (Ok ()) (Ok ()) (Ok ()) (Ok ()) (Ok ()) (Ok ()) |}]; *)
+(* Printf.printf "Execution time: %fs\n" (Caml.Sys.time () -. t); [%expect {|
+   |}]; *)
+
+let%expect_test "fibonacci - compiler output" =
   let my_instrs =
     Array.init 4096 ~f:(fun i ->
-        if i < Array.length instrs then instrs.(i) else Instr.to_int Instr.Nop)
+        if i < Array.length fib_instrs then fib_instrs.(i)
+        else Instr.to_int Instr.Nop)
   in
   let ichan = Chan.create CInt.dtype_8 in
   let ochan = Chan.create CInt.dtype_8 in
@@ -529,7 +566,7 @@ let%expect_test "fibonacci" =
 
   [%expect
     {|
-    defproc proc_0(chan!(int<8>) iport225; chan!(int<8>) iport226; chan!(int<8>) iport227; chan?(int<13>) oport206; chan?(int<8>) oport99; chan?(int<13>) oport101; chan?(int<8>) oport214) {
+    defproc proc_0(chan!(int<8>) iport261; chan!(int<8>) iport262; chan!(int<8>) iport263; chan?(int<13>) oport242; chan?(int<8>) oport125; chan?(int<13>) oport136; chan?(int<8>) oport250) {
       chan(int<8>) v0;
       chan(int<8>) v1;
       chan(int<8>) v2;
@@ -550,214 +587,250 @@ let%expect_test "fibonacci" =
       chan(int<1>) v17;
       chan(int<1>) v18;
       chan(int<1>) v19;
-      chan(int<12>) v20;
-      chan(int<13>) v21;
-      chan(int<4>) v22;
-      chan(int<4>) v23;
-      chan(int<1>) v24;
-      chan(int<1>) v25;
-      chan(int<2>) v26;
-      chan(int<2>) v27;
-      chan(int<4>) v28;
-      chan(int<4>) v29;
-      chan(int<4>) v30;
-      chan(int<2>) v31;
-      chan(int<2>) v32;
-      chan(int<1>) v33;
+      chan(int<1>) v20;
+      chan(int<1>) v21;
+      chan(int<1>) v22;
+      chan(int<12>) v23;
+      chan(int<13>) v24;
+      chan(int<4>) v25;
+      chan(int<4>) v26;
+      chan(int<1>) v27;
+      chan(int<1>) v28;
+      chan(int<2>) v29;
+      chan(int<2>) v30;
+      chan(int<4>) v31;
+      chan(int<4>) v32;
+      chan(int<4>) v33;
       chan(int<2>) v34;
-      chan(int<1>) v35;
+      chan(int<2>) v35;
       chan(int<1>) v36;
-      chan(int<1>) v37;
-      chan(int<12>) v38;
-      chan(int<13>) v39;
-      chan(int<12>) v40;
-      chan(int<13>) v41;
-      chan(int<12>) v42;
-      chan(int<13>) v43;
-      chan(int<1>) v44;
-      chan(int<1>) v45;
-      chan(int<1>) v46;
-      chan(int<8>) v47;
+      chan(int<2>) v37;
+      chan(int<1>) v38;
+      chan(int<1>) v39;
+      chan(int<1>) v40;
+      chan(int<1>) v41;
+      chan(int<1>) v42;
+      chan(int<1>) v43;
+      chan(int<12>) v44;
+      chan(int<13>) v45;
+      chan(int<12>) v46;
+      chan(int<13>) v47;
       chan(int<12>) v48;
-      chan(int<8>) v49;
-      chan(int<8>) v50;
-      chan(int<8>) v51;
-      chan(int<8>) v52;
-      chan(int<8>) v53;
+      chan(int<13>) v49;
+      chan(int<1>) v50;
+      chan(int<1>) v51;
+      chan(int<1>) v52;
+      chan(int<1>) v53;
       chan(int<1>) v54;
-      chan(int<12>) v55;
-      chan(int<12>) v56;
+      chan(int<1>) v55;
+      chan(int<8>) v56;
       chan(int<12>) v57;
-      chan(int<12>) v58;
-      chan(int<12>) v59;
-      chan(int<12>) v60;
-      chan(int<12>) v61;
-      chan(int<12>) v62;
-      chan(int<12>) v63;
+      chan(int<8>) v58;
+      chan(int<8>) v59;
+      chan(int<8>) v60;
+      chan(int<8>) v61;
+      chan(int<8>) v62;
+      chan(int<1>) v63;
       chan(int<12>) v64;
       chan(int<12>) v65;
       chan(int<12>) v66;
       chan(int<12>) v67;
       chan(int<12>) v68;
       chan(int<12>) v69;
-      chan(int<13>) v70;
+      chan(int<12>) v70;
       chan(int<12>) v71;
-      chan(int<13>) v72;
+      chan(int<12>) v72;
       chan(int<12>) v73;
-      chan(int<13>) v74;
+      chan(int<12>) v74;
       chan(int<12>) v75;
-      chan(int<2>) v76;
-      chan(int<2>) v77;
-      chan(int<2>) v78;
-      chan(int<2>) v79;
-      chan(int<3>) v80;
-      chan(int<3>) v81;
-      chan(int<1>) v82;
-      chan(int<1>) v83;
-      chan(int<1>) v84;
-      chan(int<12>) v85;
-      chan(int<1>) v86;
-      chan(int<12>) v87;
+      chan(int<12>) v76;
+      chan(int<12>) v77;
+      chan(int<12>) v78;
+      chan(int<13>) v79;
+      chan(int<12>) v80;
+      chan(int<13>) v81;
+      chan(int<12>) v82;
+      chan(int<13>) v83;
+      chan(int<12>) v84;
+      chan(int<2>) v85;
+      chan(int<2>) v86;
+      chan(int<2>) v87;
       chan(int<1>) v88;
-      chan(int<1>) v89;
-      chan(int<1>) v90;
-      chan(int<12>) v91;
+      chan(int<2>) v89;
+      chan(int<2>) v90;
+      chan(int<2>) v91;
       chan(int<1>) v92;
-      chan(int<12>) v93;
-      chan(int<1>) v94;
-      chan(int<8>) v95;
-      chan(int<8>) v96;
-      chan(int<8>) v97;
-      chan(int<2>) v98;
-      chan(int<8>) v99;
-      chan(int<2>) v100;
-      chan(int<13>) v101;
-      chan(int<3>) v102;
-      chan(int<8>) v103;
-      chan(int<12>) v104;
-      chan(int<12>) v105;
-      chan(int<1>) v106;
-      chan(int<8>) v107;
-      chan(int<1>) v108;
-      chan(int<12>) v109;
+      chan(int<3>) v93;
+      chan(int<3>) v94;
+      chan(int<3>) v95;
+      chan(int<1>) v96;
+      chan(int<1>) v97;
+      chan(int<1>) v98;
+      chan(int<1>) v99;
+      chan(int<12>) v100;
+      chan(int<1>) v101;
+      chan(int<12>) v102;
+      chan(int<1>) v103;
+      chan(int<1>) v104;
+      chan(int<1>) v105;
+      chan(int<12>) v106;
+      chan(int<1>) v107;
+      chan(int<12>) v108;
+      chan(int<1>) v109;
       chan(int<1>) v110;
-      chan(int<12>) v111;
-      chan(int<12>) v112;
+      chan(int<1>) v111;
+      chan(int<1>) v112;
       chan(int<1>) v113;
-      chan(int<8>) v114;
-      chan(int<1>) v115;
-      chan(int<12>) v116;
-      chan(int<1>) v117;
-      chan(int<12>) v118;
-      chan(int<12>) v119;
+      chan(int<2>) v114;
+      chan(int<8>) v115;
+      chan(int<8>) v116;
+      chan(int<8>) v117;
+      chan(int<2>) v118;
+      chan(int<2>) v119;
       chan(int<1>) v120;
-      chan(int<8>) v121;
+      chan(int<1>) v121;
       chan(int<1>) v122;
-      chan(int<12>) v123;
-      chan(int<1>) v124;
+      chan(int<1>) v123;
+      chan(int<2>) v124;
       chan(int<8>) v125;
-      chan(int<8>) v126;
-      chan(int<8>) v127;
-      chan(int<8>) v128;
-      chan(int<8>) v129;
-      chan(int<8>) v130;
-      chan(int<8>) v131;
-      chan(int<8>) v132;
-      chan(int<8>) v133;
-      chan(int<8>) v134;
-      chan(int<8>) v135;
-      chan(int<12>) v136;
-      chan(int<12>) v137;
-      chan(int<12>) v138;
-      chan(int<12>) v139;
+      chan(int<2>) v126;
+      chan(int<2>) v127;
+      chan(int<1>) v128;
+      chan(int<1>) v129;
+      chan(int<1>) v130;
+      chan(int<1>) v131;
+      chan(int<1>) v132;
+      chan(int<1>) v133;
+      chan(int<1>) v134;
+      chan(int<3>) v135;
+      chan(int<13>) v136;
+      chan(int<3>) v137;
+      chan(int<3>) v138;
+      chan(int<8>) v139;
       chan(int<12>) v140;
       chan(int<12>) v141;
-      chan(int<12>) v142;
-      chan(int<12>) v143;
-      chan(int<12>) v144;
+      chan(int<1>) v142;
+      chan(int<8>) v143;
+      chan(int<1>) v144;
       chan(int<12>) v145;
-      chan(int<12>) v146;
+      chan(int<1>) v146;
       chan(int<12>) v147;
       chan(int<12>) v148;
-      chan(int<12>) v149;
-      chan(int<12>) v150;
-      chan(int<12>) v151;
-      chan(int<4>) v152;
-      chan(int<4>) v153;
-      chan(int<4>) v154;
-      chan(int<8>) v155;
-      chan(int<8>) v156;
+      chan(int<1>) v149;
+      chan(int<8>) v150;
+      chan(int<1>) v151;
+      chan(int<12>) v152;
+      chan(int<1>) v153;
+      chan(int<12>) v154;
+      chan(int<12>) v155;
+      chan(int<1>) v156;
       chan(int<8>) v157;
-      chan(int<12>) v158;
-      chan(int<4>) v159;
-      chan(int<8>) v160;
-      chan(int<1>) v161;
+      chan(int<1>) v158;
+      chan(int<12>) v159;
+      chan(int<1>) v160;
+      chan(int<8>) v161;
       chan(int<8>) v162;
-      chan(int<1>) v163;
-      chan(int<12>) v164;
-      chan(int<1>) v165;
-      chan(int<12>) v166;
-      chan(int<1>) v167;
+      chan(int<8>) v163;
+      chan(int<8>) v164;
+      chan(int<8>) v165;
+      chan(int<8>) v166;
+      chan(int<8>) v167;
       chan(int<8>) v168;
-      chan(int<1>) v169;
-      chan(int<12>) v170;
-      chan(int<12>) v171;
-      chan(int<1>) v172;
+      chan(int<8>) v169;
+      chan(int<8>) v170;
+      chan(int<8>) v171;
+      chan(int<12>) v172;
       chan(int<12>) v173;
-      chan(int<1>) v174;
-      chan(int<8>) v175;
-      chan(int<1>) v176;
+      chan(int<12>) v174;
+      chan(int<12>) v175;
+      chan(int<12>) v176;
       chan(int<12>) v177;
       chan(int<12>) v178;
-      chan(int<1>) v179;
+      chan(int<12>) v179;
       chan(int<12>) v180;
-      chan(int<1>) v181;
-      chan(int<8>) v182;
-      chan(int<1>) v183;
+      chan(int<12>) v181;
+      chan(int<12>) v182;
+      chan(int<12>) v183;
       chan(int<12>) v184;
       chan(int<12>) v185;
-      chan(int<1>) v186;
+      chan(int<12>) v186;
       chan(int<12>) v187;
-      chan(int<1>) v188;
-      chan(int<1>) v189;
-      chan(int<1>) v190;
+      chan(int<4>) v188;
+      chan(int<4>) v189;
+      chan(int<4>) v190;
       chan(int<8>) v191;
       chan(int<8>) v192;
       chan(int<8>) v193;
-      chan(int<8>) v194;
-      chan(int<8>) v195;
+      chan(int<12>) v194;
+      chan(int<4>) v195;
       chan(int<8>) v196;
-      chan(int<8>) v197;
+      chan(int<1>) v197;
       chan(int<8>) v198;
-      chan(int<8>) v199;
-      chan(int<8>) v200;
-      chan(int<8>) v201;
-      chan(int<8>) v202;
-      chan(int<8>) v203;
-      chan(int<1>) v204;
+      chan(int<1>) v199;
+      chan(int<12>) v200;
+      chan(int<1>) v201;
+      chan(int<12>) v202;
+      chan(int<1>) v203;
+      chan(int<8>) v204;
       chan(int<1>) v205;
-      chan(int<13>) v206;
-      chan(int<8>) v207;
-      chan(int<13>) v208;
-      chan(int<8>) v209;
-      chan(int<13>) v210;
+      chan(int<12>) v206;
+      chan(int<12>) v207;
+      chan(int<1>) v208;
+      chan(int<12>) v209;
+      chan(int<1>) v210;
       chan(int<8>) v211;
-      chan(int<13>) v212;
-      chan(int<8>) v213;
-      chan(int<8>) v214;
-      chan(int<8>) v215;
-      chan(int<13>) v216;
-      chan(int<8>) v217;
-      chan(int<13>) v218;
-      chan(int<8>) v219;
-      chan(int<13>) v220;
-      chan(int<8>) v221;
-      chan(int<2>) v222;
-      chan(int<2>) v223;
-      chan(int<3>) v224;
-      chan(int<8>) v225;
-      chan(int<8>) v226;
+      chan(int<1>) v212;
+      chan(int<12>) v213;
+      chan(int<12>) v214;
+      chan(int<1>) v215;
+      chan(int<12>) v216;
+      chan(int<1>) v217;
+      chan(int<8>) v218;
+      chan(int<1>) v219;
+      chan(int<12>) v220;
+      chan(int<12>) v221;
+      chan(int<1>) v222;
+      chan(int<12>) v223;
+      chan(int<1>) v224;
+      chan(int<1>) v225;
+      chan(int<1>) v226;
       chan(int<8>) v227;
+      chan(int<8>) v228;
+      chan(int<8>) v229;
+      chan(int<8>) v230;
+      chan(int<8>) v231;
+      chan(int<8>) v232;
+      chan(int<8>) v233;
+      chan(int<8>) v234;
+      chan(int<8>) v235;
+      chan(int<8>) v236;
+      chan(int<8>) v237;
+      chan(int<8>) v238;
+      chan(int<8>) v239;
+      chan(int<1>) v240;
+      chan(int<1>) v241;
+      chan(int<13>) v242;
+      chan(int<8>) v243;
+      chan(int<13>) v244;
+      chan(int<8>) v245;
+      chan(int<13>) v246;
+      chan(int<8>) v247;
+      chan(int<13>) v248;
+      chan(int<8>) v249;
+      chan(int<8>) v250;
+      chan(int<8>) v251;
+      chan(int<13>) v252;
+      chan(int<8>) v253;
+      chan(int<13>) v254;
+      chan(int<8>) v255;
+      chan(int<13>) v256;
+      chan(int<8>) v257;
+      chan(int<2>) v258;
+      chan(int<2>) v259;
+      chan(int<3>) v260;
+      chan(int<8>) v261;
+      chan(int<8>) v262;
+      chan(int<8>) v263;
     dataflow {
       v0 <- 0;
       v1 <- 0;
@@ -777,170 +850,194 @@ let%expect_test "fibonacci" =
       v15 <- 2;
       v16 <- 3;
       v17 <- 1;
-      v19 <- int((v18) = 0);
-      v21 <- ((v20) << 1);
+      v18 <- 0;
+      v19 <- 0;
+      v20 <- 0;
+      v22 <- int((v21) = 0);
+      v24 <- ((v23) << 1);
       dataflow_cluser {
-        v22 <- int(((v207) >> 4), 4);
-        v23 <- ( log2_one_hot({ int(int(15 = (15 & (v207))), 1), int(int(14 = (15 & (v207))), 1), int(int(13 = (15 & (v207))), 1), int(int(12 = (15 & (v207))), 1), int(int(11 = (15 & (v207))), 1), int(int(10 = (15 & (v207))), 1), int(int(9 = (15 & (v207))), 1), int(int(8 = (15 & (v207))), 1), int(int(7 = (15 & (v207))), 1), int(int(6 = (15 & (v207))), 1), int(int(5 = (15 & (v207))), 1), int(int(4 = (15 & (v207))), 1), int(int(3 = (15 & (v207))), 1), int(int(2 = (15 & (v207))), 1), int(int(1 = (15 & (v207))), 1), int(int(0 = (15 & (v207))), 1) }) );
-        v24 <- ( log2_one_hot({ int(((((((((((((((int(1 = (15 & (v207))) | int(2 = (15 & (v207)))) | int(3 = (15 & (v207)))) | int(4 = (15 & (v207)))) | int(5 = (15 & (v207)))) | int(6 = (15 & (v207)))) | int(7 = (15 & (v207)))) | int(8 = (15 & (v207)))) | int(9 = (15 & (v207)))) | int(10 = (15 & (v207)))) | int(11 = (15 & (v207)))) | int(12 = (15 & (v207)))) | int(13 = (15 & (v207)))) | int(14 = (15 & (v207)))) | int(15 = (15 & (v207)))), 1), int(int(0 = (15 & (v207))), 1) }) );
-        v25 <- ( log2_one_hot({ int(int(0 = (15 & (v207))), 1), int(((((((((((((((int(1 = (15 & (v207))) | int(2 = (15 & (v207)))) | int(3 = (15 & (v207)))) | int(4 = (15 & (v207)))) | int(5 = (15 & (v207)))) | int(6 = (15 & (v207)))) | int(7 = (15 & (v207)))) | int(8 = (15 & (v207)))) | int(9 = (15 & (v207)))) | int(10 = (15 & (v207)))) | int(11 = (15 & (v207)))) | int(12 = (15 & (v207)))) | int(13 = (15 & (v207)))) | int(14 = (15 & (v207)))) | int(15 = (15 & (v207)))), 1) }) );
-        v26 <- ( log2_one_hot({ int((((((((((((((int(0 = (15 & (v207))) | int(1 = (15 & (v207)))) | int(4 = (15 & (v207)))) | int(5 = (15 & (v207)))) | int(6 = (15 & (v207)))) | int(7 = (15 & (v207)))) | int(8 = (15 & (v207)))) | int(9 = (15 & (v207)))) | int(10 = (15 & (v207)))) | int(11 = (15 & (v207)))) | int(12 = (15 & (v207)))) | int(13 = (15 & (v207)))) | int(14 = (15 & (v207)))) | int(15 = (15 & (v207)))), 1), int(int(3 = (15 & (v207))), 1), int(int(2 = (15 & (v207))), 1) }) );
-        v27 <- ( log2_one_hot({ int(((((((((((((int(0 = (15 & (v207))) | int(1 = (15 & (v207)))) | int(2 = (15 & (v207)))) | int(3 = (15 & (v207)))) | int(7 = (15 & (v207)))) | int(8 = (15 & (v207)))) | int(9 = (15 & (v207)))) | int(10 = (15 & (v207)))) | int(11 = (15 & (v207)))) | int(12 = (15 & (v207)))) | int(13 = (15 & (v207)))) | int(14 = (15 & (v207)))) | int(15 = (15 & (v207)))), 1), int(int(6 = (15 & (v207))), 1), int(int(5 = (15 & (v207))), 1), int(int(4 = (15 & (v207))), 1) }) );
-        v28 <- ( log2_one_hot({ int(((((int(0 = (15 & (v207))) | int(1 = (15 & (v207)))) | int(7 = (15 & (v207)))) | int(8 = (15 & (v207)))) | int(12 = (15 & (v207)))), 1), int((int(5 = (15 & (v207))) | int(6 = (15 & (v207)))), 1), int(int(15 = (15 & (v207))), 1), int(int(14 = (15 & (v207))), 1), int(int(13 = (15 & (v207))), 1), int(int(11 = (15 & (v207))), 1), int(int(10 = (15 & (v207))), 1), int(int(9 = (15 & (v207))), 1), int(int(4 = (15 & (v207))), 1), int(int(3 = (15 & (v207))), 1), int(int(2 = (15 & (v207))), 1) }) );
-        v29 <- ( log2_one_hot({ int((((int(0 = (15 & (v207))) | int(1 = (15 & (v207)))) | int(2 = (15 & (v207)))) | int(13 = (15 & (v207)))), 1), int((int(5 = (15 & (v207))) | int(6 = (15 & (v207)))), 1), int(int(15 = (15 & (v207))), 1), int(int(14 = (15 & (v207))), 1), int(int(12 = (15 & (v207))), 1), int(int(11 = (15 & (v207))), 1), int(int(10 = (15 & (v207))), 1), int(int(9 = (15 & (v207))), 1), int(int(8 = (15 & (v207))), 1), int(int(7 = (15 & (v207))), 1), int(int(4 = (15 & (v207))), 1), int(int(3 = (15 & (v207))), 1) }) );
-        v30 <- ( log2_one_hot({ int((((((((int(0 = (15 & (v207))) | int(1 = (15 & (v207)))) | int(2 = (15 & (v207)))) | int(3 = (15 & (v207)))) | int(4 = (15 & (v207)))) | int(12 = (15 & (v207)))) | int(13 = (15 & (v207)))) | int(14 = (15 & (v207)))), 1), int(int(15 = (15 & (v207))), 1), int(int(11 = (15 & (v207))), 1), int(int(10 = (15 & (v207))), 1), int(int(9 = (15 & (v207))), 1), int(int(8 = (15 & (v207))), 1), int(int(7 = (15 & (v207))), 1), int(int(6 = (15 & (v207))), 1), int(int(5 = (15 & (v207))), 1) }) );
-        v31 <- ( log2_one_hot({ int((((((((((((((int(0 = (15 & (v207))) | int(1 = (15 & (v207)))) | int(2 = (15 & (v207)))) | int(3 = (15 & (v207)))) | int(4 = (15 & (v207)))) | int(5 = (15 & (v207)))) | int(7 = (15 & (v207)))) | int(9 = (15 & (v207)))) | int(10 = (15 & (v207)))) | int(11 = (15 & (v207)))) | int(12 = (15 & (v207)))) | int(13 = (15 & (v207)))) | int(14 = (15 & (v207)))) | int(15 = (15 & (v207)))), 1), int(int(8 = (15 & (v207))), 1), int(int(6 = (15 & (v207))), 1) }) );
-        v32 <- ( log2_one_hot({ int(int(6 = (15 & (v207))), 1), int((int(4 = (15 & (v207))) | int(5 = (15 & (v207)))), 1), int((((((((int(2 = (15 & (v207))) | int(3 = (15 & (v207)))) | int(9 = (15 & (v207)))) | int(10 = (15 & (v207)))) | int(11 = (15 & (v207)))) | int(13 = (15 & (v207)))) | int(14 = (15 & (v207)))) | int(15 = (15 & (v207)))), 1), int(((((int(0 = (15 & (v207))) | int(1 = (15 & (v207)))) | int(7 = (15 & (v207)))) | int(8 = (15 & (v207)))) | int(12 = (15 & (v207)))), 1) }) );
-        v33 <- ( log2_one_hot({ int(((((((((((((((int(0 = (15 & (v207))) | int(1 = (15 & (v207)))) | int(2 = (15 & (v207)))) | int(3 = (15 & (v207)))) | int(4 = (15 & (v207)))) | int(5 = (15 & (v207)))) | int(7 = (15 & (v207)))) | int(8 = (15 & (v207)))) | int(9 = (15 & (v207)))) | int(10 = (15 & (v207)))) | int(11 = (15 & (v207)))) | int(12 = (15 & (v207)))) | int(13 = (15 & (v207)))) | int(14 = (15 & (v207)))) | int(15 = (15 & (v207)))), 1), int(int(6 = (15 & (v207))), 1) }) );
-        v34 <- ( log2_one_hot({ int((int(6 = (15 & (v207))) | int(8 = (15 & (v207)))), 1), int((((((int(5 = (15 & (v207))) | int(7 = (15 & (v207)))) | int(9 = (15 & (v207)))) | int(10 = (15 & (v207)))) | int(11 = (15 & (v207)))) | int(15 = (15 & (v207)))), 1), int((((int(3 = (15 & (v207))) | int(4 = (15 & (v207)))) | int(12 = (15 & (v207)))) | int(14 = (15 & (v207)))), 1), int((((int(0 = (15 & (v207))) | int(1 = (15 & (v207)))) | int(2 = (15 & (v207)))) | int(13 = (15 & (v207)))), 1) }) );
+        v25 <- int(((v243) >> 4), 4);
+        v26 <- ( log2_one_hot({ int(int(15 = (15 & (v243))), 1), int(int(14 = (15 & (v243))), 1), int(int(13 = (15 & (v243))), 1), int(int(12 = (15 & (v243))), 1), int(int(11 = (15 & (v243))), 1), int(int(10 = (15 & (v243))), 1), int(int(9 = (15 & (v243))), 1), int(int(8 = (15 & (v243))), 1), int(int(7 = (15 & (v243))), 1), int(int(6 = (15 & (v243))), 1), int(int(5 = (15 & (v243))), 1), int(int(4 = (15 & (v243))), 1), int(int(3 = (15 & (v243))), 1), int(int(2 = (15 & (v243))), 1), int(int(1 = (15 & (v243))), 1), int(int(0 = (15 & (v243))), 1) }) );
+        v27 <- ( log2_one_hot({ int(((((((((((((((int(1 = (15 & (v243))) | int(2 = (15 & (v243)))) | int(3 = (15 & (v243)))) | int(4 = (15 & (v243)))) | int(5 = (15 & (v243)))) | int(6 = (15 & (v243)))) | int(7 = (15 & (v243)))) | int(8 = (15 & (v243)))) | int(9 = (15 & (v243)))) | int(10 = (15 & (v243)))) | int(11 = (15 & (v243)))) | int(12 = (15 & (v243)))) | int(13 = (15 & (v243)))) | int(14 = (15 & (v243)))) | int(15 = (15 & (v243)))), 1), int(int(0 = (15 & (v243))), 1) }) );
+        v28 <- ( log2_one_hot({ int(int(0 = (15 & (v243))), 1), int(((((((((((((((int(1 = (15 & (v243))) | int(2 = (15 & (v243)))) | int(3 = (15 & (v243)))) | int(4 = (15 & (v243)))) | int(5 = (15 & (v243)))) | int(6 = (15 & (v243)))) | int(7 = (15 & (v243)))) | int(8 = (15 & (v243)))) | int(9 = (15 & (v243)))) | int(10 = (15 & (v243)))) | int(11 = (15 & (v243)))) | int(12 = (15 & (v243)))) | int(13 = (15 & (v243)))) | int(14 = (15 & (v243)))) | int(15 = (15 & (v243)))), 1) }) );
+        v29 <- ( log2_one_hot({ int((((((((((((((int(0 = (15 & (v243))) | int(1 = (15 & (v243)))) | int(4 = (15 & (v243)))) | int(5 = (15 & (v243)))) | int(6 = (15 & (v243)))) | int(7 = (15 & (v243)))) | int(8 = (15 & (v243)))) | int(9 = (15 & (v243)))) | int(10 = (15 & (v243)))) | int(11 = (15 & (v243)))) | int(12 = (15 & (v243)))) | int(13 = (15 & (v243)))) | int(14 = (15 & (v243)))) | int(15 = (15 & (v243)))), 1), int(int(3 = (15 & (v243))), 1), int(int(2 = (15 & (v243))), 1) }) );
+        v30 <- ( log2_one_hot({ int(((((((((((((int(0 = (15 & (v243))) | int(1 = (15 & (v243)))) | int(2 = (15 & (v243)))) | int(3 = (15 & (v243)))) | int(7 = (15 & (v243)))) | int(8 = (15 & (v243)))) | int(9 = (15 & (v243)))) | int(10 = (15 & (v243)))) | int(11 = (15 & (v243)))) | int(12 = (15 & (v243)))) | int(13 = (15 & (v243)))) | int(14 = (15 & (v243)))) | int(15 = (15 & (v243)))), 1), int(int(6 = (15 & (v243))), 1), int(int(5 = (15 & (v243))), 1), int(int(4 = (15 & (v243))), 1) }) );
+        v31 <- ( log2_one_hot({ int(((((int(0 = (15 & (v243))) | int(1 = (15 & (v243)))) | int(7 = (15 & (v243)))) | int(8 = (15 & (v243)))) | int(12 = (15 & (v243)))), 1), int((int(5 = (15 & (v243))) | int(6 = (15 & (v243)))), 1), int(int(15 = (15 & (v243))), 1), int(int(14 = (15 & (v243))), 1), int(int(13 = (15 & (v243))), 1), int(int(11 = (15 & (v243))), 1), int(int(10 = (15 & (v243))), 1), int(int(9 = (15 & (v243))), 1), int(int(4 = (15 & (v243))), 1), int(int(3 = (15 & (v243))), 1), int(int(2 = (15 & (v243))), 1) }) );
+        v32 <- ( log2_one_hot({ int((((int(0 = (15 & (v243))) | int(1 = (15 & (v243)))) | int(2 = (15 & (v243)))) | int(13 = (15 & (v243)))), 1), int((int(5 = (15 & (v243))) | int(6 = (15 & (v243)))), 1), int(int(15 = (15 & (v243))), 1), int(int(14 = (15 & (v243))), 1), int(int(12 = (15 & (v243))), 1), int(int(11 = (15 & (v243))), 1), int(int(10 = (15 & (v243))), 1), int(int(9 = (15 & (v243))), 1), int(int(8 = (15 & (v243))), 1), int(int(7 = (15 & (v243))), 1), int(int(4 = (15 & (v243))), 1), int(int(3 = (15 & (v243))), 1) }) );
+        v33 <- ( log2_one_hot({ int((((((((int(0 = (15 & (v243))) | int(1 = (15 & (v243)))) | int(2 = (15 & (v243)))) | int(3 = (15 & (v243)))) | int(4 = (15 & (v243)))) | int(12 = (15 & (v243)))) | int(13 = (15 & (v243)))) | int(14 = (15 & (v243)))), 1), int(int(15 = (15 & (v243))), 1), int(int(11 = (15 & (v243))), 1), int(int(10 = (15 & (v243))), 1), int(int(9 = (15 & (v243))), 1), int(int(8 = (15 & (v243))), 1), int(int(7 = (15 & (v243))), 1), int(int(6 = (15 & (v243))), 1), int(int(5 = (15 & (v243))), 1) }) );
+        v34 <- ( log2_one_hot({ int((((((((((((((int(0 = (15 & (v243))) | int(1 = (15 & (v243)))) | int(2 = (15 & (v243)))) | int(3 = (15 & (v243)))) | int(4 = (15 & (v243)))) | int(5 = (15 & (v243)))) | int(7 = (15 & (v243)))) | int(9 = (15 & (v243)))) | int(10 = (15 & (v243)))) | int(11 = (15 & (v243)))) | int(12 = (15 & (v243)))) | int(13 = (15 & (v243)))) | int(14 = (15 & (v243)))) | int(15 = (15 & (v243)))), 1), int(int(8 = (15 & (v243))), 1), int(int(6 = (15 & (v243))), 1) }) );
+        v35 <- ( log2_one_hot({ int(int(6 = (15 & (v243))), 1), int((int(4 = (15 & (v243))) | int(5 = (15 & (v243)))), 1), int((((((((int(2 = (15 & (v243))) | int(3 = (15 & (v243)))) | int(9 = (15 & (v243)))) | int(10 = (15 & (v243)))) | int(11 = (15 & (v243)))) | int(13 = (15 & (v243)))) | int(14 = (15 & (v243)))) | int(15 = (15 & (v243)))), 1), int(((((int(0 = (15 & (v243))) | int(1 = (15 & (v243)))) | int(7 = (15 & (v243)))) | int(8 = (15 & (v243)))) | int(12 = (15 & (v243)))), 1) }) );
+        v36 <- ( log2_one_hot({ int(((((((((((((((int(0 = (15 & (v243))) | int(1 = (15 & (v243)))) | int(2 = (15 & (v243)))) | int(3 = (15 & (v243)))) | int(4 = (15 & (v243)))) | int(5 = (15 & (v243)))) | int(7 = (15 & (v243)))) | int(8 = (15 & (v243)))) | int(9 = (15 & (v243)))) | int(10 = (15 & (v243)))) | int(11 = (15 & (v243)))) | int(12 = (15 & (v243)))) | int(13 = (15 & (v243)))) | int(14 = (15 & (v243)))) | int(15 = (15 & (v243)))), 1), int(int(6 = (15 & (v243))), 1) }) );
+        v37 <- ( log2_one_hot({ int((int(6 = (15 & (v243))) | int(8 = (15 & (v243)))), 1), int((((((int(5 = (15 & (v243))) | int(7 = (15 & (v243)))) | int(9 = (15 & (v243)))) | int(10 = (15 & (v243)))) | int(11 = (15 & (v243)))) | int(15 = (15 & (v243)))), 1), int((((int(3 = (15 & (v243))) | int(4 = (15 & (v243)))) | int(12 = (15 & (v243)))) | int(14 = (15 & (v243)))), 1), int((((int(0 = (15 & (v243))) | int(1 = (15 & (v243)))) | int(2 = (15 & (v243)))) | int(13 = (15 & (v243)))), 1) }) );
       };
       dataflow_cluser {
-        v35 <- ( log2_one_hot({ int(int(int((v103) >= 1) = 0), 1), int(int((v103) >= 1), 1) }) );
-        v36 <- ( log2_one_hot({ int(int(int((v103) >= 2) = 0), 1), int(int((v103) >= 2), 1) }) );
-        v37 <- ( log2_one_hot({ int(int(int((v103) >= 3) = 0), 1), int(int((v103) >= 3), 1) }) );
+        v38 <- int((v139) >= 1);
+        v39 <- int((v139) >= 2);
+        v40 <- int((v139) >= 3);
+        v41 <- ( log2_one_hot({ int(int(int((v139) >= 1) = 0), 1), int(int((v139) >= 1), 1) }) );
+        v42 <- ( log2_one_hot({ int(int(int((v139) >= 2) = 0), 1), int(int((v139) >= 2), 1) }) );
+        v43 <- ( log2_one_hot({ int(int(int((v139) >= 3) = 0), 1), int(int((v139) >= 3), 1) }) );
       };
       dataflow_cluser {
-        v38 <- ((v104) + 1);
-        v39 <- (((v104) + 1) << 1);
+        v44 <- ((v140) - 1);
+        v45 <- (((v140) - 1) << 1);
       };
       dataflow_cluser {
-        v40 <- ((v111) + 1);
-        v41 <- (((v111) + 1) << 1);
+        v46 <- ((v147) - 1);
+        v47 <- (((v147) - 1) << 1);
       };
       dataflow_cluser {
-        v42 <- ((v118) + 1);
-        v43 <- (((v118) + 1) << 1);
+        v48 <- ((v154) - 1);
+        v49 <- (((v154) - 1) << 1);
       };
       dataflow_cluser {
-        v44 <- ( log2_one_hot({ int(int(int((v125) >= 1) = 0), 1), int(int((v125) >= 1), 1) }) );
-        v45 <- ( log2_one_hot({ int(int(int((v125) >= 2) = 0), 1), int(int((v125) >= 2), 1) }) );
-        v46 <- ( log2_one_hot({ int(int(int((v125) >= 3) = 0), 1), int(int((v125) >= 3), 1) }) );
+        v50 <- int((v161) >= 1);
+        v51 <- int((v161) >= 2);
+        v52 <- int((v161) >= 3);
+        v53 <- ( log2_one_hot({ int(int(int((v161) >= 1) = 0), 1), int(int((v161) >= 1), 1) }) );
+        v54 <- ( log2_one_hot({ int(int(int((v161) >= 2) = 0), 1), int(int((v161) >= 2), 1) }) );
+        v55 <- ( log2_one_hot({ int(int(int((v161) >= 3) = 0), 1), int(int((v161) >= 3), 1) }) );
       };
-      v47 <- ((v154) | int((int((v191), 4) << 4), 8));
-      v48 <- int(((v128) | ((v193) << 8)), 12);
-      v49 <- int((v195) = (v130));
-      v50 <- int(((v196) + (v131)), 8);
-      v51 <- int(((int((v132), 8) | 256) + int((v197), 8)), 8);
-      v52 <- int(0 = (v199));
-      v53 <- (int(0 != (v200)) | int(0 != (v133)));
-      v54 <- ( log2_one_hot({ int(int(1 = int((v135) = 0)), 1), int(int(0 = int((v135) = 0)), 1) }) );
-      v55 <- (1 + (v137));
-      v56 <- (1 + (v138));
-      v57 <- (1 + (v139));
-      v58 <- (1 + (v140));
-      v59 <- (1 + (v141));
-      v60 <- (1 + (v142));
-      v61 <- (1 + (v144));
-      v62 <- (1 + (v145));
-      v63 <- (1 + (v146));
-      v64 <- (1 + (v147));
-      v65 <- (1 + (v148));
-      v66 <- (1 + (v149));
-      v67 <- (1 + (v150));
-      v68 <- int(((v162) | ((v160) << 8)), 12);
-      v69 <- (1 + (v164));
+      v56 <- ((v190) | int((int((v227), 4) << 4), 8));
+      v57 <- int(((v164) | ((v229) << 8)), 12);
+      v58 <- int((v231) = (v166));
+      v59 <- int(((v232) + (v167)), 8);
+      v60 <- int(((int((v168), 8) | 256) - int((v233), 8)), 8);
+      v61 <- int(0 = (v235));
+      v62 <- (int(0 != (v236)) | int(0 != (v169)));
+      v63 <- ( log2_one_hot({ int(int(1 = int((v171) = 0)), 1), int(int(0 = int((v171) = 0)), 1) }) );
+      v64 <- (1 + (v173));
+      v65 <- (1 + (v174));
+      v66 <- (1 + (v175));
+      v67 <- (1 + (v176));
+      v68 <- (1 + (v177));
+      v69 <- (1 + (v178));
+      v70 <- (1 + (v180));
+      v71 <- (1 + (v181));
+      v72 <- (1 + (v182));
+      v73 <- (1 + (v183));
+      v74 <- (1 + (v184));
+      v75 <- (1 + (v185));
+      v76 <- (1 + (v186));
+      v77 <- int(((v198) | ((v196) << 8)), 12);
+      v78 <- (1 + (v200));
       dataflow_cluser {
-        v70 <- { int((v170), 12), int(1, 1) };
-        v71 <- (1 + (v170));
+        v79 <- { int((v206), 12), int(1, 1) };
+        v80 <- (1 + (v206));
       };
       dataflow_cluser {
-        v72 <- { int((v177), 12), int(1, 1) };
-        v73 <- (1 + (v177));
+        v81 <- { int((v213), 12), int(1, 1) };
+        v82 <- (1 + (v213));
       };
       dataflow_cluser {
-        v74 <- { int((v184), 12), int(1, 1) };
-        v75 <- (1 + (v184));
+        v83 <- { int((v220), 12), int(1, 1) };
+        v84 <- (1 + (v220));
       };
-      v77 <- (((v76) + 1) + (3 * int((v76) = 3)));
-      v79 <- (((v78) + 1) + (3 * int((v78) = 3)));
-      v81 <- (((v80) + 1) + (6 * int((v80) = 6)));
-      { v84 } v83 -> *, v82;
-      { v86 } v158 -> *, v85;
-      { v88 } v187 -> *, v87;
-      { v90 } v8, v82 -> v89;
-      { v92 } v6, v85 -> v91;
-      { v94 } v7, v87 -> v93;
-      { v98 } v226 -> v95, v96, v97;
-      { v100 } v217, v219, v221 -> v99;
-      { v102 } v208, v210, v212, v216, v218, v220 -> v101;
-      { v34 } v9, v10, v11, v12 -> v103;
-      { v106 } v93 -> v104, v105;
-      { v108 } v209, v0 -> v107;
-      { v110 } v38, v105 -> v109;
-      { v113 } v109 -> v111, v112;
-      { v115 } v211, v1 -> v114;
-      { v117 } v40, v112 -> v116;
-      { v120 } v116 -> v118, v119;
-      { v122 } v213, v2 -> v121;
-      { v124 } v42, v119 -> v123;
-      { v32 } v13, v14, v15, v16 -> v125;
-      { v30 } v114 -> v126, v127, v128, v129, v130, v131, v132, v133, *;
-      { v31 } v121 -> v134, v135, *;
-      { v152 } v151 -> v136, v137, v138, v139, v140, v141, v142, *, v143, v144, v145, v146, v147, v148, v149, v150;
-      { v26 } v22 -> v153, v154, *;
-      { v27 } v156, v126, v134, v4 -> v155;
-      { v33 } v127, v5 -> v157;
-      { v159 } v136, v55, v56, v57, v58, v59, v60, v48, v166, v61, v62, v63, v64, v65, v66, v67 -> v158;
-      { v161 } v194 -> *, v160;
-      { v163 } v129 -> *, v162;
-      { v165 } v143 -> v164, *;
-      { v167 } v69, v68 -> v166;
-      { v169 } v202 -> v168, *;
-      { v172 } v123 -> v170, v171;
-      { v174 } v71, v171 -> v173;
-      { v176 } v155 -> v175, *;
-      { v179 } v173 -> v177, v178;
-      { v181 } v73, v178 -> v180;
-      { v183 } v157 -> v182, *;
-      { v186 } v180 -> v184, v185;
-      { v188 } v75, v185 -> v187;
-      { v24 } v89 -> *, v189;
-      { v25 } v189, v17 -> v190;
-      { v29 } v107 -> v191, v192, v193, v194, v195, v196, v197, v198, v199, v200, v201, *;
-      { v28 } v153, v47, v203, v49, v50, v51, v215, v52, v53, v201, v3 -> v202;
-      v204 -> [1,0] v205;
-      v21 -> [1] v206;
-      v225 -> [1] v207;
-      v39 -> [1] v208;
-      v95 -> [1] v209;
-      v41 -> [1] v210;
-      v96 -> [1] v211;
-      v43 -> [1] v212;
-      v97 -> [1] v213;
-      v198 -> [1] v214;
-      v227 -> [1] v215;
-      v70 -> [1] v216;
-      v168 -> [1] v217;
-      v72 -> [1] v218;
-      v175 -> [1] v219;
-      v74 -> [1] v220;
-      v182 -> [1] v221;
-      v77 -> [1,0] v222;
-      v79 -> [1,0] v223;
-      v81 -> [1,0] v224;
-      v204 <- v19;     v88 <- v19;     v86 <- v19;     v84 <- v19;
-      v159 <- v23;     v152 <- v23;
-      v110 <- v35;     v108 <- v35;     v106 <- v35;
-      v117 <- v36;     v115 <- v36;     v113 <- v36;
-      v124 <- v37;     v122 <- v37;     v120 <- v37;
-      v174 <- v44;     v172 <- v44;     v169 <- v44;
-      v181 <- v45;     v179 <- v45;     v176 <- v45;
-      v188 <- v46;     v186 <- v46;     v183 <- v46;
-      v167 <- v54;     v165 <- v54;     v163 <- v54;     v161 <- v54;
-      v151 <- v91;     v20 <- v91;
-      v83 <- v190;     v18 <- v190;
-      v203 <- v192;     v156 <- v192;
-      v94 <- v205;     v92 <- v205;     v90 <- v205;
-      v98 <- v222;     v76 <- v222;
-      v100 <- v223;     v78 <- v223;
-      v102 <- v224;     v80 <- v224;
-    iport225 -> v225;
-    iport226 -> v226;
-    iport227 -> v227;
-    v206 -> oport206;
-    v99 -> oport99;
-    v101 -> oport101;
-    v214 -> oport214;
+      v86 <- ((int((v85) = 3) * 0) | (int((v85) != 3) * ((v85) + 1)));
+      v88 <- (int((v110) = 0) | int((v87) = 3));
+      v90 <- ((int((v89) = 3) * 0) | (int((v89) != 3) * ((v89) + 1)));
+      v92 <- (int((v120) = 0) | int((v91) = 3));
+      v94 <- ((int((v93) = 6) * 0) | (int((v93) != 6) * ((v93) + 1)));
+      v96 <- (int((v128) = 0) | int((v95) = 6));
+      { v99 } v98 -> *, v97;
+      { v101 } v194 -> *, v100;
+      { v103 } v223 -> *, v102;
+      { v105 } v8, v97 -> v104;
+      { v107 } v6, v100 -> v106;
+      { v109 } v7, v102 -> v108;
+      { v114 } v111, v112, v113, v18 -> v110;
+      { v118 } v262 -> v115, v116, v117;
+      { v88 } v119 -> v118, *;
+      { v124 } v121, v122, v123, v19 -> v120;
+      { v126 } v253, v255, v257 -> v125;
+      { v92 } v127 -> v126, *;
+      { v135 } v129, v130, v131, v132, v133, v134, v20 -> v128;
+      { v137 } v244, v246, v248, v252, v254, v256 -> v136;
+      { v96 } v138 -> v137, *;
+      { v37 } v9, v10, v11, v12 -> v139;
+      { v142 } v108 -> v140, v141;
+      { v144 } v245, v0 -> v143;
+      { v146 } v44, v141 -> v145;
+      { v149 } v145 -> v147, v148;
+      { v151 } v247, v1 -> v150;
+      { v153 } v46, v148 -> v152;
+      { v156 } v152 -> v154, v155;
+      { v158 } v249, v2 -> v157;
+      { v160 } v48, v155 -> v159;
+      { v35 } v13, v14, v15, v16 -> v161;
+      { v33 } v150 -> v162, v163, v164, v165, v166, v167, v168, v169, *;
+      { v34 } v157 -> v170, v171, *;
+      { v188 } v187 -> v172, v173, v174, v175, v176, v177, v178, *, v179, v180, v181, v182, v183, v184, v185, v186;
+      { v29 } v25 -> v189, v190, *;
+      { v30 } v192, v162, v170, v4 -> v191;
+      { v36 } v163, v5 -> v193;
+      { v195 } v172, v64, v65, v66, v67, v68, v69, v57, v202, v70, v71, v72, v73, v74, v75, v76 -> v194;
+      { v197 } v230 -> *, v196;
+      { v199 } v165 -> *, v198;
+      { v201 } v179 -> v200, *;
+      { v203 } v78, v77 -> v202;
+      { v205 } v238 -> v204, *;
+      { v208 } v159 -> v206, v207;
+      { v210 } v80, v207 -> v209;
+      { v212 } v191 -> v211, *;
+      { v215 } v209 -> v213, v214;
+      { v217 } v82, v214 -> v216;
+      { v219 } v193 -> v218, *;
+      { v222 } v216 -> v220, v221;
+      { v224 } v84, v221 -> v223;
+      { v27 } v104 -> *, v225;
+      { v28 } v225, v17 -> v226;
+      { v32 } v143 -> v227, v228, v229, v230, v231, v232, v233, v234, v235, v236, v237, *;
+      { v31 } v189, v56, v239, v58, v59, v60, v251, v61, v62, v237, v3 -> v238;
+      v240 -> [1,0] v241;
+      v24 -> [1] v242;
+      v261 -> [1] v243;
+      v45 -> [1] v244;
+      v115 -> [1] v245;
+      v47 -> [1] v246;
+      v116 -> [1] v247;
+      v49 -> [1] v248;
+      v117 -> [1] v249;
+      v234 -> [1] v250;
+      v263 -> [1] v251;
+      v79 -> [1] v252;
+      v204 -> [1] v253;
+      v81 -> [1] v254;
+      v211 -> [1] v255;
+      v83 -> [1] v256;
+      v218 -> [1] v257;
+      v86 -> [1,0] v258;
+      v90 -> [1,0] v259;
+      v94 -> [1,0] v260;
+      v240 <- v22;     v103 <- v22;     v101 <- v22;     v99 <- v22;
+      v195 <- v26;     v188 <- v26;
+      v129 <- v38;     v111 <- v38;
+      v130 <- v39;     v112 <- v39;
+      v131 <- v40;     v113 <- v40;
+      v146 <- v41;     v144 <- v41;     v142 <- v41;
+      v153 <- v42;     v151 <- v42;     v149 <- v42;
+      v160 <- v43;     v158 <- v43;     v156 <- v43;
+      v132 <- v50;     v121 <- v50;
+      v133 <- v51;     v122 <- v51;
+      v134 <- v52;     v123 <- v52;
+      v210 <- v53;     v208 <- v53;     v205 <- v53;
+      v217 <- v54;     v215 <- v54;     v212 <- v54;
+      v224 <- v55;     v222 <- v55;     v219 <- v55;
+      v203 <- v63;     v201 <- v63;     v199 <- v63;     v197 <- v63;
+      v187 <- v106;     v23 <- v106;
+      v98 <- v226;     v21 <- v226;
+      v239 <- v228;     v192 <- v228;
+      v109 <- v241;     v107 <- v241;     v105 <- v241;
+      v119 <- v258;     v114 <- v258;     v87 <- v258;     v85 <- v258;
+      v127 <- v259;     v124 <- v259;     v91 <- v259;     v89 <- v259;
+      v138 <- v260;     v135 <- v260;     v95 <- v260;     v93 <- v260;
+    iport261 -> v261;
+    iport262 -> v262;
+    iport263 -> v263;
+    v242 -> oport242;
+    v125 -> oport125;
+    v136 -> oport136;
+    v250 -> oport250;
     }
     }
 

@@ -35,10 +35,11 @@ module MM = struct
     create ~min ~max
 
   let sub_no_wrap al bl =
-    let min =
-      if CInt.(bl.max >= al.min) then CInt.zero else CInt.sub al.min bl.max
+    let sub_clamped_at_0 x y =
+      if CInt.(y >= x) then CInt.zero else CInt.sub x y
     in
-    let max = CInt.sub al.max bl.min in
+    let min = sub_clamped_at_0 al.min bl.max in
+    let max = sub_clamped_at_0 al.max bl.min in
     create ~min ~max
 
   let mul al bl =

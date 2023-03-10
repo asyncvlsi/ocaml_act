@@ -194,4 +194,8 @@ let optimize_proc proc = flatten_copies proc |> pack_var_names
 
 let of_chp (chp : Flat_chp.Proc.t) =
   assert chp.dflowable;
-  Stf.stf_of_dflowable_chp_proc chp |> Stf.optimize_proc  |> Dflow_ir.dflow_of_stf  |> Dflow_ir.optimize_proc |> of_dflow_ir |> optimize_proc
+  let stf = Stf.stf_of_dflowable_chp_proc chp |> Stf.optimize_proc in
+  (* print_s [%sexp (stf : Stf.Proc.t)]; *)
+  let dflow = stf |> Dflow_ir.dflow_of_stf in
+  (* print_s [%sexp (dflow : Dflow_ir.Proc.t)]; *)
+  dflow |> Dflow_ir.optimize_proc |> of_dflow_ir |> optimize_proc
