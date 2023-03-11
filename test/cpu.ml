@@ -526,7 +526,7 @@ let%expect_test "fibonacci - compiled dataflow" =
     (Ok ())
     (Ok ())
     (Ok ())
-    (Error "Simulation timed out. Maybe increase max_steps?") |}]
+    (Ok ()) |}]
 
 (* Printf.printf "Execution time: %fs\n" (Caml.Sys.time () -. t); [%expect {|
    |}]; *)
