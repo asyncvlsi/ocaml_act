@@ -820,9 +820,14 @@ let reset t =
 let simulate ?(seed = 0) process =
   let process = Ir.Process.unwrap process in
   let chp =
-    match process.inner with
-    | Chp chp -> chp
-    | _ -> failwith "TODO - support process types besides Chp"
+    let rec extract (proc : Ir.Process.t) =
+      match proc.inner with
+      | Chp chp -> chp
+      | Dflow_iface_on_chp chp -> (* TODO add buffers and stuff? *) chp
+      | Subprocs subprocs ->
+          Ir.Chp.Par (Code_pos.dummy_loc, List.map subprocs ~f:extract)
+    in
+    extract process
   in
   let user_sendable_ports = process.iports in
   let user_readable_ports = process.oports in

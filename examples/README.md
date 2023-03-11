@@ -260,3 +260,218 @@ let%expect_test "kmac_cjp_test_1" =
     (Ok ())
     (Ok ()) |}]
 ```
+
+## Building complex programs
+
+The above to examples illustrate how to write small parts of a program. This library provides a way to stitch together small parts of a program into a larger whole.
+
+First, a block of Chp code may be pacakged together into a process. A collection of processes may also be grouped together into a larger process. In this case, the processes
+
+A process has "input ports" and "output ports", and some chp code. The invariants on a Process are that (1) it does not share varaibles with any other process, (2) if it reads a channel, no other (non-child) process reads that channel, (3) if it writes a channel, no other (non-child) process writes that channel, (4) if it (or a child process) reads a channel but neither it nor any child process writes that channel, that channel is listed as an "input port", and (5) if it (or a child process) writes a channel but neither it nor any child process reads that channel, that channel is listed as an "output port ".
+
+If Chp code meets stronger requirements, it may be packaged as a "dataflow-able." This changes the semantics of the interface of the process. In particular, it does 3 things to the process. First, it creates buffers of unspecified length on every input and output port. Second, it promisses that every input and output port will receive an infinite stream of tokens. Third, it allows the program to have "premonitions" about which tokens it will receive, and execute accordingly. 
+
+A program is basically just a single processes with subprocesses. Its inputs and output ports are "top-level io ports", and will be available for user iteration, both in the exported code and simulation. Simulation of a program is done with `Sim.simulate top_process`, and `Sim.simulate_chp` is merely light wrapper around `Process.of_chp` followed by `Sim.simulate`.
+
+Here is an example of building some processes and process clusters.
+
+<!-- $MDX file=recursive_buffer.ml,part=recursive_buffer_example -->
+```ocaml
+let split ~dtype i1 o1 o2 =
+  let var1 = Var.create dtype in
+  let b1 = Var.create CBool.dtype ~init:false in
+  Chp.loop
+    [
+      Chp.read i1 var1;
+      Chp.if_else
+        Expr.(var b1)
+        [ Chp.send_var o1 var1 ]
+        [ Chp.send_var o2 var1 ];
+      CBool.Chp.toggle b1;
+    ]
+  |> Process.of_chp ~iports:[ i1.u ] ~oports:[ o1.u; o2.u ]
+
+let merge ~dtype i1 i2 o1 =
+  let var1 = Var.create dtype in
+  let b1 = Var.create CBool.dtype ~init:false in
+  Chp.loop
+    [
+      Chp.if_else Expr.(var b1) [ Chp.read i1 var1 ] [ Chp.read i2 var1 ];
+      Chp.send o1 Expr.(var var1);
+      CBool.Chp.toggle b1;
+    ]
+  |> Process.of_chp ~iports:[ i1.u; i2.u ] ~oports:[ o1.u ]
+
+let rec buff ~depth ~dtype i1 o1 =
+  (if depth <= 0 then failwith "depth too low"
+  else if Int.equal depth 1 then
+    let chan1 = Chan.create dtype in
+    let chan2 = Chan.create dtype in
+    [ split ~dtype i1 chan1.w chan2.w; merge ~dtype chan1.r chan2.r o1 ]
+  else
+    let chan1a = Chan.create dtype in
+    let chan1b = Chan.create dtype in
+    let chan2a = Chan.create dtype in
+    let chan2b = Chan.create dtype in
+
+    [
+      split ~dtype i1 chan1a.w chan2a.w;
+      buff ~dtype ~depth:(depth - 1) chan1a.r chan1b.w;
+      buff ~dtype ~depth:(depth - 1) chan2a.r chan2b.w;
+      merge ~dtype chan1b.r chan2b.r o1;
+    ])
+  |> Process.of_procs ~iports:[ i1.u ] ~oports:[ o1.u ]
+
+let buff ~depth ~dtype =
+  let i = Chan.create dtype in
+  let o = Chan.create dtype in
+  let top_process = buff ~depth ~dtype i.r o.w in
+  (top_process, i.w, o.r)
+
+let%expect_test "test" =
+  let process, i, o = buff ~depth:3 ~dtype:(CInt.dtype ~bits:9) in
+  let sim = Sim.simulate process in
+
+  let l =
+    [ 1; 5; 9; 33; 123; 258; 500; 7; 9; 4; 5 ] |> List.map ~f:CInt.of_int
+  in
+  List.iter l ~f:(fun v -> Sim.send sim i v);
+  Sim.wait' sim ();
+  List.iter l ~f:(fun v -> Sim.read sim o v);
+  Sim.wait' sim ();
+  [%expect {|
+    (Ok ())
+    (Ok ()) |}]
+```
+
+## Exporting chp and dataflow code
+
+Great! So now we know how to build complex programs. All that remains is exporting them into act code. This is done with the `Compiler` module. First you "compile" the program, and then you export it. You may also simulate the compiled program. While compiling is when chp is converted into dataflow. An example will demonstrate this well:
+
+
+<!-- $MDX file=colatz.ml,part=colatz_example -->
+```ocaml
+let i = Chan.create CInt.dtype_32
+let o = Chan.create CInt.dtype_32
+
+let ir =
+  let var0 = Var.create CInt.dtype_32 ~init:(CInt.of_int 123456) in
+  let counter = Var.create CInt.dtype_32 ~init:(CInt.of_int 1) in
+  Chp.loop
+    [
+      Chp.assign counter Expr.zero;
+      Chp.read i.r var0;
+      Chp.while_loop
+        CInt.E.(ne (var var0) (of_int 1))
+        [
+          CInt.Chp.assign counter
+            CInt.E.(var counter |> add (of_int 1))
+            ~overflow:Cant;
+          Chp.if_else
+            CInt.E.(mod_ (var var0) (of_int 2) |> eq (of_int 0))
+            [ Chp.assign var0 CInt.E.(div (var var0) (of_int 2)) ]
+            [
+              CInt.Chp.assign var0
+                CInt.E.(var var0 |> mul (of_int 3) |> add (of_int 1))
+                ~overflow:Cant;
+            ];
+        ];
+      Chp.send_var o.w counter;
+    ]
+
+let%expect_test "colatz - chp" =
+  let sim =
+    Compiler.compile_chp ir ~user_sendable_ports:[ i.w.u ]
+      ~user_readable_ports:[ o.r.u ] ~to_:`Chp
+    |> Compiler.sim
+  in
+  Sim.send sim i.w (CInt.of_int 4);
+  Sim.read sim o.r (CInt.of_int 2);
+  Sim.wait' sim ();
+
+  Sim.send sim i.w (CInt.of_int 12345);
+  Sim.read sim o.r (CInt.of_int 50);
+  Sim.wait' sim ();
+
+  Sim.send sim i.w (CInt.of_int 13579753);
+  Sim.read sim o.r (CInt.of_int 166);
+  Sim.wait' ~max_steps:1000000 sim ();
+
+  [%expect {|
+    (Ok ())
+    (Ok ())
+    (Ok ()) |}]
+
+let%expect_test "colatz - dataflow" =
+  let sim =
+    Compiler.compile_chp ir ~user_sendable_ports:[ i.w.u ]
+      ~user_readable_ports:[ o.r.u ] ~to_:`Dataflow
+    |> Compiler.sim
+  in
+  Sim.send sim i.w (CInt.of_int 4);
+  Sim.read sim o.r (CInt.of_int 2);
+  Sim.wait' ~max_steps:1000000 sim ();
+
+  Sim.send sim i.w (CInt.of_int 12345);
+  Sim.read sim o.r (CInt.of_int 50);
+  Sim.wait' ~max_steps:1000000 sim ();
+
+  Sim.send sim i.w (CInt.of_int 13579753);
+  Sim.read sim o.r (CInt.of_int 166);
+  Sim.wait' ~max_steps:1000000 sim ();
+
+  [%expect {|
+    (Ok ())
+    (Ok ())
+    (Ok ()) |}]
+
+let%expect_test "colatz - chp - export" =
+  Compiler.compile_chp ir ~user_sendable_ports:[ i.w.u ]
+    ~user_readable_ports:[ o.r.u ] ~to_:`Chp
+  |> Compiler.export |> printf "%s";
+  [%expect
+    {|
+    defproc proc_0(chan!(int<32>) C0; chan?(int<32>) C1) {
+
+      int<32> v0;
+      int<32> v1;
+    chp {
+    (v1 := 123456); (v0 := 1); ( *[ ( [true] ); (v0 := 0); (C0?v1); ( [true] ); ([bool(int(int((v1) != 1) = 0)) ->  [true]  [] bool(int((v1) != 1)) ->  *[ ( [true] ); (v0 := (1 + (v0))); ( [true] ); ([bool(int(0 = ((v1) % 2))) -> ( [true] ); (v1 := ((v1) / 2)) [] bool(int(int(0 = ((v1) % 2)) = 0)) -> ( [true] ); (v1 := (1 + (3 * (v1))))]); ( [true] ) <- bool(int((v1) != 1)) ] ]); ( [true] ); (C1!((v0))) <- bool(1) ] )
+    }
+    }
+
+
+    defproc main(chan?(int<32>) user_i0;chan!(int<32>) user_o0) {
+
+      chan(int<32>) c0;
+      chan(int<32>) c1;
+    proc_0 proc_0_ (c0,c1);
+    c0 = user_i0;
+    c1 = user_o0;
+    } |}]
+
+let%expect_test "colatz - dataflow - export" =
+  Compiler.compile_chp ir ~user_sendable_ports:[ i.w.u ]
+    ~user_readable_ports:[ o.r.u ] ~to_:`Chp
+  |> Compiler.export |> printf "%s";
+  [%expect
+    {|
+    defproc proc_0(chan!(int<32>) C0; chan?(int<32>) C1) {
+
+      int<32> v0;
+      int<32> v1;
+    chp {
+    (v1 := 123456); (v0 := 1); ( *[ ( [true] ); (v0 := 0); (C0?v1); ( [true] ); ([bool(int(int((v1) != 1) = 0)) ->  [true]  [] bool(int((v1) != 1)) ->  *[ ( [true] ); (v0 := (1 + (v0))); ( [true] ); ([bool(int(0 = ((v1) % 2))) -> ( [true] ); (v1 := ((v1) / 2)) [] bool(int(int(0 = ((v1) % 2)) = 0)) -> ( [true] ); (v1 := (1 + (3 * (v1))))]); ( [true] ) <- bool(int((v1) != 1)) ] ]); ( [true] ); (C1!((v0))) <- bool(1) ] )
+    }
+    }
+
+
+    defproc main(chan?(int<32>) user_i0;chan!(int<32>) user_o0) {
+
+      chan(int<32>) c0;
+      chan(int<32>) c1;
+    proc_0 proc_0_ (c0,c1);
+    c0 = user_i0;
+    c1 = user_o0;
+    } |}]
+```
