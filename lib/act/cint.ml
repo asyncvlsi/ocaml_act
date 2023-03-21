@@ -1,14 +1,7 @@
 open! Core
 include Cint0
 
-let dtype ~bits =
-  Dtype.Ir.create ~equal ~sexp_of_t
-    ~max_layout_of:(fun v -> Bits_fixed (bitwidth v))
-    ~cint_of:(fun v -> v)
-    ~of_cint:(fun v -> Some v)
-    ~of_cint_assert_expr_fn:(Expr0.Const Cint0.one) ~layout:(Bits_fixed bits)
-    ~expr_tag:Expr.Ir.cint_tag
-
+let dtype ~bits = Ir_dtype.cint_dtype ~bits |> Dtype.Internal.wrap
 let dtype_4 = dtype ~bits:4
 let dtype_8 = dtype ~bits:8
 let dtype_16 = dtype ~bits:16
@@ -93,7 +86,7 @@ let apply_overflow dtype expr ~overflow =
   match overflow with
   | Overflow_behavior.Cant -> expr
   | Mask ->
-      let bits = match Dtype.Ir.layout dtype with Bits_fixed width -> width in
+      let bits = match Ir_dtype.layout dtype with Bits_fixed width -> width in
       let mask = sub (pow two (of_int bits)) one in
       E.(bit_and expr (of_cint mask))
 
@@ -102,9 +95,11 @@ module Chp = struct
 
   let assign var expr ~overflow =
     let loc = Code_pos.psite () in
-    let var = Var.Ir.unwrap var in
-    let expr = apply_overflow var.u.d.dtype expr ~overflow |> Expr.Ir.unwrap in
-    Chp.Ir.No_width_checks.assign ~loc var expr |> Chp.Ir.wrap
+    let var = Var.Internal.unwrap var in
+    let expr =
+      apply_overflow var.u.d.dtype expr ~overflow |> Expr.Internal.unwrap
+    in
+    Ir_chp.Assign (loc, var.u, Ir_expr.untype expr) |> Chp.Internal.wrap
 
   let incr var_id ~overflow =
     let expr = E.(var var_id |> add one) in
@@ -116,27 +111,28 @@ module Chp = struct
 
   let send chan_id expr ~overflow =
     let loc = Code_pos.psite () in
-    let chan_id = Chan.Ir.unwrap_w chan_id in
+    let chan_id = Chan.Internal.unwrap_w chan_id in
     let expr =
-      apply_overflow chan_id.d.dtype expr ~overflow |> Expr.Ir.unwrap
+      apply_overflow chan_id.d.dtype expr ~overflow |> Expr.Internal.unwrap
     in
-    Chp.Ir.No_width_checks.send ~loc chan_id expr |> Chp.Ir.wrap
+    Ir_chp.Send (loc, chan_id, Ir_expr.untype expr) |> Chp.Internal.wrap
 
-  let send' chan_id var_id ~overflow = send chan_id Expr.(var var_id) ~overflow
+  let send_var chan_id var_id ~overflow =
+    send chan_id Expr.(var var_id) ~overflow
 end
 
 module Chan = struct
   let bw_le chan bw =
-    let chan = Chan.Ir.unwrap_r chan in
+    let chan = Chan.Internal.unwrap_r chan in
     let chan_bw =
-      match Dtype.Ir.layout chan.d.dtype with Bits_fixed bits -> bits
+      match Ir_dtype.layout chan.d.dtype with Bits_fixed bits -> bits
     in
     Int.(chan_bw <= bw)
 
   let bw_ge chan bw =
-    let chan = Chan.Ir.unwrap_w chan in
+    let chan = Chan.Internal.unwrap_w chan in
     let chan_bw =
-      match Dtype.Ir.layout chan.d.dtype with Bits_fixed bits -> bits
+      match Ir_dtype.layout chan.d.dtype with Bits_fixed bits -> bits
     in
     Int.(chan_bw >= bw)
 end

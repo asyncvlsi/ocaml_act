@@ -55,11 +55,11 @@ module Proc : sig
 end
 
 val of_chp :
-  Act.Internal_rep.Chp.t ->
+  Ir_chp.t ->
   new_interproc_chan:(int -> Interproc_chan.t) ->
-  interproc_chan_of_ir_chan:(Act.Internal_rep.Chan.U.t -> Interproc_chan.t) ->
+  interproc_chan_of_ir_chan:(Ir_chan.U.t -> Interproc_chan.t) ->
   dflowable:bool ->
   Proc.t
   * ((Interproc_chan.t * Interproc_chan.t option * Interproc_chan.t option)
     * (int * int))
-    Act.Mem.Ir.Map.t
+    Ir_mem.Map.t

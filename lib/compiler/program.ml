@@ -12,18 +12,17 @@ end
 
 type t = {
   processes : Process.t list;
-  top_iports : (Interproc_chan.t * Act.Internal_rep.Chan.U.t) list;
-  top_oports : (Interproc_chan.t * Act.Internal_rep.Chan.U.t) list;
+  top_iports : (Interproc_chan.t * Ir_chan.U.t) list;
+  top_oports : (Interproc_chan.t * Ir_chan.U.t) list;
 }
 [@@deriving sexp_of]
 
-let of_process (process : Act.Internal_rep.Process.t) =
-  let module Ir = Act.Internal_rep in
+let of_process (process : Ir_process.t) =
   let user_sendable_ports = Set.to_list process.iports in
   let user_readable_ports = Set.to_list process.oports in
 
   let next_interproc_chan_id = ref 0 in
-  let interproc_chan_of_ir_chan_tbl = Ir.Chan.U.Table.create () in
+  let interproc_chan_of_ir_chan_tbl = Ir_chan.U.Table.create () in
   let new_interproc_chan bitwidth =
     let id = !next_interproc_chan_id in
     let id = Interproc_chan.Id.of_int id in
@@ -34,14 +33,14 @@ let of_process (process : Act.Internal_rep.Process.t) =
     Hashtbl.find_or_add interproc_chan_of_ir_chan_tbl ir_chan
       ~default:(fun () ->
         let bitwidth =
-          match Ir.DType.layout ir_chan.d.dtype with
+          match Ir_dtype.layout ir_chan.d.dtype with
           | Bits_fixed bitwidth -> bitwidth
         in
         new_interproc_chan bitwidth)
   in
 
   let chp_procs, mem_maps =
-    let rec helper (proc : Act.Internal_rep.Process.t) =
+    let rec helper (proc : Ir_process.t) =
       match proc.inner with
       | Subprocs subprocs -> List.concat_map subprocs ~f:helper
       | Dflow_iface_on_chp chp ->
@@ -64,7 +63,7 @@ let of_process (process : Act.Internal_rep.Process.t) =
 
   let mem_procs =
     List.concat_map mem_maps ~f:Map.to_alist
-    |> Act.Internal_rep.Mem.Map.of_alist_multi |> Map.to_alist
+    |> Ir_mem.Map.of_alist_multi |> Map.to_alist
     |> List.concat_map ~f:(fun (mem, chans) ->
            let (chans, bits), ctrl_procs =
              match chans with
@@ -94,7 +93,7 @@ let of_process (process : Act.Internal_rep.Process.t) =
 
            let init =
              Array.map mem.d.init ~f:(fun init_val ->
-                 Ir.DType.cint_of_value mem.d.dtype init_val)
+                 Ir_dtype.cint_of_value mem.d.dtype init_val)
            in
            let mem_proc =
              {

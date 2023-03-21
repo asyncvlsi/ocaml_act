@@ -11,7 +11,6 @@ let of_cint i =
   else if Cint0.(equal i (of_int 0)) then Some false
   else None
 
-let expr_tag = Expr_tag.create ~cint_of_value:to_cint ~value_of_cint:of_cint
 let not_ b = not b
 let and_ a b = a && b
 let or_ a b = a || b

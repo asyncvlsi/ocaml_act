@@ -102,7 +102,8 @@ let stf_of_dflowable_chp_proc proc =
     let write_v v = write_v' v ~stf_id_of_id in
 
     let of_e' e ~stf_id_of_id ~stf_id_of_raw_read_id =
-      F_expr.map_vars e ~f:(fun v -> of_v' v ~stf_id_of_id ~stf_id_of_raw_read_id)
+      F_expr.map_vars e ~f:(fun v ->
+          of_v' v ~stf_id_of_id ~stf_id_of_raw_read_id)
     in
     let of_e e = of_e' e ~stf_id_of_id ~stf_id_of_raw_read_id in
 

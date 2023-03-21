@@ -1,97 +1,30 @@
 open! Core
 
-module Id : sig
-  include Identifiable
-
-  val create : unit -> t
-end = struct
-  include Int
-
-  let next_int = ref 0
-
-  let create () =
-    let id = !next_int in
-    incr next_int;
-    id
-end
-
-module Chan_ = struct
-  module U = struct
-    module Id = Id
-
-    module D = struct
-      type t = {
-        dtype : Any.t Dtype.Ir.t;
-        creation_code_pos : Code_pos.t;
-        (* I have not come up with a way to add which direction is passive into
-           the type system. These two fields help with error reporting *)
-        mutable wait_readable_code_pos : Code_pos.t option;
-        mutable wait_sendable_code_pos : Code_pos.t option;
-      }
-    end
-
-    module T = struct
-      type t = {
-        id : Id.t;
-        d : (D.t[@hash.ignore] [@compare.ignore] [@equal.ignore] [@sexp.opaque]);
-      }
-      [@@deriving hash, compare, equal, sexp]
-    end
-
-    include T
-    include Comparable.Make (T)
-    include Hashable.Make (T)
-
-    let create dtype creation_code_pos =
-      let id = Id.create () in
-      let dtype = Dtype.Ir.untype' dtype in
-      let d =
-        {
-          D.dtype;
-          creation_code_pos;
-          wait_readable_code_pos = None;
-          wait_sendable_code_pos = None;
-        }
-      in
-      { id; d }
-  end
-
-  type 'a t = { u : U.t } [@@deriving sexp_of]
-
-  let create ?loc (dtype : 'a Dtype.t) : 'a t =
-    { u = U.create dtype (Code_pos.value_or_psite loc) }
-end
-
 module R = struct
-  module U = Chan_.U
+  module U = Ir_chan.U
 
-  type 'a t = 'a Chan_.t = { u : U.t } [@@deriving sexp_of]
-
-  let create = Chan_.create
+  type 'a t = 'a Ir_chan.t = { u : U.t } [@@deriving sexp_of]
 end
 
 module W = struct
-  module U = Chan_.U
+  module U = Ir_chan.U
 
-  type 'a t = 'a Chan_.t = { u : U.t } [@@deriving sexp_of]
-
-  let create = Chan_.create
+  type 'a t = 'a Ir_chan.t = { u : U.t } [@@deriving sexp_of]
 end
 
 type 'a t = { r : 'a R.t; w : 'a W.t } [@@deriving sexp_of]
 
-let create ?loc (dtype : 'a Dtype.t) : 'a t =
-  let c = Chan_.create ?loc dtype in
+let create (dtype : 'a Dtype.t) : 'a t =
+  let loc = Code_pos.psite () in
+  let dtype = Dtype.Internal.unwrap dtype in
+  let c = Ir_chan.create dtype loc in
   { r = c; w = c }
 
-module Ir = struct
-  let wrap_'a (t : Chan_.U.t) : 'a t = { r = { u = t }; w = { u = t } }
-  let wrap_any (t : Chan_.U.t) : Any.t t = wrap_'a t
-
-  include Chan_
-
-  let unwrap_r t = t.u
-  let unwrap_w t = t.u
+module Internal = struct
+  let wrap_'a (t : Ir_chan.U.t) : 'a t = { r = { u = t }; w = { u = t } }
+  let wrap_any (t : Ir_chan.U.t) : Any.t t = wrap_'a t
+  let unwrap_r t = t.Ir_chan.u
+  let unwrap_w t = t.Ir_chan.u
   let unwrap_ru t = t
   let unwrap_wu t = t
   let wrap_ru t = t
@@ -102,5 +35,4 @@ module Ir = struct
   let w_of_r t = t
   let ru_of_wu t = t
   let wu_of_ru t = t
-  let max_possible_layout_of_value t = Dtype.Ir.layout t.U.d.dtype
 end

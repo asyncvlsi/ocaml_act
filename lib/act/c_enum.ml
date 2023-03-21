@@ -60,7 +60,7 @@ end) : S with type t := X.t = struct
     |> List.max_elt ~compare:Int.compare
     |> Option.value_exn
 
-  let expr_tag = Expr_tag.create ~cint_of_value:to_int ~value_of_cint:of_int
+  let expr_tag = Ir_expr_tag.create ~cint_of_value:to_int ~value_of_cint:of_int
 
   let ok_cint_intervals =
     let l =
@@ -84,24 +84,25 @@ end) : S with type t := X.t = struct
   let of_cint_assert_expr_fn =
     List.map ok_cint_intervals ~f:(fun (v, n) ->
         match n with
-        | 1 -> Expr0.(Eq (Const v, Var ()))
+        | 1 -> Ir_expr0.(Eq (Const v, Var ()))
         | _ ->
             if Cint0.equal v (Cint0.of_int 0) then
-              Expr0.(Lt (Var (), Const Cint0.(add v (of_int n))))
+              Ir_expr0.(Lt (Var (), Const Cint0.(add v (of_int n))))
             else
-              Expr0.(
+              Ir_expr0.(
                 BitAnd
                   ( Le (Const v, Var ()),
                     Lt (Var (), Const Cint0.(add v (of_int n))) )))
-    |> List.reduce ~f:(fun a b -> Expr0.(BitOr (a, b)))
+    |> List.reduce ~f:(fun a b -> Ir_expr0.(BitOr (a, b)))
     |> Option.value_exn
 
   let dtype =
-    Dtype.Ir.create ~equal ~sexp_of_t:X.sexp_of_t
+    Ir_dtype.create ~equal ~sexp_of_t:X.sexp_of_t
       ~max_layout_of:(fun t -> Bits_fixed (bitwidth t))
       ~cint_of:(fun t -> to_int t)
       ~of_cint:of_int ~layout:(Bits_fixed max_bitwidth) ~of_cint_assert_expr_fn
       ~expr_tag
+    |> Dtype.Internal.wrap
 
   module E = struct
     type t = X.t Expr.t
@@ -126,16 +127,20 @@ end) : S with type t := X.t = struct
       let i =
         Expr.with_assert_log ~assert_e ~val_e:i ~log_e:i (fun i ->
             [%string "of_int for invalid enum value %{i#Cint0}"])
-        |> Expr.Ir.unwrap
+        |> Expr.Internal.unwrap
       in
-      Expr.Ir.wrap
-        { Expr.Ir.k = i.k; tag; max_bits = Int.min max_bitwidth i.max_bits }
+      Expr.Internal.wrap
+        { Ir_expr.k = i.k; tag; max_bits = Int.min max_bitwidth i.max_bits }
 
     let expr_to_int_expr t =
-      let t = Expr.Ir.unwrap t in
-      assert (Expr_tag.equal t.tag tag);
-      Expr.Ir.wrap
-        { Expr.Ir.k = t.k; tag = Expr.Ir.cint_tag; max_bits = t.max_bits }
+      let t = Expr.Internal.unwrap t in
+      assert (Ir_expr_tag.equal t.tag tag);
+      Expr.Internal.wrap
+        {
+          Ir_expr.k = t.k;
+          tag = Ir_expr_tag.cint_expr_tag;
+          max_bits = t.max_bits;
+        }
 
     let const c = to_int c |> Expr.of_cint |> expr_of_int_expr
     let eq a b = Expr.eq (expr_to_int_expr a) (expr_to_int_expr b)

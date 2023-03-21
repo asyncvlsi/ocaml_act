@@ -1,6 +1,5 @@
 open! Core
 open! Act
-module Ir = Internal_rep
 
 module With_origin = struct
   type 'a t = { value : 'a; origin : Code_pos.t } [@@deriving sexp_of, fields]
@@ -9,20 +8,20 @@ module With_origin = struct
 end
 
 module Var_id_src = struct
-  type t = Var of Ir.Var.U.t | Mem_idx_reg | Read_deq_reg | Send_enq_reg
+  type t = Var of Ir_var.U.t | Mem_idx_reg | Read_deq_reg | Send_enq_reg
   [@@deriving sexp_of]
 end
 
 module Var_buff_info = struct
-  type t = { src : Var_id_src.t; dtype : Any.t Ir.DType.t } [@@deriving sexp_of]
+  type t = { src : Var_id_src.t; dtype : Any.t Ir_dtype.t } [@@deriving sexp_of]
 end
 
 module Chan_buff_info = struct
-  type t = { src : (Ir.Chan.U.t[@sexp.opaque]) } [@@deriving sexp_of]
+  type t = { src : (Ir_chan.U.t[@sexp.opaque]) } [@@deriving sexp_of]
 end
 
 module Mem_buff_info = struct
-  type t = { src : (Ir.Mem.t[@sexp.opaque]) } [@@deriving sexp_of]
+  type t = { src : (Ir_mem.t[@sexp.opaque]) } [@@deriving sexp_of]
 end
 
 module Enqueuer_info = struct
@@ -55,8 +54,8 @@ type t = {
   dequeuer_table_info : Dequeuer_info.t array;
   expr_assert_error_decoders : (CInt.t -> CInt.t -> string) array;
   (* io helpers *)
-  all_enqueuers : (Inner.Instr_idx.t * Inner.Enqueuer_idx.t) Ir.Chan.U.Map.t;
-  all_dequeuers : (Inner.Instr_idx.t * Inner.Dequeuer_idx.t) Ir.Chan.U.Map.t;
+  all_enqueuers : (Inner.Instr_idx.t * Inner.Enqueuer_idx.t) Ir_chan.U.Map.t;
+  all_dequeuers : (Inner.Instr_idx.t * Inner.Dequeuer_idx.t) Ir_chan.U.Map.t;
   (* per-wait state *)
   queued_user_ops : Queued_user_op.t Queue.t;
 }
@@ -103,7 +102,7 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
         match t.var_table_info.(var_id).src with
         | Var var ->
             (* str_l var.d.creation_code_pos *)
-            Ir.Var.U.Id.to_string var.id
+            Ir_var.U.Id.to_string var.id
         | Mem_idx_reg | Read_deq_reg | Send_enq_reg -> failwith "unreachable"
       in
       Error
@@ -161,14 +160,14 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
       let chan_idx = t.dequeuer_table_info.(deq_idx).chan in
       let chan_dtype = t.chan_table_info.(chan_idx).src.d.dtype in
       let actual =
-        Ir.DType.value_of_cint_exn chan_dtype actual
-        |> Ir.DType.sexp_of_t_ chan_dtype
+        Ir_dtype.value_of_cint_exn chan_dtype actual
+        |> Ir_dtype.sexp_of_t_ chan_dtype
       in
       let expected = (Map.find_exn to_read deq_idx).(expected_idx) in
       let expected =
         With_origin.map expected ~f:(fun expected ->
-            Ir.DType.value_of_cint_exn chan_dtype expected
-            |> Ir.DType.sexp_of_t_ chan_dtype)
+            Ir_dtype.value_of_cint_exn chan_dtype expected
+            |> Ir_dtype.sexp_of_t_ chan_dtype)
       in
       let chan_decl = t.chan_table_info.(chan_idx).src.d.creation_code_pos in
       Error
@@ -183,63 +182,63 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
            mem is %{len#Int}."]
   | Assigned_value_doesnt_fit_in_var (assign_instr, var_id, value) ->
       let var_dtype = t.var_table_info.(var_id).dtype in
-      let var_layout = Ir.DType.layout var_dtype in
+      let var_layout = Ir_dtype.layout var_dtype in
       let value =
-        Ir.DType.value_of_cint_exn var_dtype value
-        |> Ir.DType.sexp_of_t_ var_dtype
+        Ir_dtype.value_of_cint_exn var_dtype value
+        |> Ir_dtype.sexp_of_t_ var_dtype
       in
       Error
         [%string
           "Assigned value doesnt fit in var: got %{value#Sexp} but variable \
-           has layout %{Ir.Layout.sexp_of_t var_layout#Sexp} at %{str_i \
+           has layout %{Ir_layout.sexp_of_t var_layout#Sexp} at %{str_i \
            assign_instr}."]
   | Read_chan_value_doesnt_fit_in_var (read_instr, read_dst_var_id, value) ->
       let var_dtype = t.var_table_info.(read_dst_var_id).dtype in
-      let var_layout = Ir.DType.layout var_dtype in
+      let var_layout = Ir_dtype.layout var_dtype in
       let value =
-        Ir.DType.value_of_cint_exn var_dtype value
-        |> Ir.DType.sexp_of_t_ var_dtype
+        Ir_dtype.value_of_cint_exn var_dtype value
+        |> Ir_dtype.sexp_of_t_ var_dtype
       in
       Error
         [%string
           "Read value doesnt fit in var: got %{value#Sexp} but variable has \
-           layout %{Ir.Layout.sexp_of_t var_layout#Sexp} at %{str_i \
+           layout %{Ir_layout.sexp_of_t var_layout#Sexp} at %{str_i \
            read_instr}."]
   | Read_mem_value_doesnt_fit_in_var (read_instr, dst_id, value) ->
       let var_dtype = t.var_table_info.(dst_id).dtype in
-      let var_layout = Ir.DType.layout var_dtype in
+      let var_layout = Ir_dtype.layout var_dtype in
       let value =
-        Ir.DType.value_of_cint_exn var_dtype value
-        |> Ir.DType.sexp_of_t_ var_dtype
+        Ir_dtype.value_of_cint_exn var_dtype value
+        |> Ir_dtype.sexp_of_t_ var_dtype
       in
       Error
         [%string
           "Read value doesnt fit in var: got %{value#Sexp} but variable has \
-           layout %{Ir.Layout.sexp_of_t var_layout#Sexp} at %{str_i \
+           layout %{Ir_layout.sexp_of_t var_layout#Sexp} at %{str_i \
            read_instr}."]
   | Sent_value_doesnt_fit_in_chan (send_instr, chan_idx, value) ->
       let chan = t.chan_table_info.(chan_idx).src in
-      let chan_layout = Ir.DType.layout chan.d.dtype in
+      let chan_layout = Ir_dtype.layout chan.d.dtype in
       let value =
-        Ir.DType.value_of_cint_exn chan.d.dtype value
-        |> Ir.DType.sexp_of_t_ chan.d.dtype
+        Ir_dtype.value_of_cint_exn chan.d.dtype value
+        |> Ir_dtype.sexp_of_t_ chan.d.dtype
       in
       Error
         [%string
           "Sent value doesnt fit in chan: got %{value#Sexp} but channel has \
-           layout %{Ir.Layout.sexp_of_t chan_layout#Sexp} at %{str_i \
+           layout %{Ir_layout.sexp_of_t chan_layout#Sexp} at %{str_i \
            send_instr}."]
   | Written_mem_value_doesnt_fit_in_cell (write_instr, mem_idx, value) ->
       let mem = t.mem_table_info.(mem_idx).src in
-      let mem_cell_layout = Ir.DType.layout mem.d.dtype in
+      let mem_cell_layout = Ir_dtype.layout mem.d.dtype in
       let value =
-        Ir.DType.value_of_cint_exn mem.d.dtype value
-        |> Ir.DType.sexp_of_t_ mem.d.dtype
+        Ir_dtype.value_of_cint_exn mem.d.dtype value
+        |> Ir_dtype.sexp_of_t_ mem.d.dtype
       in
       Error
         [%string
           "Written value doesnt fit in memory cell: got %{value#Sexp} but \
-           memory cell has layout %{Ir.Layout.sexp_of_t mem_cell_layout#Sexp} \
+           memory cell has layout %{Ir_layout.sexp_of_t mem_cell_layout#Sexp} \
            at %{str_i write_instr}."]
   | Eval_expr_failed (expr_kind, expr_err_id, cint0, cint1, pc) ->
       let expr_kind =
@@ -363,14 +362,14 @@ end
 module Var_id_pool = struct
   type t = {
     mutable next_id : int;
-    id_of_var : Inner.Var_id.t Ir.Var.U.Table.t;
-    src_of_id : (Any.t Ir.DType.t option * Var_id_src.t) Inner.Var_id.Table.t;
+    id_of_var : Inner.Var_id.t Ir_var.U.Table.t;
+    src_of_id : (Any.t Ir_dtype.t option * Var_id_src.t) Inner.Var_id.Table.t;
   }
 
   let create () =
     {
       next_id = 0;
-      id_of_var = Ir.Var.U.Table.create ();
+      id_of_var = Ir_var.U.Table.create ();
       src_of_id = Inner.Var_id.Table.create ();
     }
 
@@ -388,10 +387,10 @@ end
 module Chan_id_pool = struct
   type t = {
     mutable next_id : int;
-    id_of_chan : Inner.Chan_id.t Ir.Chan.U.Table.t;
+    id_of_chan : Inner.Chan_id.t Ir_chan.U.Table.t;
   }
 
-  let create () = { next_id = 0; id_of_chan = Ir.Chan.U.Table.create () }
+  let create () = { next_id = 0; id_of_chan = Ir_chan.U.Table.create () }
 
   let new_id t =
     t.next_id <- t.next_id + 1;
@@ -404,10 +403,10 @@ end
 module Mem_id_pool = struct
   type t = {
     mutable next_id : int;
-    id_of_mem : (Inner.Var_id.t * Inner.Mem_id.t) Ir.Mem.Table.t;
+    id_of_mem : (Inner.Var_id.t * Inner.Mem_id.t) Ir_mem.Table.t;
   }
 
-  let create () = { next_id = 0; id_of_mem = Ir.Mem.Table.create () }
+  let create () = { next_id = 0; id_of_mem = Ir_mem.Table.create () }
 
   let new_id t =
     t.next_id <- t.next_id + 1;
@@ -437,7 +436,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
 
   let var_id_pool = Var_id_pool.create () in
   let convert_id id = Var_id_pool.to_assem_id var_id_pool id in
-  (* Turns an Ir.Expr into a Inner.Expr. Inner.Expr is a flat array. This code
+  (* Turns an Ir_expr into a Inner.Expr. Inner.Expr is a flat array. This code
      dedupicates repeated nodes. *)
   let convert_expr expr =
     let ns = Vec.create ~cap:10 ~default:(Inner.Expr.N.Const CInt.zero) in
@@ -466,7 +465,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     in
     let rec convert x =
       match x with
-      | Ir.Expr.K.Var var_id -> push (Var (convert_id var_id))
+      | Ir_expr.K.Var var_id -> push (Var (convert_id var_id))
       | Const c -> push (Const c)
       | Add (a, b) -> push (Add (convert a, convert b))
       | Sub_no_wrap (a, b) ->
@@ -511,7 +510,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
           push_assert assert_expr err_id log_input c0;
           convert val_expr
     in
-    let e = convert (Ir.Expr.untype expr).k in
+    let e = convert (Ir_expr.untype expr).k in
     push' (Return e);
     { Inner.Expr.ns = Vec.to_array ns; asserts = Vec.to_array asserts }
   in
@@ -567,7 +566,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
       merge
     in
     match stmt with
-    | Ir.Chp.Assign (loc, id, expr) ->
+    | Ir_chp.Assign (loc, id, expr) ->
         push_instr loc (Assign (convert_id id, convert_expr expr))
     | Nop -> push_instr Code_pos.dummy_loc Nop
     | Log (loc, str) -> push_instr loc (Log0 str)
@@ -576,7 +575,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
           (Log1
              ( convert_expr expr,
                fun i ->
-                 Ir.Expr.Tag.value_of_cint expr.tag i |> Option.value_exn |> f
+                 Ir_expr.Tag.value_of_cint expr.tag i |> Option.value_exn |> f
              ))
     | Assert (loc, expr) -> push_instr loc (Assert (convert_expr expr))
     | Seq (loc, stmts) -> (
@@ -631,7 +630,9 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     | DoWhile (loc, seq, expr) ->
         let top = push_instr loc Nop in
         convert' seq;
-        let not_expr = Ir.Expr.wrap expr |> CBool.E.not_ |> Ir.Expr.unwrap in
+        let not_expr =
+          Expr.Internal.wrap expr |> CBool.E.not_ |> Expr.Internal.unwrap
+        in
         push_instr loc (JumpIfFalse (convert_expr not_expr, top))
     | ReadUGMem (loc, mem, idx, dst) ->
         let mem_idx_reg, mem_id = get_mem mem in
@@ -687,7 +688,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
            ((chan, (read_instr, dequeuer_idx)), (var_id, chan_idx)))
     |> List.unzip
   in
-  let all_dequeuers = Ir.Chan.U.Map.of_alist_exn all_dequeuers in
+  let all_dequeuers = Ir_chan.U.Map.of_alist_exn all_dequeuers in
   let dequeuers, dequeuer_table_info =
     List.map dequeuer_table ~f:(fun (var_id, chan) ->
         ({ Inner.Dequeuer_spec.var_id }, { Dequeuer_info.chan }))
@@ -713,7 +714,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
            ((chan, (send_instr, enqueuer_idx)), (var_id, chan_idx)))
     |> List.unzip
   in
-  let all_enqueuers = Ir.Chan.U.Map.of_alist_exn all_enqueuers in
+  let all_enqueuers = Ir_chan.U.Map.of_alist_exn all_enqueuers in
   let enqueuers, enqueuer_table_info =
     List.map enqueuer_table ~f:(fun (var_id, chan) ->
         ({ Inner.Enqueuer_spec.var_id }, { Enqueuer_info.chan }))
@@ -737,17 +738,17 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     List.map var_srcs ~f:(fun (_, (dtype, src)) ->
         let bitwidth =
           Option.map dtype ~f:(fun dtype ->
-              match Ir.DType.layout dtype with Bits_fixed bitwidth -> bitwidth)
+              match Ir_dtype.layout dtype with Bits_fixed bitwidth -> bitwidth)
           |> Option.value ~default:0
         in
-        let dtype = Option.value dtype ~default:Ir.DType.dummy_val in
+        let dtype = Option.value dtype ~default:Ir_dtype.dummy_val in
         let init =
           match src with
           | Var_id_src.Mem_idx_reg | Read_deq_reg | Send_enq_reg -> None
           | Var var ->
-              var.Ir.Var.U.d.init
+              var.Ir_var.U.d.init
               |> Option.map ~f:(fun init ->
-                     Ir.DType.cint_of_value var.d.dtype init)
+                     Ir_dtype.cint_of_value var.d.dtype init)
         in
         let spec = { Inner.Var_spec.bitwidth; init } in
         let info = { Var_buff_info.src; dtype } in
@@ -764,7 +765,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     List.iteri tbl ~f:(fun i (chan_id, _) -> assert (Int.equal i chan_id));
     List.map tbl ~f:(fun (_, chan) ->
         let bitwidth =
-          match Ir.DType.layout chan.d.dtype with
+          match Ir_dtype.layout chan.d.dtype with
           | Bits_fixed bitwidth -> bitwidth
         in
         let spec = { Inner.Chan_spec.bitwidth } in
@@ -782,10 +783,10 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     List.map tbl ~f:(fun (_, (idx_helper_reg, mem)) ->
         let init =
           Array.map mem.d.init ~f:(fun v ->
-              Ir.DType.cint_of_value mem.d.dtype v)
+              Ir_dtype.cint_of_value mem.d.dtype v)
         in
         let cell_bitwidth =
-          match Ir.DType.layout mem.d.dtype with
+          match Ir_dtype.layout mem.d.dtype with
           | Bits_fixed bitwidth -> bitwidth
         in
         let spec = { Inner.Mem_spec.cell_bitwidth; idx_helper_reg; init } in
@@ -818,14 +819,14 @@ let reset t =
   Queue.clear t.queued_user_ops
 
 let simulate ?(seed = 0) process =
-  let process = Ir.Process.unwrap process in
+  let process = Process.Internal.unwrap process in
   let chp =
-    let rec extract (proc : Ir.Process.t) =
+    let rec extract (proc : Ir_process.t) =
       match proc.inner with
       | Chp chp -> chp
       | Dflow_iface_on_chp chp -> (* TODO add buffers and stuff? *) chp
       | Subprocs subprocs ->
-          Ir.Chp.Par (Code_pos.dummy_loc, List.map subprocs ~f:extract)
+          Ir_chp.Par (Code_pos.dummy_loc, List.map subprocs ~f:extract)
     in
     extract process
   in
@@ -837,30 +838,30 @@ let simulate ?(seed = 0) process =
   t
 
 let simulate_chp ?(seed = 0) chp ~user_sendable_ports ~user_readable_ports =
-  let iports = user_sendable_ports |> List.map ~f:Chan.Ir.ru_of_wu in
-  let oports = user_readable_ports |> List.map ~f:Chan.Ir.wu_of_ru in
+  let iports = user_sendable_ports |> List.map ~f:Chan.Internal.ru_of_wu in
+  let oports = user_readable_ports |> List.map ~f:Chan.Internal.wu_of_ru in
   let process = Process.of_chp chp ~iports ~oports in
   simulate ~seed process
 
 let queue_user_io_op t call_site chan value chan_instr queuer =
   let value = Any.of_magic value in
-  let ivalue = Ir.DType.cint_of_value chan.Ir.Chan.U.d.dtype value in
+  let ivalue = Ir_dtype.cint_of_value chan.Ir_chan.U.d.dtype value in
   let chan_bitwidth =
-    match Ir.DType.layout chan.d.dtype with Bits_fixed bitwidth -> bitwidth
+    match Ir_dtype.layout chan.d.dtype with Bits_fixed bitwidth -> bitwidth
   in
   if chan_bitwidth >= CInt.bitwidth ivalue then
     Queue.enqueue t.queued_user_ops
       { Queued_user_op.queuer; chan_instr; value = ivalue; call_site }
   else
-    let value = Ir.DType.sexp_of_t_ chan.d.dtype value in
-    let layout = Ir.DType.layout chan.d.dtype |> Ir.Layout.sexp_of_t in
+    let value = Ir_dtype.sexp_of_t_ chan.d.dtype value in
+    let layout = Ir_dtype.layout chan.d.dtype |> Ir_layout.sexp_of_t in
     failwith
       [%string
         "Value doesnt fit in chan: got value %{value#Sexp} but channel has \
          layout %{layout#Sexp}."]
 
 let send t ?loc chan value =
-  let chan = Ir.Chan.unwrap_w chan in
+  let chan = Chan.Internal.unwrap_w chan in
   let call_site = Code_pos.value_or_psite loc in
   match Map.find t.all_enqueuers chan with
   | None ->
@@ -871,7 +872,7 @@ let send t ?loc chan value =
       queue_user_io_op t call_site chan value send_instr (`Send enqueuer)
 
 let read t ?loc chan value =
-  let chan = Ir.Chan.unwrap_r chan in
+  let chan = Chan.Internal.unwrap_r chan in
   let call_site = Code_pos.value_or_psite loc in
   match Map.find t.all_dequeuers chan with
   | None ->

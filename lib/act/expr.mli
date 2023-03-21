@@ -55,26 +55,7 @@ val five : Cint0.t t
 val true_ : Cbool0.t t
 val false_ : Cbool0.t t
 
-module Ir : sig
-  module Tag = Expr_tag
-
-  val cbool_tag : Cbool0.t Expr_tag.t
-  val cint_tag : Cint0.t Expr_tag.t
-
-  module K = Expr0
-
-  type 'a outer = 'a t
-
-  type 'a t = { k : Var.Ir.U.t K.t; tag : 'a Tag.t; max_bits : int }
-  [@@deriving sexp_of]
-
-  module U : sig
-    type nonrec t = Any.t t [@@deriving sexp_of]
-  end
-
-  val max_layout : 'a t -> Layout.t
-  val unwrap : 'a outer -> 'a t
-  val wrap : 'a t -> 'a outer
-  val untype : 'a t -> U.t
-  val untype' : 'a outer -> U.t
+module Internal : sig
+  val unwrap : 'a t -> 'a Ir_expr.t
+  val wrap : 'a Ir_expr.t -> 'a t
 end

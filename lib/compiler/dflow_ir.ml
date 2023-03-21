@@ -834,7 +834,8 @@ let dflow_of_stf proc =
           | Some rui -> (rui.alias, [])
           | None ->
               let tmp = new_chan chan.bitwidth in
-              (tmp, [ MultiAssign (FBlock.create1 tmp (F_expr.Const CInt.zero)) ])
+              ( tmp,
+                [ MultiAssign (FBlock.create1 tmp (F_expr.Const CInt.zero)) ] )
         in
         ((interproc, alias), dflows))
     |> List.unzip
@@ -1049,8 +1050,8 @@ let cluster_same_reads { Proc.stmt = dflows; iports; oports } =
    F_expr.var_ids) |> List.filter_map ~f:(Map.find id_of_output) |>
    Int.Set.of_list) in *) let read_ct_of_cluster = List.map dflows ~f:(fun (_,
    dflow) -> (match dflow with | MultiAssign assigns -> List.concat_map assigns
-   ~f:(fun (_, e) -> F_expr.var_ids e) | Split (g, v, os) -> (v :: Guard.ids g) @
-   List.filter_opt os | Merge (g, ins, v) -> (v :: Guard.ids g) @ ins | Buff1
+   ~f:(fun (_, e) -> F_expr.var_ids e) | Split (g, v, os) -> (v :: Guard.ids g)
+   @ List.filter_opt os | Merge (g, ins, v) -> (v :: Guard.ids g) @ ins | Buff1
    (dst, src, _) -> [ dst; src ]) |> List.filter_map ~f:(Map.find
    cluster_of_output) |> Int.Set.of_list) |> List.concat_map ~f:Set.to_list |>
    List.map ~f:(fun v -> (v, ())) |> Int.Map.of_alist_multi |> Map.map
