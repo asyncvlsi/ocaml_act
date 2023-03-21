@@ -60,7 +60,7 @@ let sim ?seed (t : Compiled_program.t) =
   let expr_k_of_expr e ~of_v ~bits_of_var =
     let rec f e =
       match e with
-      | Expr.Var v -> Act_ir.Expr.K.Var (of_v v)
+      | F_expr.Var v -> Act_ir.Expr.K.Var (of_v v)
       | Const c -> Const c
       | Add (a, b) -> Add (f a, f b)
       | Sub_no_wrap (a, b) -> Sub_no_wrap (f a, f b)
@@ -87,7 +87,7 @@ let sim ?seed (t : Compiled_program.t) =
                   (Clip (f e, bits), Const (Act.CInt.of_int acc)) ))
           |> List.reduce_exn ~f:(fun a b -> BitOr (a, b))
       | Log2OneHot e ->
-          let w = Expr.bitwidth e ~bits_of_var in
+          let w = F_expr.bitwidth e ~bits_of_var in
           let e = f e in
           List.init w ~f:(fun idx ->
               Act_ir.Expr.K.(

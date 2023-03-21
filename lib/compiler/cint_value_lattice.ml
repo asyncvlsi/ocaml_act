@@ -453,7 +453,7 @@ let eval_rewrite_expr e ~of_var =
   let rec f e =
     let lat, e =
       match e with
-      | Expr.Var v -> (of_var v, Expr.Var v)
+      | F_expr.Var v -> (of_var v, F_expr.Var v)
       | Const c -> (create_const c, Const c)
       | Add (a, b) ->
           let (al, a), (bl, b) = (f a, f b) in

@@ -282,8 +282,8 @@ module Rui = struct
       | guards ->
           let v = new_chan 1 in
           let expr =
-            List.map guards ~f:(fun v -> Expr.Var v)
-            |> List.reduce_exn ~f:(fun a b -> Expr.BitOr (a, b))
+            List.map guards ~f:(fun v -> F_expr.Var v)
+            |> List.reduce_exn ~f:(fun a b -> F_expr.BitOr (a, b))
           in
           let ctrl_proc = MultiAssign (FBlock.create1 v expr) in
           (v, [ ctrl_proc ])
@@ -351,7 +351,7 @@ module Rui = struct
 
   let synth_opt_guarded_op_seq guarded_aliases ~new_chan ~dir =
     let ct = List.length guarded_aliases in
-    let ct_const = Expr.Const (CInt.of_int ct) in
+    let ct_const = F_expr.Const (CInt.of_int ct) in
     let n_width = Int.ceil_log2 (ct + 1) in
 
     let a_chan = new_chan (List.hd_exn guarded_aliases |> snd).Var.bitwidth in
@@ -368,7 +368,7 @@ module Rui = struct
             | Some g_chan -> ([], g_chan)
             | None ->
                 let gi = new_chan 1 in
-                ([ assign gi Expr.(Const CInt.one) ], gi))
+                ([ assign gi F_expr.(Const CInt.one) ], gi))
         |> List.unzip
       in
       let gL = new_chan 1 in
@@ -397,7 +397,7 @@ module Rui = struct
             in
             Split (Idx n1, a_chan, ais)
       in
-      let sg_expr = Expr.(BitOr (Eq0 (Var g), Eq (Var n, ct_const))) in
+      let sg_expr = F_expr.(BitOr (Eq0 (Var g), Eq (Var n, ct_const))) in
       [ MultiAssign (FBlock.create1 sg sg_expr); op_proc ]
       @ split_bool_guard sg n (Some n1, None)
     in
@@ -406,8 +406,8 @@ module Rui = struct
     let dflow3 =
       let n1 = new_chan n_width in
       let sg = new_chan 1 in
-      let sg_expr = Expr.(BitOr (Var g, Eq (Var n, ct_const))) in
-      let b_expr = Expr.(Ne (Var n1, ct_const)) in
+      let sg_expr = F_expr.(BitOr (Var g, Eq (Var n, ct_const))) in
+      let b_expr = F_expr.(Ne (Var n1, ct_const)) in
       [
         MultiAssign (FBlock.create1 sg sg_expr);
         MultiAssign (FBlock.create1 b_chan b_expr);
@@ -419,7 +419,7 @@ module Rui = struct
     let n' = new_chan n_width in
     let dflow4 =
       let n_expr =
-        Expr.(
+        F_expr.(
           BitOr
             ( Mul (Eq (Var n, ct_const), Const CInt.zero),
               Mul (Ne (Var n, ct_const), Add (Var n, Const CInt.one)) ))
@@ -446,7 +446,7 @@ module Rui = struct
     (* [ ~ (s | v) -> skip [] (s | v) -> b!v ] *)
     let dflow2 =
       let g = new_chan 1 in
-      assign g (Expr.BitOr (Var s, Var v))
+      assign g (F_expr.BitOr (Var s, Var v))
       :: split_bool_guard g v (None, Some b_chan)
     in
 
@@ -464,7 +464,7 @@ module Rui = struct
       in
       [
         split_bool_guard v s (Some s0, Some s1);
-        [ assign s0' (Expr.BitXor (Var s0, Const CInt.one)) ];
+        [ assign s0' (F_expr.BitXor (Var s0, Const CInt.one)) ];
         merge_bool_guard v (s0', s1) s';
         op_procs;
       ]
@@ -492,7 +492,7 @@ module Rui = struct
       let g1 = new_chan g_width in
       let c = new_chan g_width in
       let c_expr =
-        Expr.Concat (List.map guards ~f:(fun e -> (Expr.Var e, 1)))
+        F_expr.Concat (List.map guards ~f:(fun e -> (F_expr.Var e, 1)))
       in
       [
         split_bool_guard v g (None, Some g1);
@@ -665,9 +665,9 @@ let dflow_of_stf proc =
     Hashtbl.find_or_add id_of_var v ~default:(fun () -> new_chan v.bitwidth)
   in
 
-  let of_e e = Expr.map_vars e ~f:(fun v -> of_v v) in
-  let of_e' (e : Stf.Var.t Expr.t) =
-    let bitwidth = Expr.bitwidth e ~bits_of_var:(fun v -> v.bitwidth) in
+  let of_e e = F_expr.map_vars e ~f:(fun v -> of_v v) in
+  let of_e' (e : Stf.Var.t F_expr.t) =
+    let bitwidth = F_expr.bitwidth e ~bits_of_var:(fun v -> v.bitwidth) in
     let v = new_chan bitwidth in
     (MultiAssign (FBlock.create1 v (of_e e)), v)
   in
@@ -834,7 +834,7 @@ let dflow_of_stf proc =
           | Some rui -> (rui.alias, [])
           | None ->
               let tmp = new_chan chan.bitwidth in
-              (tmp, [ MultiAssign (FBlock.create1 tmp (Expr.Const CInt.zero)) ])
+              (tmp, [ MultiAssign (FBlock.create1 tmp (F_expr.Const CInt.zero)) ])
         in
         ((interproc, alias), dflows))
     |> List.unzip
@@ -1046,10 +1046,10 @@ let cluster_same_reads { Proc.stmt = dflows; iports; oports } =
    Set.to_list |> List.map ~f:(fun dflow_id -> (dflow_id, cluster_id))) |>
    Var.Map.of_alist_exn in (* let read_cluster_of_id = Map.map multi_assigns
    ~f:(fun multi_assign -> List.concat_map multi_assign ~f:(fun (_, e) ->
-   Expr.var_ids) |> List.filter_map ~f:(Map.find id_of_output) |>
+   F_expr.var_ids) |> List.filter_map ~f:(Map.find id_of_output) |>
    Int.Set.of_list) in *) let read_ct_of_cluster = List.map dflows ~f:(fun (_,
    dflow) -> (match dflow with | MultiAssign assigns -> List.concat_map assigns
-   ~f:(fun (_, e) -> Expr.var_ids e) | Split (g, v, os) -> (v :: Guard.ids g) @
+   ~f:(fun (_, e) -> F_expr.var_ids e) | Split (g, v, os) -> (v :: Guard.ids g) @
    List.filter_opt os | Merge (g, ins, v) -> (v :: Guard.ids g) @ ins | Buff1
    (dst, src, _) -> [ dst; src ]) |> List.filter_map ~f:(Map.find
    cluster_of_output) |> Int.Set.of_list) |> List.concat_map ~f:Set.to_list |>
@@ -1058,7 +1058,7 @@ let cluster_same_reads { Proc.stmt = dflows; iports; oports } =
 
    let fuses = List.concat_map multi_assigns ~f:(fun (id_i, _) ->
    List.filter_map multi_assigns ~f:(fun (id_o, multi_assign) -> let
-   reads_of_id_o = List.concat_map multi_assign ~f:(fun (_, e) -> Expr.var_ids
+   reads_of_id_o = List.concat_map multi_assign ~f:(fun (_, e) -> F_expr.var_ids
    e) |> List.filter_map ~f:(Map.find cluster_of_output) |> Int.Set.of_list in
    let o_only_reader_of_i = Int.equal 1 (Map.find read_ct_of_cluster id_i |>
    Option.value ~default:0) && Set.mem reads_of_id_o id_i in let
@@ -1184,13 +1184,13 @@ let normalize_guards (proc : Proc.t) =
            | Idx g -> (Guard.Idx g, None)
            | One_hot g ->
                let new_g = new_chan (Int.ceil_log2 g.bitwidth) in
-               let expr = Expr.Log2OneHot (Var g) in
+               let expr = F_expr.Log2OneHot (Var g) in
                let assign = MultiAssign (FBlock.create1 new_g expr) in
                (Idx new_g, Some assign)
            | Bits gs ->
                let bits = Int.ceil_log2 (List.length gs) in
                let new_g = new_chan bits in
-               let gs = List.map gs ~f:(fun g -> (Expr.Var g, 1)) in
+               let gs = List.map gs ~f:(fun g -> (F_expr.Var g, 1)) in
                let assign =
                  MultiAssign (FBlock.create1 new_g (Log2OneHot (Concat gs)))
                in
@@ -1213,11 +1213,11 @@ let propogate_consts { Proc.stmt = dflows; iports; oports } =
   { Proc.stmt = dflows; iports; oports }
 
 (* let const_vars = List.concat_map dflows ~f:(fun dflow -> match dflow with |
-   MultiAssign l -> if List.concat_map l ~f:(fun (_, e) -> Expr.var_ids e) |>
+   MultiAssign l -> if List.concat_map l ~f:(fun (_, e) -> F_expr.var_ids e) |>
    List.is_empty then l else [] | _ -> []) |> Var.Map.of_alist_exn |> Map.map
    ~f:eval_const_expr in let dflows = List.concat_map dflows ~f:(fun dflow ->
    match dflow with | MultiAssign assigns -> let assigns = List.map assigns
-   ~f:(fun (dst, e) -> let e = Expr.bind_vars e ~f:(fun v -> match Map.find
+   ~f:(fun (dst, e) -> let e = F_expr.bind_vars e ~f:(fun v -> match Map.find
    const_vars v with | Some c -> Const c | None -> Var v) in (dst, e)) in [
    MultiAssign assigns ] | Buff1 (dst, src, init) -> [ Buff1 (dst, src, init) ]
    | Split (g, i, os) -> ( match g with | Bits gs -> ( match List.exists gs
@@ -1435,8 +1435,8 @@ let zip_coupled_split_merges { Proc.stmt = dflows; iports; oports } =
                 in
                 let parrellel_g = new_chan 1 in
                 let parrellel_expr =
-                  List.map parrellel ~f:(fun (g, _, _) -> Expr.Var g)
-                  |> List.reduce_exn ~f:(fun a b -> Expr.BitOr (a, b))
+                  List.map parrellel ~f:(fun (g, _, _) -> F_expr.Var g)
+                  |> List.reduce_exn ~f:(fun a b -> F_expr.BitOr (a, b))
                 in
                 let par_chan = new_chan in_v.bitwidth in
                 let ctrl_proc =
@@ -1499,8 +1499,8 @@ let zip_repeated_sink_splits { Proc.stmt = dflows; iports; oports } =
                   let gs, _ = List.unzip sinks in
                   let g = new_chan 1 in
                   let expr =
-                    List.map gs ~f:(fun g -> Expr.Var g)
-                    |> List.reduce_exn ~f:(fun a b -> Expr.BitOr (a, b))
+                    List.map gs ~f:(fun g -> F_expr.Var g)
+                    |> List.reduce_exn ~f:(fun a b -> F_expr.BitOr (a, b))
                   in
                   let ctrl_proc = MultiAssign (FBlock.create1 g expr) in
                   let gs, os = List.unzip (non_sinks @ [ (g, None) ]) in
@@ -1563,9 +1563,9 @@ let zip_repeated_merge_consts { Proc.stmt = dflows; iports; oports } =
                            | gs ->
                                let g = new_chan 1 in
                                let expr =
-                                 List.map gs ~f:(fun g -> Expr.Var g)
+                                 List.map gs ~f:(fun g -> F_expr.Var g)
                                  |> List.reduce_exn ~f:(fun a b ->
-                                        Expr.BitOr (a, b))
+                                        F_expr.BitOr (a, b))
                                in
                                let assign =
                                  MultiAssign (FBlock.create1 g expr)

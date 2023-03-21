@@ -43,14 +43,14 @@ end
 module Stmt : sig
   type t =
     | Nop
-    | Assign of Var.t * Var.t Expr.t
+    | Assign of Var.t * Var.t F_expr.t
     | Read of Chan.t * Var.t
-    | Send of Chan.t * Var.t Expr.t
+    | Send of Chan.t * Var.t F_expr.t
     | Seq of t list
     | Par of Par_split.t list * t list * Par_merge.t list
     | SelectImm of
-        Var.t Expr.t list * Select_split.t list * t list * Select_merge.t list
-    | DoWhile of DoWhile_phi.t list * t * Var.t Expr.t
+        Var.t F_expr.t list * Select_split.t list * t list * Select_merge.t list
+    | DoWhile of DoWhile_phi.t list * t * Var.t F_expr.t
   [@@deriving sexp]
 end
 
