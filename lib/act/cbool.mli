@@ -1,12 +1,27 @@
 open! Core
-include C_enum.S with type t = Cbool0.t
+
+type t = Cbool0.t
+
+include Sexpable with type t := t
+include Comparable with type t := t
+include Hashable with type t := t
+
+val dtype : t Dtype.t
+val bitwidth : t -> int
+val to_int : t -> Cint0.t
+val of_int : Cint0.t -> t option
+
 include Comparable with type t := t
 include Hashable with type t := t
 include Stringable with type t := t
 
 module E : sig
-  include C_enum.E_S with type elt := t
+  type t = Cbool0.t Expr.t
 
+  val var : Cbool0.t Var.t -> t
+  val const : Cbool0.t -> t
+  val to_int : t -> Cint0.t Expr.t
+  val of_int : Cint0.t Expr.t -> t
   val true_ : t
   val false_ : t
   val eq : t -> t -> t
@@ -18,11 +33,10 @@ module E : sig
 end
 
 module Chp : sig
-  include C_enum.Chp_S with type elt := t
-
   type t = Chp.t
 
   val toggle : Cbool0.t Var.t -> t
   val set_false : Cbool0.t Var.t -> t
   val set_true : Cbool0.t Var.t -> t
+  val match_ : E.t -> f:(Cbool0.t -> t) -> t
 end

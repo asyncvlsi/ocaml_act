@@ -304,22 +304,22 @@ let merge ~dtype i1 i2 o1 =
 
 let rec buff ~depth ~dtype i1 o1 =
   (if depth <= 0 then failwith "depth too low"
-  else if Int.equal depth 1 then
-    let chan1 = Chan.create dtype in
-    let chan2 = Chan.create dtype in
-    [ split ~dtype i1 chan1.w chan2.w; merge ~dtype chan1.r chan2.r o1 ]
-  else
-    let chan1a = Chan.create dtype in
-    let chan1b = Chan.create dtype in
-    let chan2a = Chan.create dtype in
-    let chan2b = Chan.create dtype in
+   else if Int.equal depth 1 then
+     let chan1 = Chan.create dtype in
+     let chan2 = Chan.create dtype in
+     [ split ~dtype i1 chan1.w chan2.w; merge ~dtype chan1.r chan2.r o1 ]
+   else
+     let chan1a = Chan.create dtype in
+     let chan1b = Chan.create dtype in
+     let chan2a = Chan.create dtype in
+     let chan2b = Chan.create dtype in
 
-    [
-      split ~dtype i1 chan1a.w chan2a.w;
-      buff ~dtype ~depth:(depth - 1) chan1a.r chan1b.w;
-      buff ~dtype ~depth:(depth - 1) chan2a.r chan2b.w;
-      merge ~dtype chan1b.r chan2b.r o1;
-    ])
+     [
+       split ~dtype i1 chan1a.w chan2a.w;
+       buff ~dtype ~depth:(depth - 1) chan1a.r chan1b.w;
+       buff ~dtype ~depth:(depth - 1) chan2a.r chan2b.w;
+       merge ~dtype chan1b.r chan2b.r o1;
+     ])
   |> Process.of_procs ~iports:[ i1.u ] ~oports:[ o1.u ]
 
 let buff ~depth ~dtype =
