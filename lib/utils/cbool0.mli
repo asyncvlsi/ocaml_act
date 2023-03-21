@@ -1,6 +1,7 @@
 open! Core
 
 type t = bool [@@deriving sexp, hash, compare, equal]
+(** @canonical Act.CBool.t *)
 
 include Comparable with type t := t
 include Hashable with type t := t

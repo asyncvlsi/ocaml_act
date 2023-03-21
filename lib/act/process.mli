@@ -11,6 +11,10 @@ val of_chp :
 
 val of_procs : t list -> iports:Chan.R.U.t list -> oports:Chan.W.U.t list -> t
 
+(**/**)
+
 module Internal : sig
   val unwrap : t -> Ir_process.t
 end
+
+(**/**)

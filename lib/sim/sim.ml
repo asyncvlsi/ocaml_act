@@ -859,9 +859,9 @@ let queue_user_io_op t call_site chan value chan_instr queuer =
         "Value doesnt fit in chan: got value %{value#Sexp} but channel has \
          layout %{layout#Sexp}."]
 
-let send t ?loc chan value =
+let send t chan value =
   let chan = Chan.Internal.unwrap_w chan in
-  let call_site = Code_pos.value_or_psite loc in
+  let call_site = Code_pos.psite () in
   match Map.find t.all_enqueuers chan with
   | None ->
       failwith
@@ -870,9 +870,9 @@ let send t ?loc chan value =
   | Some (send_instr, enqueuer) ->
       queue_user_io_op t call_site chan value send_instr (`Send enqueuer)
 
-let read t ?loc chan value =
+let read t chan value =
   let chan = Chan.Internal.unwrap_r chan in
-  let call_site = Code_pos.value_or_psite loc in
+  let call_site = Code_pos.psite () in
   match Map.find t.all_dequeuers chan with
   | None ->
       failwith

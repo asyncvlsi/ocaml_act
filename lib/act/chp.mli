@@ -34,7 +34,11 @@ val loop : t list -> t
 val while_loop : Cbool0.t Expr.t -> t list -> t
 val select_imm : (Cbool0.t Expr.t * t) list -> else_:t option -> t
 
+(**/**)
+
 module Internal : sig
   val unwrap : t -> Ir_chp.t
   val wrap : Ir_chp.t -> t
 end
+
+(**/**)

@@ -1,6 +1,7 @@
 open! Core
 
 type t = Cint0.t [@@deriving sexp, hash, compare, equal]
+(** @canonical Act.CInt.t *)
 
 include Comparable with type t := t
 include Hashable with type t := t

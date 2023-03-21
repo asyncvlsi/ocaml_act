@@ -10,9 +10,11 @@ type 'a ug_rom = ([ `Rom ], 'a) t
 val create_ug_mem : 'a Dtype.t -> 'a array -> 'a ug_mem
 val create_ug_rom : 'a Dtype.t -> 'a array -> 'a ug_rom
 
-(* The internal data structures. These are only meant to be constructed throguh
-   the above interfaces. *)
+(**/**)
+
 module Internal : sig
   val unwrap_ug_mem : 'a ug_mem -> Ir_mem.t
   val unwrap_ug_rom : 'a ug_rom -> Ir_mem.t
 end
+
+(**/**)

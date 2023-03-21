@@ -1,6 +1,7 @@
 open! Core
 
 type t = Cbool0.t
+(** @canonical Act.CBool.t *)
 
 include Sexpable with type t := t
 include Comparable with type t := t

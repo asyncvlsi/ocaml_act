@@ -9,8 +9,6 @@ module R : sig
   end
 
   type 'a t = { u : U.t } [@@deriving sexp_of]
-
-  (* val create : ?loc:Code_pos.t -> 'a Dtype.t -> 'a t *)
 end
 
 module W : sig
@@ -22,13 +20,13 @@ module W : sig
   end
 
   type 'a t = { u : U.t } [@@deriving sexp_of]
-
-  (* val create : ?loc:Code_pos.t -> 'a Dtype.t -> 'a t *)
 end
 
 type 'a t = { r : 'a R.t; w : 'a W.t } [@@deriving sexp_of]
 
 val create : 'a Dtype.t -> 'a t
+
+(**/**)
 
 module Internal : sig
   val wrap_any : Ir_chan.U.t -> Any.t t
@@ -46,3 +44,5 @@ module Internal : sig
   val ru_of_wu : W.U.t -> R.U.t
   val wu_of_ru : R.U.t -> W.U.t
 end
+
+(**/**)

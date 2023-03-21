@@ -7,7 +7,11 @@ module DType = Dtype
 module CEnum = C_enum
 module Expr = Expr
 module Mem = Mem
+module Overflow_behavior = Overflow_behavior
 module Process = Process
 module Var = Var
+
+(** libraries for processing Act source code *)
+
 module Compiler = Compiler
 module Sim = Sim

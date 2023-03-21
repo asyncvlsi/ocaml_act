@@ -55,7 +55,11 @@ val five : Cint0.t t
 val true_ : Cbool0.t t
 val false_ : Cbool0.t t
 
+(**/**)
+
 module Internal : sig
   val unwrap : 'a t -> 'a Ir_expr.t
   val wrap : 'a Ir_expr.t -> 'a t
 end
+
+(**/**)
