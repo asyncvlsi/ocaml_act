@@ -1,5 +1,6 @@
 open! Core
-open! Act
+open! Ochp
+open! Ochp.Act
 
 (* TODO switch stuff 4.14.0 opam install bignum core dune
    expect_test_helpers_core ocamlfmt *)
@@ -173,7 +174,7 @@ let%expect_test "test4" =
   [%expect
     {|
     send 1
-    (Error "Assertion failed: in test/ir_test.ml on line 154.") |}]
+    (Error "Assertion failed: in test/ir_test.ml on line 155.") |}]
 
 let%expect_test "test5" =
   let var1 = Var.create CInt.dtype_32 in
@@ -203,7 +204,7 @@ let%expect_test "test5" =
   [%expect
     {|
       (Error
-       "User read has wrong value: got 4, but expected 5 based on `send' function call in test/ir_test.ml on line 200, on chan created in test/ir_test.ml on line 181.") |}]
+       "User read has wrong value: got 4, but expected 5 based on `send' function call in test/ir_test.ml on line 201, on chan created in test/ir_test.ml on line 182.") |}]
 
 let split ~dtype i1 o1 o2 =
   let var1 = Var.create dtype in
@@ -289,7 +290,7 @@ let%expect_test "test_buff 1" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in test/ir_test.ml on line 287, on chan created in test/ir_test.ml on line 252.") |}]
+     "User send did not complete:  called in test/ir_test.ml on line 288, on chan created in test/ir_test.ml on line 253.") |}]
 
 let%expect_test "test_buff 2" =
   let dtype = CInt.dtype_32 in
@@ -314,7 +315,7 @@ let%expect_test "test_buff 2" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in test/ir_test.ml on line 312, on chan created in test/ir_test.ml on line 296.") |}]
+     "User send did not complete:  called in test/ir_test.ml on line 313, on chan created in test/ir_test.ml on line 297.") |}]
 
 let%expect_test "mem" =
   let mem =
@@ -356,7 +357,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Mem access out of bounds: in test/ir_test.ml on line 348, idx is 4, size of mem is 4.") |}]
+     "Mem access out of bounds: in test/ir_test.ml on line 349, idx is 4, size of mem is 4.") |}]
 
 let%expect_test "mem" =
   let mem =
@@ -387,7 +388,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Simulatnious accesses of a memory/rom: statement 1 in test/ir_test.ml on line 378, statement 2 in test/ir_test.ml on line 373.") |}]
+     "Simulatnious accesses of a memory/rom: statement 1 in test/ir_test.ml on line 379, statement 2 in test/ir_test.ml on line 374.") |}]
 
 let%expect_test "test probes" =
   let var = Var.create CInt.dtype_32 in
@@ -572,4 +573,4 @@ let%expect_test "test2" =
   [%expect
     {|
     (Error
-     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in test/ir_test.ml on line 549.") |}]
+     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in test/ir_test.ml on line 550.") |}]

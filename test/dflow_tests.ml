@@ -1,5 +1,6 @@
 open! Core
-open! Act
+open! Ochp
+open! Ochp.Act
 
 let%expect_test "expression chains" =
   let ichan = Chan.create CInt.dtype_8 in

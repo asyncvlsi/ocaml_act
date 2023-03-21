@@ -1,5 +1,6 @@
 open! Core
-open! Act
+open! Ochp
+open! Ochp.Act
 
 (* $MDX part-begin=recursive_buffer_example *)
 let split ~dtype i1 o1 o2 =

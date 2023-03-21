@@ -1,7 +1,8 @@
 (* $MDX part-begin=lukas_example *)
 (* First, importing the Jane Street's Core library and the OCaml Act library *)
 open! Core
-open! Act
+open! Ochp
+open! Ochp.Act
 
 (* Second, create a function. This will be the equivilent of the chp process.
    There is no distinction between what would be a templated variable and a in

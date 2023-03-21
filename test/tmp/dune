@@ -1,6 +1,6 @@
 (library
  (name my_test_tmp)
- (libraries act compiler core expect_test_helpers_core sim)
+ (libraries core ochp)
  (preprocess
   (pps ppx_jane))
  (inline_tests))

@@ -1,6 +1,8 @@
+(include_subdirs unqualified)
+
 (library
  (public_name ochp)
- (libraries core)
+ (libraries bignum core zarith)
  (preprocess
   (pps ppx_jane))
  (inline_tests))

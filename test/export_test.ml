@@ -1,5 +1,6 @@
 open! Core
-open! Act
+open! Ochp
+open! Ochp.Act
 
 (* TODO switch stuff 4.14.0 opam install bignum core dune
    expect_test_helpers_core ocamlfmt *)

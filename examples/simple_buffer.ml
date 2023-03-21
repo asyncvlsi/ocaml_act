@@ -1,5 +1,6 @@
 open! Core
-open! Act
+open! Ochp
+open! Ochp.Act
 
 (* $MDX part-begin=simple_buffer_example *)
 (* This function generated the IR for a simple buffer. It then returns the IR,
