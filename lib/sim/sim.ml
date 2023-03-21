@@ -7,7 +7,7 @@ module With_origin = struct
 end
 
 module Var_id_src = struct
-  type t = Var of Ir_var.U.t | Mem_idx_reg | Read_deq_reg | Send_enq_reg
+  type t = Var of Ir_var.t | Mem_idx_reg | Read_deq_reg | Send_enq_reg
   [@@deriving sexp_of]
 end
 
@@ -16,7 +16,7 @@ module Var_buff_info = struct
 end
 
 module Chan_buff_info = struct
-  type t = { src : (Ir_chan.U.t[@sexp.opaque]) } [@@deriving sexp_of]
+  type t = { src : (Ir_chan.t[@sexp.opaque]) } [@@deriving sexp_of]
 end
 
 module Mem_buff_info = struct
@@ -53,8 +53,8 @@ type t = {
   dequeuer_table_info : Dequeuer_info.t array;
   expr_assert_error_decoders : (Cint.t -> Cint.t -> string) array;
   (* io helpers *)
-  all_enqueuers : (Inner.Instr_idx.t * Inner.Enqueuer_idx.t) Ir_chan.U.Map.t;
-  all_dequeuers : (Inner.Instr_idx.t * Inner.Dequeuer_idx.t) Ir_chan.U.Map.t;
+  all_enqueuers : (Inner.Instr_idx.t * Inner.Enqueuer_idx.t) Ir_chan.Map.t;
+  all_dequeuers : (Inner.Instr_idx.t * Inner.Dequeuer_idx.t) Ir_chan.Map.t;
   (* per-wait state *)
   queued_user_ops : Queued_user_op.t Queue.t;
 }
@@ -101,7 +101,7 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
         match t.var_table_info.(var_id).src with
         | Var var ->
             (* str_l var.d.creation_code_pos *)
-            Ir_var.U.Id.to_string var.id
+            Ir_var.Id.to_string var.id
         | Mem_idx_reg | Read_deq_reg | Send_enq_reg -> failwith "unreachable"
       in
       Error
@@ -361,14 +361,14 @@ end
 module Var_id_pool = struct
   type t = {
     mutable next_id : int;
-    id_of_var : Inner.Var_id.t Ir_var.U.Table.t;
+    id_of_var : Inner.Var_id.t Ir_var.Table.t;
     src_of_id : (Any.t Ir_dtype.t option * Var_id_src.t) Inner.Var_id.Table.t;
   }
 
   let create () =
     {
       next_id = 0;
-      id_of_var = Ir_var.U.Table.create ();
+      id_of_var = Ir_var.Table.create ();
       src_of_id = Inner.Var_id.Table.create ();
     }
 
@@ -386,10 +386,10 @@ end
 module Chan_id_pool = struct
   type t = {
     mutable next_id : int;
-    id_of_chan : Inner.Chan_id.t Ir_chan.U.Table.t;
+    id_of_chan : Inner.Chan_id.t Ir_chan.Table.t;
   }
 
-  let create () = { next_id = 0; id_of_chan = Ir_chan.U.Table.create () }
+  let create () = { next_id = 0; id_of_chan = Ir_chan.Table.create () }
 
   let new_id t =
     t.next_id <- t.next_id + 1;
@@ -687,7 +687,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
            ((chan, (read_instr, dequeuer_idx)), (var_id, chan_idx)))
     |> List.unzip
   in
-  let all_dequeuers = Ir_chan.U.Map.of_alist_exn all_dequeuers in
+  let all_dequeuers = Ir_chan.Map.of_alist_exn all_dequeuers in
   let dequeuers, dequeuer_table_info =
     List.map dequeuer_table ~f:(fun (var_id, chan) ->
         ({ Inner.Dequeuer_spec.var_id }, { Dequeuer_info.chan }))
@@ -713,7 +713,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
            ((chan, (send_instr, enqueuer_idx)), (var_id, chan_idx)))
     |> List.unzip
   in
-  let all_enqueuers = Ir_chan.U.Map.of_alist_exn all_enqueuers in
+  let all_enqueuers = Ir_chan.Map.of_alist_exn all_enqueuers in
   let enqueuers, enqueuer_table_info =
     List.map enqueuer_table ~f:(fun (var_id, chan) ->
         ({ Inner.Enqueuer_spec.var_id }, { Enqueuer_info.chan }))
@@ -745,7 +745,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
           match src with
           | Var_id_src.Mem_idx_reg | Read_deq_reg | Send_enq_reg -> None
           | Var var ->
-              var.Ir_var.U.d.init
+              var.Ir_var.d.init
               |> Option.map ~f:(fun init ->
                      Ir_dtype.cint_of_value var.d.dtype init)
         in
@@ -844,7 +844,7 @@ let simulate_chp ?(seed = 0) chp ~user_sendable_ports ~user_readable_ports =
 
 let queue_user_io_op t call_site chan value chan_instr queuer =
   let value = Any.of_magic value in
-  let ivalue = Ir_dtype.cint_of_value chan.Ir_chan.U.d.dtype value in
+  let ivalue = Ir_dtype.cint_of_value chan.Ir_chan.d.dtype value in
   let chan_bitwidth =
     match Ir_dtype.layout chan.d.dtype with Bits_fixed bitwidth -> bitwidth
   in

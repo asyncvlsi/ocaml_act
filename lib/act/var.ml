@@ -1,6 +1,6 @@
 open! Core
 
-type 'a t = 'a Ir_var.t [@@deriving sexp_of]
+type 'a t = Ir_var.t [@@deriving sexp_of]
 
 let create ?init (dtype : 'a Dtype.t) : 'a t =
   let loc = Code_pos.psite () in

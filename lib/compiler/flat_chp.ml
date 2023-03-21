@@ -95,7 +95,7 @@ end
 let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
     ~dflowable =
   let next_v_id = ref 0 in
-  let var_of_var = Ir_var.U.Table.create () in
+  let var_of_var = Ir_var.Table.create () in
   let new_var bitwidth =
     let id = !next_v_id in
     incr next_v_id;
@@ -110,7 +110,7 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
   in
 
   let next_c_id = ref 0 in
-  let chan_of_chan = Ir_chan.U.Table.create () in
+  let chan_of_chan = Ir_chan.Table.create () in
   let new_chan bitwidth =
     let id = !next_c_id in
     incr next_c_id;
@@ -324,7 +324,7 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
     (* This map conversion makes the order deterministic *)
     let inits =
       Hashtbl.to_alist var_of_var
-      |> Ir_var.U.Map.of_alist_exn |> Map.to_alist
+      |> Ir_var.Map.of_alist_exn |> Map.to_alist
       |> List.map ~f:(fun (var, var_id) ->
              let init =
                Option.map var.d.init ~f:(fun init ->
@@ -420,8 +420,8 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
    dummy_chan_of_mem mem ] | Log _ | Log1 _ | Assert _ -> [] |
    WaitUntilReadReady (_, _) | WaitUntilSendReady (_, _) -> failwith
    "unreachable: handled above" in let r_chans n = chans n ~r:true ~w:false |>
-   Ir_chan.U.Set.of_list in let w_chans n = chans n ~r:false ~w:true |>
-   Ir_chan.U.Set.of_list in
+   Ir_chan.Set.of_list in let w_chans n = chans n ~r:false ~w:true |>
+   Ir_chan.Set.of_list in
 
    let subsets_2 l = List.mapi l ~f:(fun i x -> (i, x)) |> List.concat_map
    ~f:(fun (i, x) -> List.drop l (i + 1) |> List.map ~f:(fun y -> (x, y))) in

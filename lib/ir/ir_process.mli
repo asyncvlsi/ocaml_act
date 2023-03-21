@@ -5,7 +5,7 @@ type inner =
   | Dflow_iface_on_chp of Ir_chp.t
   | Subprocs of t list
 
-and t = { inner : inner; iports : Ir_chan.U.Set.t; oports : Ir_chan.U.Set.t }
+and t = { inner : inner; iports : Ir_chan.Set.t; oports : Ir_chan.Set.t }
 [@@deriving sexp_of]
 
 module Inner : sig

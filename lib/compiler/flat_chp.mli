@@ -57,7 +57,7 @@ end
 val of_chp :
   Ir_chp.t ->
   new_interproc_chan:(int -> Interproc_chan.t) ->
-  interproc_chan_of_ir_chan:(Ir_chan.U.t -> Interproc_chan.t) ->
+  interproc_chan_of_ir_chan:(Ir_chan.t -> Interproc_chan.t) ->
   dflowable:bool ->
   Proc.t
   * ((Interproc_chan.t * Interproc_chan.t option * Interproc_chan.t option)

@@ -2,7 +2,7 @@ open! Core
 module Tag = Ir_expr_tag
 module K = Ir_expr0
 
-type 'a t = { k : Ir_var.U.t K.t; tag : 'a Tag.t; max_bits : int }
+type 'a t = { k : Ir_var.t K.t; tag : 'a Tag.t; max_bits : int }
 [@@deriving sexp_of]
 
 module U = struct

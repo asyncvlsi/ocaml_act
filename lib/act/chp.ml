@@ -24,8 +24,8 @@ let assign var_id expr =
     "Assignment of expression with max_layout %s into variable with layout %s. \
      It might not fit. Try using a custom assignment statment (e.g. \
      Cint.N.assign)."
-    (Ir_expr.max_layout expr) var_id.u.d.dtype;
-  Ir_chp.Assign (loc, var_id.u, Ir_expr.untype expr)
+    (Ir_expr.max_layout expr) var_id.d.dtype;
+  Ir_chp.Assign (loc, var_id, Ir_expr.untype expr)
 
 let read chan_id var_id =
   let loc = Code_pos.psite () in
@@ -36,8 +36,8 @@ let read chan_id var_id =
      fit in. This is currently unsupported, so you must use a variable with a \
      larger layout."
     (Ir_dtype.layout chan_id.d.dtype)
-    var_id.u.d.dtype;
-  Ir_chp.Read (loc, chan_id, var_id.u)
+    var_id.d.dtype;
+  Ir_chp.Read (loc, chan_id, var_id)
 
 let send chan_id expr =
   let loc = Code_pos.psite () in
@@ -96,8 +96,8 @@ let read_ug_mem (mem : 'a Mem.ug_mem) ~idx ~(dst : 'a Var.t) =
      not fit in. This is currently unsupported, so you must use a ~dst \
      variable with a larger layout."
     (Ir_dtype.layout mem.d.dtype)
-    dst.u.d.dtype;
-  Ir_chp.ReadUGMem (Code_pos.psite (), mem, Expr.Internal.unwrap idx, dst.u)
+    dst.d.dtype;
+  Ir_chp.ReadUGMem (Code_pos.psite (), mem, Expr.Internal.unwrap idx, dst)
 
 (* TODO treat idx like other expressions? *)
 let write_ug_mem (mem : 'a Mem.ug_mem) ~idx ~(value : 'a Expr.t) =
@@ -122,8 +122,8 @@ let read_ug_rom (rom : 'a Mem.ug_rom) ~idx ~(dst : 'a Var.t) =
      not fit in. This is currently unsupported, so you must use a ~dst \
      variable with a larger layout."
     (Ir_dtype.layout rom.d.dtype)
-    dst.u.d.dtype;
-  Ir_chp.ReadUGMem (Code_pos.psite (), rom, Expr.Internal.unwrap idx, dst.u)
+    dst.d.dtype;
+  Ir_chp.ReadUGMem (Code_pos.psite (), rom, Expr.Internal.unwrap idx, dst)
 
 let log str = Ir_chp.Log (Code_pos.psite (), str)
 

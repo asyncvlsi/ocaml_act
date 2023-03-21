@@ -7,7 +7,7 @@ val create : ?init:'a -> 'a Dtype.t -> 'a t
 (**/**)
 
 module Internal : sig
-  val unwrap : 'a t -> 'a Ir_var.t
+  val unwrap : 'a t -> Ir_var.t
 end
 
 (**/**)

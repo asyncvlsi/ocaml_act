@@ -11,13 +11,13 @@ end
 
 let var (v : 'a Var.t) =
   let v = Var.Internal.unwrap v in
-  let dtype = v.u.d.dtype in
+  let dtype = v.d.dtype in
   let tag : 'a Ir_expr_tag.t =
     let tag = Ir_dtype.expr_tag dtype in
     Obj.magic (tag : Any.t Ir_expr_tag.t)
   in
   let max_bits = match Ir_dtype.layout dtype with Bits_fixed bits -> bits in
-  { Ir_expr.k = Var v.u; tag; max_bits }
+  { Ir_expr.k = Var v; tag; max_bits }
 
 let cint_tag = Ir_expr_tag.cint_expr_tag
 let cbool_tag = Ir_expr_tag.cbool_expr_tag

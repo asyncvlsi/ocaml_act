@@ -10,8 +10,8 @@ end
 
 type t = {
   processes : Process.t list;
-  top_iports : (Interproc_chan.t * Ir_chan.U.t) list;
-  top_oports : (Interproc_chan.t * Ir_chan.U.t) list;
+  top_iports : (Interproc_chan.t * Ir_chan.t) list;
+  top_oports : (Interproc_chan.t * Ir_chan.t) list;
 }
 [@@deriving sexp_of]
 

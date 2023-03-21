@@ -4,10 +4,10 @@ type t = Ir_process.t [@@deriving sexp_of]
 
 let of_chp ?(with_dflow_interface = false) chp ~iports ~oports =
   let iports =
-    List.map iports ~f:Chan.Internal.unwrap_ru |> Ir_chan.U.Set.of_list
+    List.map iports ~f:Chan.Internal.unwrap_ru |> Ir_chan.Set.of_list
   in
   let oports =
-    List.map oports ~f:Chan.Internal.unwrap_wu |> Ir_chan.U.Set.of_list
+    List.map oports ~f:Chan.Internal.unwrap_wu |> Ir_chan.Set.of_list
   in
   match with_dflow_interface with
   | false ->
@@ -19,10 +19,10 @@ let of_chp ?(with_dflow_interface = false) chp ~iports ~oports =
 
 let of_procs procs ~iports ~oports =
   let iports =
-    List.map iports ~f:Chan.Internal.unwrap_ru |> Ir_chan.U.Set.of_list
+    List.map iports ~f:Chan.Internal.unwrap_ru |> Ir_chan.Set.of_list
   in
   let oports =
-    List.map oports ~f:Chan.Internal.unwrap_wu |> Ir_chan.U.Set.of_list
+    List.map oports ~f:Chan.Internal.unwrap_wu |> Ir_chan.Set.of_list
   in
   { Ir_process.inner = Subprocs procs; iports; oports }
 

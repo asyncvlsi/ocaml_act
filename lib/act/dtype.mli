@@ -1,6 +1,7 @@
 open! Core
 
-type 'a t [@@deriving sexp_of] (** @canonical Act.DType.t *)
+type 'a t [@@deriving sexp_of]
+(** @canonical Act.DType.t *)
 
 (**/**)
 

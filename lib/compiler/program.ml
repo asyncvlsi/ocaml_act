@@ -11,8 +11,8 @@ end
 
 type t = {
   processes : Process.t list;
-  top_iports : (Interproc_chan.t * Ir_chan.U.t) list;
-  top_oports : (Interproc_chan.t * Ir_chan.U.t) list;
+  top_iports : (Interproc_chan.t * Ir_chan.t) list;
+  top_oports : (Interproc_chan.t * Ir_chan.t) list;
 }
 [@@deriving sexp_of]
 
@@ -21,7 +21,7 @@ let of_process (process : Ir_process.t) =
   let user_readable_ports = Set.to_list process.oports in
 
   let next_interproc_chan_id = ref 0 in
-  let interproc_chan_of_ir_chan_tbl = Ir_chan.U.Table.create () in
+  let interproc_chan_of_ir_chan_tbl = Ir_chan.Table.create () in
   let new_interproc_chan bitwidth =
     let id = !next_interproc_chan_id in
     let id = Interproc_chan.Id.of_int id in

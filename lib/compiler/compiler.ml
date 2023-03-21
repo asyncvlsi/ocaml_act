@@ -105,20 +105,20 @@ let sim ?seed (t : Compiled_program.t) =
               Chan.Internal.unwrap_r c.r)
     in
     List.iter chp.iports ~f:(fun (interproc_chan, chp_chan) ->
-        let (_ : Ir_chan.U.t) = of_c chp_chan ~interproc_chan in
+        let (_ : Ir_chan.t) = of_c chp_chan ~interproc_chan in
         ());
     List.iter chp.oports ~f:(fun (interproc_chan, chp_chan) ->
-        let (_ : Ir_chan.U.t) = of_c chp_chan ~interproc_chan in
+        let (_ : Ir_chan.t) = of_c chp_chan ~interproc_chan in
         ());
 
     let ir_var_of_var = Flat_chp.Var.Table.create () in
     let of_v v =
       Hashtbl.find_or_add ir_var_of_var v ~default:(fun () ->
           let dtype = Cint.dtype ~bits:v.bitwidth in
-          (Var.create dtype |> Var.Internal.unwrap).u)
+          Var.create dtype |> Var.Internal.unwrap)
     in
-    let dtype_of_v v = v.Ir_var.U.d.dtype in
-    let dtype_of_cw c = c.Ir_chan.U.d.dtype in
+    let dtype_of_v v = v.Ir_var.d.dtype in
+    let dtype_of_cw c = c.Ir_chan.d.dtype in
 
     let of_expr e ~dtype =
       let k = expr_k_of_expr e ~of_v ~bits_of_var:(fun v -> v.bitwidth) in
@@ -169,10 +169,10 @@ let sim ?seed (t : Compiled_program.t) =
               Chan.Internal.unwrap_r c.r)
     in
     List.iter dflow.iports ~f:(fun (interproc_chan, chp_chan) ->
-        let (_ : Ir_chan.U.t) = of_c chp_chan ~interproc_chan in
+        let (_ : Ir_chan.t) = of_c chp_chan ~interproc_chan in
         ());
     List.iter dflow.oports ~f:(fun (interproc_chan, chp_chan) ->
-        let (_ : Ir_chan.U.t) = of_c chp_chan ~interproc_chan in
+        let (_ : Ir_chan.t) = of_c chp_chan ~interproc_chan in
         ());
 
     let of_c_r v = of_c v |> Chan.Internal.wrap_r in
@@ -205,7 +205,7 @@ let sim ?seed (t : Compiled_program.t) =
                   let k =
                     expr_k_of_expr expr
                       ~of_v:(fun v ->
-                        (Map.find_exn var_of_in v |> Var.Internal.unwrap).u)
+                        Map.find_exn var_of_in v |> Var.Internal.unwrap)
                       ~bits_of_var:(fun v -> v.bitwidth)
                   in
                   let tag =

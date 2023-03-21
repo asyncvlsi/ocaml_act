@@ -97,9 +97,9 @@ module Chp = struct
     let loc = Code_pos.psite () in
     let var = Var.Internal.unwrap var in
     let expr =
-      apply_overflow var.u.d.dtype expr ~overflow |> Expr.Internal.unwrap
+      apply_overflow var.d.dtype expr ~overflow |> Expr.Internal.unwrap
     in
-    Ir_chp.Assign (loc, var.u, Ir_expr.untype expr) |> Chp.Internal.wrap
+    Ir_chp.Assign (loc, var, Ir_expr.untype expr) |> Chp.Internal.wrap
 
   let incr var_id ~overflow =
     let expr = E.(var var_id |> add one) in
