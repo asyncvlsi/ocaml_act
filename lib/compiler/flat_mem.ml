@@ -1,9 +1,8 @@
 open! Core
-module CInt = Act.CInt
 
 module Proc = struct
   type t = {
-    init : CInt.t array;
+    init : Cint.t array;
     idx_bits : int;
     cell_bits : int;
     cmd_chan : Interproc_chan.t;

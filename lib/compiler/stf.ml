@@ -1,5 +1,4 @@
 open! Core
-module CInt = Act.CInt
 
 module Var = struct
   module T = struct
@@ -707,18 +706,18 @@ let propigate_constants ?(max_ct = 16) n =
         let guards = List.map ~f:of_e guards in
         let is_true_branch =
           List.exists guards ~f:(fun e ->
-              match e with Const c -> CInt.eq c CInt.one | _ -> false)
+              match e with Const c -> Cint.eq c Cint.one | _ -> false)
         in
         let is_false_branch =
           List.exists guards ~f:(fun e ->
-              match e with Const c -> CInt.eq c CInt.zero | _ -> false)
+              match e with Const c -> Cint.eq c Cint.zero | _ -> false)
         in
         let guards, splits, ns, merges =
           if (is_true_branch && List.length guards > 1) || is_false_branch then
             let to_drop =
               List.map guards ~f:(fun g ->
                   match g with
-                  | Const c -> CInt.eq c CInt.one
+                  | Const c -> Cint.eq c Cint.one
                   | _ -> not is_true_branch)
             in
             let drop_l l =

@@ -1,6 +1,6 @@
 (lang dune 3.6)
 
-(name ochp)
+(name act)
 
 (using mdx 0.3)
 
@@ -18,7 +18,7 @@
 (documentation https://url/to/documentation)
 
 (package
- (name ochp)
+ (name act)
  (synopsis "A short synopsis")
  (description "A longer description")
  (depends ocaml dune)

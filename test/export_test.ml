@@ -1,6 +1,5 @@
 open! Core
-open! Ochp
-open! Ochp.Act
+open! Act
 
 (* TODO switch stuff 4.14.0 opam install bignum core dune
    expect_test_helpers_core ocamlfmt *)
@@ -303,9 +302,12 @@ let rec buff ~depth ~dtype i1 o1 =
 
 let%expect_test "test_buff 1" =
   let dtype = CInt.dtype_32 in
-  let i = Chan.W.create dtype in
-  let o = Chan.R.create dtype in
-  let ir = block11 i o ~f:(fun i o -> buff ~depth:1 ~dtype i o) in
+  let ir, i, o =
+    let i = Chan.create dtype in
+    let o = Chan.create dtype in
+    let ir = buff ~depth:1 ~dtype i.r o.w in
+    (ir, i.w, o.r)
+  in
 
   Compiler.compile_chp ir ~user_sendable_ports:[ i.u ]
     ~user_readable_ports:[ o.u ] ~to_:`Chp
@@ -336,9 +338,12 @@ let%expect_test "test_buff 1" =
 
 let%expect_test "test_buff 2" =
   let dtype = CInt.dtype_32 in
-  let i = Chan.W.create dtype in
-  let o = Chan.R.create dtype in
-  let ir = block11 i o ~f:(fun i o -> buff ~depth:2 ~dtype i o) in
+  let ir, i, o =
+    let i = Chan.create dtype in
+    let o = Chan.create dtype in
+    let ir = buff ~depth:2 ~dtype i.r o.w in
+    (ir, i.w, o.r)
+  in
 
   Compiler.compile_chp ir ~user_sendable_ports:[ i.u ]
     ~user_readable_ports:[ o.u ] ~to_:`Chp

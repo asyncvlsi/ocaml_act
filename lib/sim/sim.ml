@@ -1,5 +1,4 @@
 open! Core
-open! Act
 
 module With_origin = struct
   type 'a t = { value : 'a; origin : Code_pos.t } [@@deriving sexp_of, fields]
@@ -36,7 +35,7 @@ module Queued_user_op = struct
   type t = {
     queuer : [ `Send of Inner.Enqueuer_idx.t | `Read of Inner.Dequeuer_idx.t ];
     chan_instr : Inner.Instr_idx.t;
-    value : CInt.t;
+    value : Cint.t;
     call_site : Code_pos.t;
   }
   [@@deriving sexp_of]
@@ -52,7 +51,7 @@ type t = {
   mem_table_info : Mem_buff_info.t array;
   enqueuer_table_info : Enqueuer_info.t array;
   dequeuer_table_info : Dequeuer_info.t array;
-  expr_assert_error_decoders : (CInt.t -> CInt.t -> string) array;
+  expr_assert_error_decoders : (Cint.t -> Cint.t -> string) array;
   (* io helpers *)
   all_enqueuers : (Inner.Instr_idx.t * Inner.Enqueuer_idx.t) Ir_chan.U.Map.t;
   all_dequeuers : (Inner.Instr_idx.t * Inner.Dequeuer_idx.t) Ir_chan.U.Map.t;
@@ -62,7 +61,7 @@ type t = {
 [@@deriving sexp_of]
 
 let resolve_step_err t e ~line_numbers ~to_send ~to_read =
-  (* Now this is a map of form Enquere_idx.t -> CInt.t With_origin.t *)
+  (* Now this is a map of form Enquere_idx.t -> Cint.t With_origin.t *)
   let to_send = Map.data to_send |> Int.Map.of_alist_exn in
   let to_read = Map.data to_read |> Int.Map.of_alist_exn in
   let loc_of_instr var_id = t.loc_of_assem_idx.(var_id) in
@@ -178,7 +177,7 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
   | Mem_out_of_bounds (pc, idx, len) ->
       Error
         [%string
-          "Mem access out of bounds: %{str_i pc}, idx is %{idx#CInt}, size of \
+          "Mem access out of bounds: %{str_i pc}, idx is %{idx#Cint}, size of \
            mem is %{len#Int}."]
   | Assigned_value_doesnt_fit_in_var (assign_instr, var_id, value) ->
       let var_dtype = t.var_table_info.(var_id).dtype in
@@ -439,7 +438,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
   (* Turns an Ir_expr into a Inner.Expr. Inner.Expr is a flat array. This code
      dedupicates repeated nodes. *)
   let convert_expr expr =
-    let ns = Vec.create ~cap:10 ~default:(Inner.Expr.N.Const CInt.zero) in
+    let ns = Vec.create ~cap:10 ~default:(Inner.Expr.N.Const Cint.zero) in
     let ni_of_n = Inner.Expr.N.Table.create () in
     let push n =
       Hashtbl.find_or_add ni_of_n n ~default:(fun () ->
@@ -473,15 +472,15 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
           let err_id =
             add_expr_assert ~f:(fun a b ->
                 [%string
-                  "Expr.Sub_no_wrap must have first arg (%{a#CInt}) >= second \
-                   arg (%{b#CInt})"])
+                  "Expr.Sub_no_wrap must have first arg (%{a#Cint}) >= second \
+                   arg (%{b#Cint})"])
           in
           let assert_expr = push (Ge (a, b)) in
           push_assert assert_expr err_id a b;
           push (Sub_no_underflow (a, b))
       | Sub_wrap (a, b, bits) ->
           let a, b = (convert a, convert b) in
-          let p2bits = push (Const CInt.(left_shift one ~amt:(of_int bits))) in
+          let p2bits = push (Const Cint.(left_shift one ~amt:(of_int bits))) in
           let a = push (Clip (a, bits)) in
           let a = push (BitOr (a, p2bits)) in
           let b = push (Clip (b, bits)) in
@@ -506,7 +505,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
           let err_id = add_expr_assert ~f:(fun v _ -> msg_fn v) in
           let assert_expr = convert assert_expr in
           let log_input = convert log_input in
-          let c0 = push (Const CInt.zero) in
+          let c0 = push (Const Cint.zero) in
           push_assert assert_expr err_id log_input c0;
           convert val_expr
     in
@@ -631,7 +630,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
         let top = push_instr loc Nop in
         convert' seq;
         let not_expr =
-          Expr.Internal.wrap expr |> CBool.E.not_ |> Expr.Internal.unwrap
+          Expr.Internal.wrap expr |> Cbool.E.not_ |> Expr.Internal.unwrap
         in
         push_instr loc (JumpIfFalse (convert_expr not_expr, top))
     | ReadUGMem (loc, mem, idx, dst) ->
@@ -849,7 +848,7 @@ let queue_user_io_op t call_site chan value chan_instr queuer =
   let chan_bitwidth =
     match Ir_dtype.layout chan.d.dtype with Bits_fixed bitwidth -> bitwidth
   in
-  if chan_bitwidth >= CInt.bitwidth ivalue then
+  if chan_bitwidth >= Cint.bitwidth ivalue then
     Queue.enqueue t.queued_user_ops
       { Queued_user_op.queuer; chan_instr; value = ivalue; call_site }
   else

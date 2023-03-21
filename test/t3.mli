@@ -1,6 +1,5 @@
 open! Core
-open! Ochp
-open! Ochp.Act
+open! Act
 
 type t = A | B | C
 

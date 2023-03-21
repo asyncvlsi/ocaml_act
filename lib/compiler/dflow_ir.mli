@@ -26,7 +26,7 @@ module Stmt : sig
     | MultiAssign of FBlock.t
     | Split of Guard.t * Var.t * Var.t option list
     | Merge of Guard.t * Var.t list * Var.t
-    | Buff1 of (*dst *) Var.t * (*src*) Var.t * Act.CInt.t option
+    | Buff1 of (*dst *) Var.t * (*src*) Var.t * Cint.t option
   [@@deriving sexp_of]
 end
 

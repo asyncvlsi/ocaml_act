@@ -1,5 +1,4 @@
 open! Core
-module CInt = Act.CInt
 
 module Process = struct
   type t =
@@ -144,7 +143,7 @@ module Chp_exporter = struct
         | Ge (a, b) -> [%string "int(%{ee a} >= %{ee b})"]
         | Var var_id -> [%string "(%{extract_var var_id})"]
         | Clip (e, bits) -> [%string "int(%{ee e}, %{bits#Int})"]
-        | Const c -> [%string "%{c#CInt}"]
+        | Const c -> [%string "%{c#Cint}"]
         | Concat es ->
             let s =
               List.rev es
@@ -242,7 +241,7 @@ module Dflow_exporter = struct
         | Ge (a, b) -> [%string "int(%{ee a} >= %{ee b})"]
         | Var v -> [%string "(v%{v.id#Int})"]
         | Clip (e, bits) -> [%string "int(%{ee e}, %{bits#Int})"]
-        | Const c -> [%string "%{c#CInt}"]
+        | Const c -> [%string "%{c#Cint}"]
         | Concat es ->
             let s =
               List.rev es
@@ -280,7 +279,7 @@ module Dflow_exporter = struct
                       let extra_e =
                         Set.to_list extra_ins
                         |> List.map ~f:(fun v ->
-                               F_expr.(BitAnd (Const CInt.zero, Var v)))
+                               F_expr.(BitAnd (Const Cint.zero, Var v)))
                         |> List.reduce ~f:(fun a b -> F_expr.BitAnd (a, b))
                       in
                       let e =
@@ -317,7 +316,7 @@ module Dflow_exporter = struct
               match init with
               | Some init ->
                   [%string
-                    "  v%{src.id#Int} -> [1,%{init#CInt}] v%{dst.id#Int};"]
+                    "  v%{src.id#Int} -> [1,%{init#Cint}] v%{dst.id#Int};"]
               | None -> [%string "  v%{src.id#Int} -> [1] v%{dst.id#Int};"]))
       |> String.concat ~sep:"\n"
     in
@@ -361,7 +360,7 @@ module Mem_exporter = struct
   let export (mem : Flat_mem.Proc.t) ~name =
     let init = mem.init in
     let vars_inits =
-      Array.mapi init ~f:(fun i vl -> [%string "v[%{i#Int}] := %{vl#CInt};"])
+      Array.mapi init ~f:(fun i vl -> [%string "v[%{i#Int}] := %{vl#Cint};"])
       |> Array.to_list |> String.concat ~sep:""
     in
     let write_chan_decl, write_branch_body, write_chan =

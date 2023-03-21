@@ -1,7 +1,7 @@
 open! Core
 
 (* This module is unsafe, and is only meant for compiler use. It is needed to
-   break a dependency cycle from Var -> DType -> Expr -> Var *)
+   break a dependency cycle from Var -> Dtype -> Expr -> Var *)
 
 type 'v t =
   | Var of 'v

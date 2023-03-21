@@ -1,6 +1,6 @@
 (library
  (name my_test_tmp)
- (libraries core ochp)
+ (libraries act core)
  (preprocess
   (pps ppx_jane))
  (inline_tests))

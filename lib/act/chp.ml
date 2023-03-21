@@ -23,7 +23,7 @@ let assign var_id expr =
   fail_if_layout_does_not_fit_dtype
     "Assignment of expression with max_layout %s into variable with layout %s. \
      It might not fit. Try using a custom assignment statment (e.g. \
-     CInt.N.assign)."
+     Cint.N.assign)."
     (Ir_expr.max_layout expr) var_id.u.d.dtype;
   Ir_chp.Assign (loc, var_id.u, Ir_expr.untype expr)
 
@@ -45,7 +45,7 @@ let send chan_id expr =
   let expr = Expr.Internal.unwrap expr in
   fail_if_layout_does_not_fit_dtype
     "Send of expression with layout %s into channel with layout %s. It might \
-     not fit in. Try using a custom send statment (e.g. CInt.N.send)."
+     not fit in. Try using a custom send statment (e.g. Cint.N.send)."
     (Ir_expr.max_layout expr) chan_id.d.dtype;
   Ir_chp.Send (loc, chan_id, Ir_expr.untype expr)
 
@@ -106,7 +106,7 @@ let write_ug_mem (mem : 'a Mem.ug_mem) ~idx ~(value : 'a Expr.t) =
   fail_if_layout_does_not_fit_dtype
     "Write of expression with layout %s into a memory with cell layout %s. It \
      might not fit in. Try using a custom write_ug_mem statment (e.g. \
-     CInt.N.write_ug_mem)."
+     Cint.N.write_ug_mem)."
     (Ir_expr.max_layout value) mem.d.dtype;
   Ir_chp.WriteUGMem
     (Code_pos.psite (), mem, Expr.Internal.unwrap idx, Ir_expr.untype value)

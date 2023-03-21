@@ -30,7 +30,7 @@ let bool_of_int i =
       ( Le (k, Const (Cint0.of_int 1)),
         k,
         k,
-        fun c -> [%string "Invalid cast CInt to CBool: %{c#Cint0}"] )
+        fun c -> [%string "Invalid cast Cint to Cbool: %{c#Cint0}"] )
   in
   { Ir_expr.k; tag = cbool_tag; max_bits = 1 }
 

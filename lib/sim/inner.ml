@@ -1,5 +1,4 @@
 open! Core
-open! Act
 
 let for_loop_else max_ct ~(f : int -> [ `Continue | `Return of 'a ])
     ~(else_ : 'a) =
@@ -42,7 +41,7 @@ module Expr = struct
     module T = struct
       type t =
         | Var of Var_id.t
-        | Const of CInt.t
+        | Const of Cint.t
         | Add of NI.t * NI.t
         | Sub_no_underflow of NI.t * NI.t
         | Mul of NI.t * NI.t
@@ -80,7 +79,7 @@ module Expr = struct
     |> List.filter_map ~f:(fun v ->
            match v with Var var_id -> Some var_id | _ -> None)
 
-  let dummy_expr = { ns = [| N.Const CInt.zero; N.Return 0 |]; asserts = [||] }
+  let dummy_expr = { ns = [| N.Const Cint.zero; N.Return 0 |]; asserts = [||] }
 end
 
 module Var_buff = struct
@@ -88,7 +87,7 @@ module Var_buff = struct
     (* immutable data *)
     bitwidth : int;
     (* mutable *)
-    mutable value : CInt.t;
+    mutable value : Cint.t;
     mutable is_inited : bool;
     mutable read_ct : int;
     mutable write_ct : int;
@@ -120,14 +119,14 @@ module Mem_buff = struct
     cell_bitwidth : int;
     idx_helper_reg : Var_id.t;
     (* mutable *)
-    arr : CInt.t array;
+    arr : Cint.t array;
   }
   [@@deriving sexp_of]
 end
 
 module Enqueuer_buff = struct
   type t = {
-    mutable to_send : CInt.t array;
+    mutable to_send : Cint.t array;
     var_id : Var_id.t;
     mutable is_done : bool;
     mutable idx : int;
@@ -137,7 +136,7 @@ end
 
 module Dequeuer_buff = struct
   type t = {
-    mutable expected_reads : CInt.t array;
+    mutable expected_reads : Cint.t array;
     var_id : Var_id.t;
     mutable idx : int;
   }
@@ -156,7 +155,7 @@ module N = struct
     | Nop
     | Assign of Var_id.t * Expr.t
     | Log0 of string
-    | Log1 of Expr.t * (CInt.t -> string)
+    | Log1 of Expr.t * (Cint.t -> string)
     | Assert of Expr.t
     | Par of Instr_idx.t list
     | ParJoin of Par_join.t
@@ -217,7 +216,7 @@ module N = struct
     |> Var_id.Set.of_list
 end
 
-(* This module doesnt know about dtypes. Everything is just a CInt. This should
+(* This module doesnt know about dtypes. Everything is just a Cint. This should
    be fairly easy to port into c/c++/rust if we need the extra performance *)
 module E = struct
   module Expr_kind = struct
@@ -235,24 +234,24 @@ module E = struct
 
   type t =
     | Eval_expr_failed of
-        Expr_kind.t * Expr_assert_err_idx.t * CInt.t * CInt.t * Instr_idx.t
+        Expr_kind.t * Expr_assert_err_idx.t * Cint.t * Cint.t * Instr_idx.t
     | Uninit_id of Var_id.t * Instr_idx.t
     | Simul_read_write_var of Instr_idx.t * Instr_idx.t * Var_id.t
     | Simul_write_write_var of Instr_idx.t * Instr_idx.t * Var_id.t
-    | Sent_value_doesnt_fit_in_chan of Instr_idx.t * Chan_id.t * CInt.t
-    | Read_chan_value_doesnt_fit_in_var of Instr_idx.t * Chan_id.t * CInt.t
+    | Sent_value_doesnt_fit_in_chan of Instr_idx.t * Chan_id.t * Cint.t
+    | Read_chan_value_doesnt_fit_in_var of Instr_idx.t * Chan_id.t * Cint.t
     | Select_no_guards_true of Instr_idx.t
     | Select_multiple_guards_true of Instr_idx.t * int list
-    | Assigned_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * CInt.t
+    | Assigned_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * Cint.t
     | Assert_failure of Instr_idx.t
     | Simul_chan_readers of Instr_idx.t * Instr_idx.t
     | Simul_chan_senders of Instr_idx.t * Instr_idx.t
     | Select_multiple_true_probes of Instr_idx.t * (int * (Probe.t * int)) list
     | Unstable_probe of Instr_idx.t * Probe.t
-    | Read_dequeuer_wrong_value of Dequeuer_idx.t * CInt.t * int
-    | Mem_out_of_bounds of Instr_idx.t * CInt.t * int
-    | Read_mem_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * CInt.t
-    | Written_mem_value_doesnt_fit_in_cell of Instr_idx.t * Mem_id.t * CInt.t
+    | Read_dequeuer_wrong_value of Dequeuer_idx.t * Cint.t * int
+    | Mem_out_of_bounds of Instr_idx.t * Cint.t * int
+    | Read_mem_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * Cint.t
+    | Written_mem_value_doesnt_fit_in_cell of Instr_idx.t * Mem_id.t * Cint.t
     | User_read_did_not_complete of Dequeuer_idx.t * int
     | User_send_did_not_complete of Enqueuer_idx.t * int
     | Stuck
@@ -261,7 +260,7 @@ module E = struct
 end
 
 module Var_spec = struct
-  type t = { bitwidth : int; init : CInt.t option } [@@deriving sexp_of]
+  type t = { bitwidth : int; init : Cint.t option } [@@deriving sexp_of]
 end
 
 module Chan_spec = struct
@@ -272,7 +271,7 @@ module Mem_spec = struct
   type t = {
     cell_bitwidth : int;
     idx_helper_reg : Var_id.t;
-    init : CInt.t array;
+    init : Cint.t array;
   }
   [@@deriving sexp_of]
 end
@@ -329,44 +328,44 @@ let set_dequeuer t ~dequeuer_idx ~idx ~expected_reads ~push_pc =
   Vec.push t.s.pcs push_pc
 
 let check_value_fits_width width ~value ~error =
-  if width >= CInt.bitwidth value then Ok () else Error error
+  if width >= Cint.bitwidth value then Ok () else Error error
 
 let step' t ~pc_idx =
   let bool_of_cint i =
-    match CInt.to_int_exn i with
+    match Cint.to_int_exn i with
     | 0 -> false
     | 1 -> true
     | c -> failwith [%string "Simulator bug: unexpected bool value %{c#Int}"]
   in
   let eval_var_table (expr : Expr.t) ~err_kind ~err_instr =
-    let reg = Array.create CInt.zero ~len:(Array.length expr.ns) in
+    let reg = Array.create Cint.zero ~len:(Array.length expr.ns) in
     let res = ref None in
     let i = ref 0 in
-    let of_bool b = Bool.to_int b |> CInt.of_int in
+    let of_bool b = Bool.to_int b |> Cint.of_int in
     while !i < Array.length expr.ns && Option.is_none !res do
       (match expr.ns.(!i) with
       | Var id -> reg.(!i) <- t.s.var_table.(id).value
       | Const c -> reg.(!i) <- c
-      | Add (a, b) -> reg.(!i) <- CInt.add reg.(a) reg.(b)
-      | Sub_no_underflow (a, b) -> reg.(!i) <- CInt.sub reg.(a) reg.(b)
-      | Mul (a, b) -> reg.(!i) <- CInt.mul reg.(a) reg.(b)
-      | Div (a, b) -> reg.(!i) <- CInt.div reg.(a) reg.(b)
-      | Mod (a, b) -> reg.(!i) <- CInt.mod_ reg.(a) reg.(b)
-      | LShift (a, b) -> reg.(!i) <- CInt.left_shift reg.(a) ~amt:reg.(b)
-      | RShift (a, b) -> reg.(!i) <- CInt.right_shift reg.(a) ~amt:reg.(b)
-      | BitAnd (a, b) -> reg.(!i) <- CInt.bit_and reg.(a) reg.(b)
-      | BitOr (a, b) -> reg.(!i) <- CInt.bit_or reg.(a) reg.(b)
-      | BitXor (a, b) -> reg.(!i) <- CInt.bit_xor reg.(a) reg.(b)
-      | Eq (a, b) -> reg.(!i) <- CInt.eq reg.(a) reg.(b) |> of_bool
-      | Ne (a, b) -> reg.(!i) <- CInt.ne reg.(a) reg.(b) |> of_bool
-      | Lt (a, b) -> reg.(!i) <- CInt.lt reg.(a) reg.(b) |> of_bool
-      | Le (a, b) -> reg.(!i) <- CInt.le reg.(a) reg.(b) |> of_bool
-      | Gt (a, b) -> reg.(!i) <- CInt.gt reg.(a) reg.(b) |> of_bool
-      | Ge (a, b) -> reg.(!i) <- CInt.ge reg.(a) reg.(b) |> of_bool
-      | Clip (a, bits) -> reg.(!i) <- CInt.clip reg.(a) ~bits
+      | Add (a, b) -> reg.(!i) <- Cint.add reg.(a) reg.(b)
+      | Sub_no_underflow (a, b) -> reg.(!i) <- Cint.sub reg.(a) reg.(b)
+      | Mul (a, b) -> reg.(!i) <- Cint.mul reg.(a) reg.(b)
+      | Div (a, b) -> reg.(!i) <- Cint.div reg.(a) reg.(b)
+      | Mod (a, b) -> reg.(!i) <- Cint.mod_ reg.(a) reg.(b)
+      | LShift (a, b) -> reg.(!i) <- Cint.left_shift reg.(a) ~amt:reg.(b)
+      | RShift (a, b) -> reg.(!i) <- Cint.right_shift reg.(a) ~amt:reg.(b)
+      | BitAnd (a, b) -> reg.(!i) <- Cint.bit_and reg.(a) reg.(b)
+      | BitOr (a, b) -> reg.(!i) <- Cint.bit_or reg.(a) reg.(b)
+      | BitXor (a, b) -> reg.(!i) <- Cint.bit_xor reg.(a) reg.(b)
+      | Eq (a, b) -> reg.(!i) <- Cint.eq reg.(a) reg.(b) |> of_bool
+      | Ne (a, b) -> reg.(!i) <- Cint.ne reg.(a) reg.(b) |> of_bool
+      | Lt (a, b) -> reg.(!i) <- Cint.lt reg.(a) reg.(b) |> of_bool
+      | Le (a, b) -> reg.(!i) <- Cint.le reg.(a) reg.(b) |> of_bool
+      | Gt (a, b) -> reg.(!i) <- Cint.gt reg.(a) reg.(b) |> of_bool
+      | Ge (a, b) -> reg.(!i) <- Cint.ge reg.(a) reg.(b) |> of_bool
+      | Clip (a, bits) -> reg.(!i) <- Cint.clip reg.(a) ~bits
       | Assert (a, err_id) ->
-          if CInt.equal reg.(a) CInt.one then ()
-          else if CInt.equal reg.(a) CInt.zero then
+          if Cint.equal reg.(a) Cint.one then ()
+          else if Cint.equal reg.(a) Cint.zero then
             let err_no, d1, d2 = expr.asserts.(err_id) in
             res := Some (Error (err_no, reg.(d1), reg.(d2)))
           else
@@ -705,7 +704,7 @@ let step' t ~pc_idx =
       unguard pc;
       let value = at_var_table ~var_id:dequeuer.var_id in
       let expected = dequeuer.expected_reads.(dequeuer.idx) in
-      if not (CInt.equal value expected) then
+      if not (Cint.equal value expected) then
         Error (E.Read_dequeuer_wrong_value (deq_idx, value, dequeuer.idx))
       else (
         dequeuer.idx <- dequeuer.idx + 1;
@@ -719,17 +718,17 @@ let step' t ~pc_idx =
       let%bind.Result idx =
         eval_var_table idx_expr ~err_kind:Mem_idx ~err_instr:pc
       in
-      if CInt.(idx < zero) || CInt.(idx >= (Array.length mem.arr |> of_int))
+      if Cint.(idx < zero) || Cint.(idx >= (Array.length mem.arr |> of_int))
       then Error (E.Mem_out_of_bounds (pc, idx, Array.length mem.arr))
       else
-        let value = mem.arr.(CInt.to_int_exn idx) in
+        let value = mem.arr.(Cint.to_int_exn idx) in
         let%bind.Result () =
           let var_width = t.s.var_table.(dst_id).bitwidth in
           check_value_fits_width var_width ~value
             ~error:(E.Read_mem_value_doesnt_fit_in_var (pc, dst_id, value))
         in
         let () =
-          set_var_table ~var_id:dst_id ~value:mem.arr.(CInt.to_int_exn idx)
+          set_var_table ~var_id:dst_id ~value:mem.arr.(Cint.to_int_exn idx)
         in
         set_pc_and_guard ~pc_idx (pc + 1)
   | WriteMem (idx_expr, src_expr, _, mem_idx) ->
@@ -738,7 +737,7 @@ let step' t ~pc_idx =
       let%bind.Result idx =
         eval_var_table idx_expr ~err_kind:Mem_idx ~err_instr:pc
       in
-      if CInt.(idx < zero) || CInt.(idx >= (Array.length mem.arr |> of_int))
+      if Cint.(idx < zero) || Cint.(idx >= (Array.length mem.arr |> of_int))
       then Error (E.Mem_out_of_bounds (pc, idx, Array.length mem.arr))
       else
         let%bind.Result value =
@@ -748,7 +747,7 @@ let step' t ~pc_idx =
           check_value_fits_width mem.cell_bitwidth ~value
             ~error:(E.Written_mem_value_doesnt_fit_in_cell (pc, mem_idx, value))
         in
-        let () = mem.arr.(CInt.to_int_exn idx) <- value in
+        let () = mem.arr.(Cint.to_int_exn idx) <- value in
         set_pc_and_guard ~pc_idx (pc + 1)
 
 let wait t ~max_steps () =
@@ -787,7 +786,7 @@ let create_state (setup : Setup.t) =
         let value, is_inited =
           match spec.init with
           | Some init -> (init, true)
-          | None -> (CInt.zero, false)
+          | None -> (Cint.zero, false)
         in
         { Var_buff.bitwidth; value; is_inited; read_ct = 0; write_ct = 0 })
   in

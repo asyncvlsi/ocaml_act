@@ -1,6 +1,5 @@
 open! Core
-open! Ochp
-open! Ochp.Act
+open! Act
 
 (* TODO switch stuff 4.14.0 opam install bignum core dune
    expect_test_helpers_core ocamlfmt *)
@@ -174,7 +173,7 @@ let%expect_test "test4" =
   [%expect
     {|
     send 1
-    (Error "Assertion failed: in test/ir_test.ml on line 155.") |}]
+    (Error "Assertion failed: in test/ir_test.ml on line 154.") |}]
 
 let%expect_test "test5" =
   let var1 = Var.create CInt.dtype_32 in
@@ -204,7 +203,7 @@ let%expect_test "test5" =
   [%expect
     {|
       (Error
-       "User read has wrong value: got 4, but expected 5 based on `send' function call in test/ir_test.ml on line 201, on chan created in test/ir_test.ml on line 182.") |}]
+       "User read has wrong value: got 4, but expected 5 based on `send' function call in test/ir_test.ml on line 200, on chan created in test/ir_test.ml on line 181.") |}]
 
 let split ~dtype i1 o1 o2 =
   let var1 = Var.create dtype in
@@ -250,9 +249,12 @@ let rec buff ~depth ~dtype i1 o1 =
 
 let%expect_test "test_buff 1" =
   let dtype = CInt.dtype_32 in
-  let i = Chan.W.create dtype in
-  let o = Chan.R.create dtype in
-  let ir = block11 i o ~f:(fun i o -> buff ~depth:1 ~dtype i o) in
+  let ir, i, o =
+    let i = Chan.create dtype in
+    let o = Chan.create dtype in
+    let ir = buff ~depth:1 ~dtype i.r o.w in
+    (ir, i.w, o.r)
+  in
   let sim =
     Sim.simulate_chp ir ~user_sendable_ports:[ i.u ]
       ~user_readable_ports:[ o.u ]
@@ -290,13 +292,16 @@ let%expect_test "test_buff 1" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in test/ir_test.ml on line 288, on chan created in test/ir_test.ml on line 253.") |}]
+     "User send did not complete:  called in test/ir_test.ml on line 290, on chan created in test/ir_test.ml on line 253.") |}]
 
 let%expect_test "test_buff 2" =
   let dtype = CInt.dtype_32 in
-  let i = Chan.W.create dtype in
-  let o = Chan.R.create dtype in
-  let ir = block11 i o ~f:(fun i o -> buff ~depth:2 ~dtype i o) in
+  let ir, i, o =
+    let i = Chan.create dtype in
+    let o = Chan.create dtype in
+    let ir = buff ~depth:2 ~dtype i.r o.w in
+    (ir, i.w, o.r)
+  in
   let sim =
     Sim.simulate_chp ir ~user_sendable_ports:[ i.u ]
       ~user_readable_ports:[ o.u ]
@@ -315,7 +320,7 @@ let%expect_test "test_buff 2" =
   [%expect
     {|
     (Error
-     "User send did not complete:  called in test/ir_test.ml on line 313, on chan created in test/ir_test.ml on line 297.") |}]
+     "User send did not complete:  called in test/ir_test.ml on line 318, on chan created in test/ir_test.ml on line 300.") |}]
 
 let%expect_test "mem" =
   let mem =
@@ -357,7 +362,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Mem access out of bounds: in test/ir_test.ml on line 349, idx is 4, size of mem is 4.") |}]
+     "Mem access out of bounds: in test/ir_test.ml on line 354, idx is 4, size of mem is 4.") |}]
 
 let%expect_test "mem" =
   let mem =
@@ -388,7 +393,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Simulatnious accesses of a memory/rom: statement 1 in test/ir_test.ml on line 379, statement 2 in test/ir_test.ml on line 374.") |}]
+     "Simulatnious accesses of a memory/rom: statement 1 in test/ir_test.ml on line 384, statement 2 in test/ir_test.ml on line 379.") |}]
 
 let%expect_test "test probes" =
   let var = Var.create CInt.dtype_32 in
@@ -573,4 +578,4 @@ let%expect_test "test2" =
   [%expect
     {|
     (Error
-     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in test/ir_test.ml on line 550.") |}]
+     "Assigned value doesnt fit in var: got 190 but variable has layout (Bits_fixed 6) at in test/ir_test.ml on line 555.") |}]

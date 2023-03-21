@@ -1,6 +1,5 @@
 open! Core
-open! Ochp
-open! Ochp.Act
+open! Act
 
 module Instr = struct
   (* TODO autogenerate this with a ppx *)

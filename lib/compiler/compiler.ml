@@ -44,8 +44,8 @@ let sim ?seed (t : Compiled_program.t) =
   let of_interproc_chan interproc_chan =
     Hashtbl.find_or_add ir_chan_of_interproc_chan interproc_chan
       ~default:(fun () ->
-        let dtype = Act.CInt.dtype ~bits:interproc_chan.bitwidth in
-        let interproc_chan = Act.Chan.create dtype in
+        let dtype = Cint.dtype ~bits:interproc_chan.bitwidth in
+        let interproc_chan = Chan.create dtype in
         Chan.Internal.unwrap_r interproc_chan.r)
   in
 
@@ -65,7 +65,7 @@ let sim ?seed (t : Compiled_program.t) =
       | Ge (a, b) -> Ge (f a, f b)
       | Lt (a, b) -> Lt (f a, f b)
       | Le (a, b) -> Le (f a, f b)
-      | Eq0 a -> Eq (f a, Const Act.CInt.zero)
+      | Eq0 a -> Eq (f a, Const Cint.zero)
       | BitXor (a, b) -> BitXor (f a, f b)
       | BitOr (a, b) -> BitOr (f a, f b)
       | BitAnd (a, b) -> BitAnd (f a, f b)
@@ -75,8 +75,7 @@ let sim ?seed (t : Compiled_program.t) =
       | Concat l ->
           List.folding_map l ~init:0 ~f:(fun acc (e, bits) ->
               ( acc + bits,
-                Ir_expr.K.LShift (Clip (f e, bits), Const (Act.CInt.of_int acc))
-              ))
+                Ir_expr.K.LShift (Clip (f e, bits), Const (Cint.of_int acc)) ))
           |> List.reduce_exn ~f:(fun a b -> BitOr (a, b))
       | Log2OneHot e ->
           let w = F_expr.bitwidth e ~bits_of_var in
@@ -85,9 +84,9 @@ let sim ?seed (t : Compiled_program.t) =
               Ir_expr.K.(
                 Mul
                   ( BitAnd
-                      ( LogicalRShift (e, Const (Act.CInt.of_int idx)),
-                        Const Act.CInt.one ),
-                    Const (Act.CInt.of_int idx) )))
+                      ( LogicalRShift (e, Const (Cint.of_int idx)),
+                        Const Cint.one ),
+                    Const (Cint.of_int idx) )))
           |> List.reduce_exn ~f:(fun a b -> BitOr (a, b))
     in
 
@@ -101,8 +100,8 @@ let sim ?seed (t : Compiled_program.t) =
           match interproc_chan with
           | Some interproc_chan -> of_interproc_chan interproc_chan
           | None ->
-              let dtype = Act.CInt.dtype ~bits:c.bitwidth in
-              let c = Act.Chan.create dtype in
+              let dtype = Cint.dtype ~bits:c.bitwidth in
+              let c = Chan.create dtype in
               Chan.Internal.unwrap_r c.r)
     in
     List.iter chp.iports ~f:(fun (interproc_chan, chp_chan) ->
@@ -115,8 +114,8 @@ let sim ?seed (t : Compiled_program.t) =
     let ir_var_of_var = Flat_chp.Var.Table.create () in
     let of_v v =
       Hashtbl.find_or_add ir_var_of_var v ~default:(fun () ->
-          let dtype = Act.CInt.dtype ~bits:v.bitwidth in
-          (Act.Var.create dtype |> Var.Internal.unwrap).u)
+          let dtype = Cint.dtype ~bits:v.bitwidth in
+          (Var.create dtype |> Var.Internal.unwrap).u)
     in
     let dtype_of_v v = v.Ir_var.U.d.dtype in
     let dtype_of_cw c = c.Ir_chan.U.d.dtype in
@@ -128,7 +127,7 @@ let sim ?seed (t : Compiled_program.t) =
       { Ir_expr.k; max_bits; tag }
     in
     let of_bool_expr e =
-      of_expr e ~dtype:(Act.CBool.dtype |> Dtype.Internal.unwrap)
+      of_expr e ~dtype:(Cbool.dtype |> Dtype.Internal.unwrap)
     in
 
     let rec of_stmt chp =
@@ -165,8 +164,8 @@ let sim ?seed (t : Compiled_program.t) =
           match interproc_chan with
           | Some interproc_chan -> of_interproc_chan interproc_chan
           | None ->
-              let dtype = Act.CInt.dtype ~bits:c.bitwidth in
-              let c = Act.Chan.create dtype in
+              let dtype = Cint.dtype ~bits:c.bitwidth in
+              let c = Chan.create dtype in
               Chan.Internal.unwrap_r c.r)
     in
     List.iter dflow.iports ~f:(fun (interproc_chan, chp_chan) ->
@@ -180,8 +179,8 @@ let sim ?seed (t : Compiled_program.t) =
     let of_c_w v = of_c v |> Chan.Internal.wrap_w in
 
     let new_var ?init bits =
-      let dtype = Act.CInt.dtype ~bits in
-      Act.Var.create ?init dtype
+      let dtype = Cint.dtype ~bits in
+      Var.create ?init dtype
     in
     let utv (v : 'a Var.t) : 'b Var.t = Obj.magic v in
 
@@ -197,8 +196,8 @@ let sim ?seed (t : Compiled_program.t) =
           let exprs = FBlock.expr_list fblock in
           let do_reads =
             Map.to_alist var_of_in
-            |> List.map ~f:(fun (i, ivar) -> Act.Chp.read (of_c_r i) (utv ivar))
-            |> Act.Chp.par
+            |> List.map ~f:(fun (i, ivar) -> Chp.read (of_c_r i) (utv ivar))
+            |> Chp.par
           in
           let do_sends =
             List.map exprs ~f:(fun (dst, expr) ->
@@ -210,30 +209,30 @@ let sim ?seed (t : Compiled_program.t) =
                       ~bits_of_var:(fun v -> v.bitwidth)
                   in
                   let tag =
-                    Act.CInt.dtype ~bits:dst.bitwidth
+                    Cint.dtype ~bits:dst.bitwidth
                     |> Dtype.Internal.unwrap |> Ir_dtype.expr_tag
                   in
                   Ir_expr.untype { Ir_expr.k; max_bits = dst.bitwidth; tag }
                   |> Expr.Internal.wrap
                 in
-                Act.Chp.send (of_c_w dst) expr)
-            |> Act.Chp.par
+                Chp.send (of_c_w dst) expr)
+            |> Chp.par
           in
-          Act.Chp.loop [ do_reads; do_sends ]
+          Chp.loop [ do_reads; do_sends ]
       | Split (g, i, os) ->
           let tmp = new_var i.bitwidth in
           let g_var = new_var g.bitwidth in
-          Act.Chp.loop
+          Chp.loop
             [
-              Act.Chp.read (of_c_r g) (utv g_var);
-              Act.Chp.read (of_c_r i) (utv tmp);
-              Act.Chp.select_imm
+              Chp.read (of_c_r g) (utv g_var);
+              Chp.read (of_c_r i) (utv tmp);
+              Chp.select_imm
                 (List.mapi os ~f:(fun idx o ->
-                     let g = Act.Expr.(eq (var g_var) (of_int idx)) in
+                     let g = Expr.(eq (var g_var) (of_int idx)) in
                      let n =
                        match o with
-                       | Some o -> Act.Chp.send_var (of_c_w o) (utv tmp)
-                       | None -> Act.Chp.seq []
+                       | Some o -> Chp.send_var (of_c_w o) (utv tmp)
+                       | None -> Chp.seq []
                      in
                      (g, n)))
                 ~else_:None;
@@ -241,50 +240,50 @@ let sim ?seed (t : Compiled_program.t) =
       | Merge (g, ins, o) ->
           let tmp = new_var o.bitwidth in
           let g_var = new_var g.bitwidth in
-          Act.Chp.loop
+          Chp.loop
             [
-              Act.Chp.read (of_c_r g) (utv g_var);
-              Act.Chp.select_imm
+              Chp.read (of_c_r g) (utv g_var);
+              Chp.select_imm
                 (List.mapi ins ~f:(fun idx i ->
-                     ( Act.Expr.(eq (var g_var) (of_int idx)),
-                       Act.Chp.read (of_c_r i) (utv tmp) )))
+                     ( Expr.(eq (var g_var) (of_int idx)),
+                       Chp.read (of_c_r i) (utv tmp) )))
                 ~else_:None;
-              Act.Chp.send_var (of_c_w o) (utv tmp);
+              Chp.send_var (of_c_w o) (utv tmp);
             ]
       | Buff1 (dst, src, init) -> (
           assert (Int.equal dst.bitwidth src.bitwidth);
           match init with
           | Some init ->
               let tmp = new_var src.bitwidth ~init in
-              Act.Chp.loop
+              Chp.loop
                 [
-                  Act.Chp.send_var (of_c_w dst) (utv tmp);
-                  Act.Chp.read (of_c_r src) (utv tmp);
+                  Chp.send_var (of_c_w dst) (utv tmp);
+                  Chp.read (of_c_r src) (utv tmp);
                 ]
           | None ->
               let tmp = new_var src.bitwidth in
-              Act.Chp.loop
+              Chp.loop
                 [
-                  Act.Chp.read (of_c_r src) (utv tmp);
-                  Act.Chp.send_var (of_c_w dst) (utv tmp);
+                  Chp.read (of_c_r src) (utv tmp);
+                  Chp.send_var (of_c_w dst) (utv tmp);
                 ])
       | Clone (i, os) ->
           let tmp = new_var i.bitwidth in
-          Act.Chp.loop
+          Chp.loop
             [
-              Act.Chp.read (of_c_r i) (utv tmp);
-              Act.Chp.par
-                (List.map os ~f:(fun o -> Act.Chp.send_var (of_c_w o) (utv tmp)));
+              Chp.read (of_c_r i) (utv tmp);
+              Chp.par
+                (List.map os ~f:(fun o -> Chp.send_var (of_c_w o) (utv tmp)));
             ]
       | Sink i ->
           let tmp = new_var i.bitwidth in
-          Act.Chp.loop [ Act.Chp.read (of_c_r i) (utv tmp) ]
+          Chp.loop [ Chp.read (of_c_r i) (utv tmp) ]
     in
-    Act.Chp.par (List.map dflow.stmt ~f:of_stmt) |> Chp.Internal.unwrap
+    Chp.par (List.map dflow.stmt ~f:of_stmt) |> Chp.Internal.unwrap
   in
 
   let of_mem (mem : Flat_mem.Proc.t) =
-    (* init : CInt.t array; idx_bits : int; cell_bits : int; cmd_chan :
+    (* init : Cint.t array; idx_bits : int; cell_bits : int; cmd_chan :
        Interproc_chan.t; read_chan : Interproc_chan.t; write_chan :
        Interproc_chan.t option; *)
     let of_c c = of_interproc_chan c |> Chan.Internal.wrap_'a in
@@ -292,36 +291,34 @@ let sim ?seed (t : Compiled_program.t) =
     let read_chan = (of_c mem.read_chan).w in
     let write_chan = Option.map mem.write_chan ~f:(fun c -> (of_c c).r) in
     let cmd =
-      let dtype = Act.CInt.dtype ~bits:(mem.idx_bits + 1) in
-      Act.Var.create dtype
+      let dtype = Cint.dtype ~bits:(mem.idx_bits + 1) in
+      Var.create dtype
     in
     let tmp =
-      let dtype = Act.CInt.dtype ~bits:mem.cell_bits in
-      Act.Var.create dtype
+      let dtype = Cint.dtype ~bits:mem.cell_bits in
+      Var.create dtype
     in
-    let mem =
-      Act.Mem.create_ug_mem (Act.CInt.dtype ~bits:mem.cell_bits) mem.init
-    in
-    Act.Chp.loop
+    let mem = Mem.create_ug_mem (Cint.dtype ~bits:mem.cell_bits) mem.init in
+    Chp.loop
       [
-        Act.Chp.read cmd_chan cmd;
-        Act.Chp.if_else
-          Act.Expr.(var cmd |> bit_and one |> eq zero)
+        Chp.read cmd_chan cmd;
+        Chp.if_else
+          Expr.(var cmd |> bit_and one |> eq zero)
           [
-            Act.Chp.read_ug_mem mem
-              ~idx:Act.Expr.(var cmd |> right_shift' ~amt:1)
+            Chp.read_ug_mem mem
+              ~idx:Expr.(var cmd |> right_shift' ~amt:1)
               ~dst:tmp;
-            Act.Chp.send_var read_chan tmp;
+            Chp.send_var read_chan tmp;
           ]
           (match write_chan with
           | Some write_chan ->
               [
-                Act.Chp.read write_chan tmp;
-                Act.Chp.write_ug_mem mem
-                  ~idx:Act.Expr.(var cmd |> right_shift' ~amt:1)
-                  ~value:(Act.Expr.var tmp);
+                Chp.read write_chan tmp;
+                Chp.write_ug_mem mem
+                  ~idx:Expr.(var cmd |> right_shift' ~amt:1)
+                  ~value:(Expr.var tmp);
               ]
-          | None -> [ Act.Chp.assert_ Act.Expr.false_ ]);
+          | None -> [ Chp.assert_ Expr.false_ ]);
       ]
     |> Chp.Internal.unwrap
   in

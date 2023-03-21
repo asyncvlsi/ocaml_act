@@ -1,6 +1,5 @@
 open! Core
-open! Ochp
-open! Ochp.Act
+open! Act
 
 (* $MDX part-begin=colatz_example *)
 let i = Chan.create CInt.dtype_32

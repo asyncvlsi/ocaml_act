@@ -27,19 +27,19 @@ let create ~equal ~sexp_of_t ~max_layout_of ~cint_of ~of_cint
 
 let dummy_val =
   {
-    equal = (fun _ _ -> failwith "Cant call functions on DType.dummy_val");
-    sexp_of_t = (fun _ -> failwith "Cant call functions on DType.dummy_val");
-    max_layout_of = (fun _ -> failwith "Cant call functions on DType.dummy_val");
-    cint_of = (fun _ -> failwith "Cant call functions on DType.dummy_val");
-    of_cint = (fun _ -> failwith "Cant call functions on DType.dummy_val");
+    equal = (fun _ _ -> failwith "Cant call functions on Dtype.dummy_val");
+    sexp_of_t = (fun _ -> failwith "Cant call functions on Dtype.dummy_val");
+    max_layout_of = (fun _ -> failwith "Cant call functions on Dtype.dummy_val");
+    cint_of = (fun _ -> failwith "Cant call functions on Dtype.dummy_val");
+    of_cint = (fun _ -> failwith "Cant call functions on Dtype.dummy_val");
     of_cint_assert_expr_fn = Var ();
     layout = Bits_fixed 0;
     expr_tag =
       Ir_expr_tag.create
         ~value_of_cint:(fun _ ->
-          failwith "Cant call functions on DType.dummy_val")
+          failwith "Cant call functions on Dtype.dummy_val")
         ~cint_of_value:(fun _ ->
-          failwith "Cant call functions on DType.dummy_val");
+          failwith "Cant call functions on Dtype.dummy_val");
   }
 
 let layout t = t.layout

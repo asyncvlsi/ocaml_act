@@ -1,6 +1,5 @@
 open! Core
-open! Ochp
-open! Ochp.Act
+open! Act
 
 module T = struct
   type t = A | B | C [@@deriving sexp, equal, hash, compare]

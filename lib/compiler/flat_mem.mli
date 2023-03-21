@@ -2,7 +2,7 @@ open! Core
 
 module Proc : sig
   type t = {
-    init : Act.CInt.t array;
+    init : Cint.t array;
     idx_bits : int;
     cell_bits : int;
     cmd_chan : Interproc_chan.t;
