@@ -59,7 +59,7 @@ So, now that you are excited to try out this library :), the first thing you nee
 ```
 $ opam switch create 4.14.0
 $ eval $(opam env)
-$ opam install bignum core dune expect_test_helpers_core mdx merlin ocamlformat
+$ opam install bignum core dune expect_test_helpers_core mdx merlin ocamlformat odoc
 ```
 
 3. Clone this repository (e.g. if you have ssh keys installed, `$ git clone git@git.yale.edu:avlsi/ocaml_act.git`)

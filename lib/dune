@@ -1,0 +1,6 @@
+(library
+ (public_name ochp)
+ (libraries core act)
+ (preprocess
+  (pps ppx_jane))
+ (inline_tests))

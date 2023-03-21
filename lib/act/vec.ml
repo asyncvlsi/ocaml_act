@@ -24,11 +24,12 @@ let remove t n =
 
 let push t v =
   (if Int.equal t.len (Array.length t.arr) then
-   let new_len = Int.max (Array.length t.arr * 2) 16 in
-   let arr =
-     Array.init new_len ~f:(fun i -> if i < t.len then t.arr.(i) else t.default)
-   in
-   t.arr <- arr);
+     let new_len = Int.max (Array.length t.arr * 2) 16 in
+     let arr =
+       Array.init new_len ~f:(fun i ->
+           if i < t.len then t.arr.(i) else t.default)
+     in
+     t.arr <- arr);
   t.arr.(t.len) <- v;
   t.len <- t.len + 1
 
