@@ -1,13 +1,16 @@
 open! Core
 
-type 'a t = 'a Ir_expr.t [@@deriving sexp_of]
+open! Core
+module Tag = Expr_tag
+module K = Act_ir.Ir.Expr
 
-module Tag = Ir_expr.Tag
-module K = Ir_expr.K
+type 'a t = { k : Act_ir.Ir.Var.t K.t; tag : 'a Tag.t; max_bits : int }
+[@@deriving sexp_of]
 
 module U = struct
   type nonrec t = Act_ir.Utils.Any.t t [@@deriving sexp_of]
 end
+
 
 let var (v : 'a Var.t) =
   let dtype = Var.Internal.dtype v |> Ir_dtype.untype in
@@ -17,13 +20,13 @@ let var (v : 'a Var.t) =
     Obj.magic (tag : Act_ir.Utils.Any.t Expr_tag.t)
   in
   let max_bits = match Ir_dtype.layout dtype with Bits_fixed bits -> bits in
-  { Ir_expr.k = Var v; tag; max_bits }
+  { k = Var v; tag; max_bits }
 
 let cint_tag = Expr_tag.cint_expr_tag
 let cbool_tag = Expr_tag.cbool_expr_tag
 
 let bool_of_int i =
-  assert (Tag.equal cint_tag i.Ir_expr.tag);
+  assert (Tag.equal cint_tag i.tag);
   let k = i.k in
   let k =
     K.With_assert_log
@@ -32,14 +35,14 @@ let bool_of_int i =
         k,
         fun c -> [%string "Invalid cast Cint to Cbool: %{c#Act_ir.CInt}"] )
   in
-  { Ir_expr.k; tag = cbool_tag; max_bits = 1 }
+  { k; tag = cbool_tag; max_bits = 1 }
 
 let int_of_bool b =
-  assert (Tag.equal cbool_tag b.Ir_expr.tag);
-  { Ir_expr.k = b.k; tag = cint_tag; max_bits = 1 }
+  assert (Tag.equal cbool_tag b.tag);
+  { k = b.k; tag = cint_tag; max_bits = 1 }
 
 let of_cint c =
-  { Ir_expr.k = Const c; tag = cint_tag; max_bits = Act_ir.CInt.bitwidth c }
+  { k = Const c; tag = cint_tag; max_bits = Act_ir.CInt.bitwidth c }
 
 let of_int i = of_cint (Act_ir.CInt.of_int i)
 let of_bool b = Cbool0.of_bool b |> Cbool0.to_cint |> of_cint |> bool_of_int
@@ -53,93 +56,93 @@ let true_ = of_bool true
 let false_ = of_bool false
 
 let clip e ~bits =
-  assert (Tag.equal cint_tag e.Ir_expr.tag);
+  assert (Tag.equal cint_tag e.tag);
   let bits = Int.max bits 0 in
-  { Ir_expr.k = Clip (e.k, bits); tag = cint_tag; max_bits = bits }
+  { k = Clip (e.k, bits); tag = cint_tag; max_bits = bits }
 
 let not_ b =
-  assert (Tag.equal cbool_tag b.Ir_expr.tag);
+  assert (Tag.equal cbool_tag b.tag);
   {
-    Ir_expr.k = Eq (b.k, Const Act_ir.CInt.zero);
+    k = Eq (b.k, Const Act_ir.CInt.zero);
     tag = cbool_tag;
     max_bits = 1;
   }
 
 let and_ a b =
-  assert (Tag.equal cbool_tag a.Ir_expr.tag);
-  assert (Tag.equal cbool_tag b.Ir_expr.tag);
-  { Ir_expr.k = BitAnd (a.k, b.k); tag = cbool_tag; max_bits = 1 }
+  assert (Tag.equal cbool_tag a.tag);
+  assert (Tag.equal cbool_tag b.tag);
+  { k = BitAnd (a.k, b.k); tag = cbool_tag; max_bits = 1 }
 
 let or_ a b =
-  assert (Tag.equal cbool_tag a.Ir_expr.tag);
-  assert (Tag.equal cbool_tag b.Ir_expr.tag);
-  { Ir_expr.k = BitOr (a.k, b.k); tag = cbool_tag; max_bits = 1 }
+  assert (Tag.equal cbool_tag a.tag);
+  assert (Tag.equal cbool_tag b.tag);
+  { k = BitOr (a.k, b.k); tag = cbool_tag; max_bits = 1 }
 
 let bool_eq a b =
-  assert (Tag.equal cbool_tag a.Ir_expr.tag);
-  assert (Tag.equal cbool_tag b.Ir_expr.tag);
-  { Ir_expr.k = Eq (a.k, b.k); tag = cbool_tag; max_bits = 1 }
+  assert (Tag.equal cbool_tag a.tag);
+  assert (Tag.equal cbool_tag b.tag);
+  { k = Eq (a.k, b.k); tag = cbool_tag; max_bits = 1 }
 
 let bool_ne a b = bool_eq a b |> not_
 let xor_ = bool_ne
 
 (* ops *)
 let add a b =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag b.Ir_expr.tag);
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
   {
-    Ir_expr.k = Add (a.k, b.k);
+    k = Add (a.k, b.k);
     tag = cint_tag;
     max_bits = 1 + Int.max a.max_bits b.max_bits;
   }
 
 let sub a b =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag b.Ir_expr.tag);
-  { Ir_expr.k = Sub_no_wrap (a.k, b.k); tag = cint_tag; max_bits = a.max_bits }
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
+  { k = Sub_no_wrap (a.k, b.k); tag = cint_tag; max_bits = a.max_bits }
 
 let sub_wrap a b ~bits =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag b.Ir_expr.tag);
-  { Ir_expr.k = Sub_wrap (a.k, b.k, bits); tag = cint_tag; max_bits = bits }
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
+  { k = Sub_wrap (a.k, b.k, bits); tag = cint_tag; max_bits = bits }
 
 let mul a b =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag b.Ir_expr.tag);
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
   {
-    Ir_expr.k = Mul (a.k, b.k);
+    k = Mul (a.k, b.k);
     tag = cint_tag;
     max_bits = a.max_bits + b.max_bits;
   }
 
 let div a b =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag b.Ir_expr.tag);
-  { Ir_expr.k = Div (a.k, b.k); tag = cint_tag; max_bits = a.max_bits }
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
+  { k = Div (a.k, b.k); tag = cint_tag; max_bits = a.max_bits }
 
 let mod_ a b =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag b.Ir_expr.tag);
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
   {
-    Ir_expr.k = Mod (a.k, b.k);
+    k = Mod (a.k, b.k);
     tag = cint_tag;
     max_bits = Int.min a.max_bits b.max_bits;
   }
 
 let left_shift a ~amt =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag amt.Ir_expr.tag);
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag amt.tag);
   {
-    Ir_expr.k = LShift (a.k, amt.k);
+    k = LShift (a.k, amt.k);
     tag = cint_tag;
     max_bits = a.max_bits + Int.pow 2 amt.max_bits - 1;
   }
 
 let right_shift a ~amt =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag amt.Ir_expr.tag);
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag amt.tag);
   {
-    Ir_expr.k = LogicalRShift (a.k, amt.k);
+    k = LogicalRShift (a.k, amt.k);
     tag = cint_tag;
     max_bits = a.max_bits;
   }
@@ -151,73 +154,73 @@ let right_shift' a ~amt =
   right_shift a ~amt:(of_int amt) |> clip ~bits:(a.max_bits - amt)
 
 let bit_and a b =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag b.Ir_expr.tag);
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
   {
-    Ir_expr.k = BitAnd (a.k, b.k);
+    k = BitAnd (a.k, b.k);
     tag = cint_tag;
     max_bits = Int.min a.max_bits b.max_bits;
   }
 
 let bit_or a b =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag b.Ir_expr.tag);
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
   {
-    Ir_expr.k = BitOr (a.k, b.k);
+    k = BitOr (a.k, b.k);
     tag = cint_tag;
     max_bits = Int.max a.max_bits b.max_bits;
   }
 
 let bit_xor a b =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag b.Ir_expr.tag);
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
   {
-    Ir_expr.k = BitXor (a.k, b.k);
+    k = BitXor (a.k, b.k);
     tag = cint_tag;
     max_bits = Int.max a.max_bits b.max_bits;
   }
 
 let eq a b =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag b.Ir_expr.tag);
-  { Ir_expr.k = Eq (a.k, b.k); tag = cint_tag; max_bits = 1 } |> bool_of_int
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
+  { k = Eq (a.k, b.k); tag = cint_tag; max_bits = 1 } |> bool_of_int
 
 let ne a b =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag b.Ir_expr.tag);
-  { Ir_expr.k = Ne (a.k, b.k); tag = cint_tag; max_bits = 1 } |> bool_of_int
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
+  { k = Ne (a.k, b.k); tag = cint_tag; max_bits = 1 } |> bool_of_int
 
 let lt a b =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag b.Ir_expr.tag);
-  { Ir_expr.k = Lt (a.k, b.k); tag = cint_tag; max_bits = 1 } |> bool_of_int
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
+  { k = Lt (a.k, b.k); tag = cint_tag; max_bits = 1 } |> bool_of_int
 
 let le a b =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag b.Ir_expr.tag);
-  { Ir_expr.k = Le (a.k, b.k); tag = cint_tag; max_bits = 1 } |> bool_of_int
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
+  { k = Le (a.k, b.k); tag = cint_tag; max_bits = 1 } |> bool_of_int
 
 let gt a b =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag b.Ir_expr.tag);
-  { Ir_expr.k = Gt (a.k, b.k); tag = cint_tag; max_bits = 1 } |> bool_of_int
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
+  { k = Gt (a.k, b.k); tag = cint_tag; max_bits = 1 } |> bool_of_int
 
 let ge a b =
-  assert (Tag.equal cint_tag a.Ir_expr.tag);
-  assert (Tag.equal cint_tag b.Ir_expr.tag);
-  { Ir_expr.k = Ge (a.k, b.k); tag = cint_tag; max_bits = 1 } |> bool_of_int
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
+  { k = Ge (a.k, b.k); tag = cint_tag; max_bits = 1 } |> bool_of_int
 
 let add_wrap a b ~bits = add a b |> clip ~bits
 
 let with_assert_log ?new_max_bits ~assert_e ~val_e ~log_e log_fn =
-  assert (Tag.equal cbool_tag assert_e.Ir_expr.tag);
+  assert (Tag.equal cbool_tag assert_e.tag);
   let log_fn i =
-    let v = Tag.value_of_cint log_e.Ir_expr.tag i |> Option.value_exn in
+    let v = Tag.value_of_cint log_e.tag i |> Option.value_exn in
     log_fn v
   in
   {
-    Ir_expr.k =
-      With_assert_log (assert_e.k, val_e.Ir_expr.k, log_e.Ir_expr.k, log_fn);
+    k =
+      With_assert_log (assert_e.k, val_e.k, log_e.k, log_fn);
     tag = val_e.tag;
     max_bits = Option.value new_max_bits ~default:val_e.max_bits;
   }
@@ -225,8 +228,8 @@ let with_assert_log ?new_max_bits ~assert_e ~val_e ~log_e log_fn =
 let var v = var v
 
 module Internal = struct
-  let unwrap t = t.Ir_expr.k
-  let tag t = t.Ir_expr.tag
-  let max_bits t = t.Ir_expr.max_bits
-  let wrap k tag max_bits = { Ir_expr.k; tag; max_bits }
+  let unwrap t = t.k
+  let tag t = t.tag
+  let max_bits t = t.max_bits
+  let wrap k tag max_bits = { k; tag; max_bits }
 end
