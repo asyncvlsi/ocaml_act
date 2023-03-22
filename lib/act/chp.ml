@@ -13,8 +13,8 @@ let fail_if_layout_does_not_fit_dtype err_msg layout dtype =
   | false ->
       failwith
         (sprintf err_msg
-           (Act_ir.Layout.sexp_of_t layout |> Sexp.to_string)
-           (Ir_dtype.layout dtype |> Act_ir.Layout.sexp_of_t |> Sexp.to_string))
+           (Layout.sexp_of_t layout |> Sexp.to_string)
+           (Ir_dtype.layout dtype |> Layout.sexp_of_t |> Sexp.to_string))
 
 let assign var_id expr =
   let loc = Act_ir.Utils.Code_pos.psite () in

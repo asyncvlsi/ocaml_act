@@ -13,7 +13,6 @@ module Expr = Ir_expr0
 module Mem = Ir_mem
 module Process = Ir_process
 module Var = Ir_var
-module Layout = Ir_layout
 
 (** libraries for processing Act source code *)
 

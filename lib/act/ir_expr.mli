@@ -13,5 +13,5 @@ module U : sig
   type nonrec t = Act_ir.Utils.Any.t t [@@deriving sexp_of]
 end
 
-val max_layout : 'a t -> Act_ir.Layout.t
+val max_layout : 'a t -> Layout.t
 val untype : 'a t -> Act_ir.Utils.Any.t t

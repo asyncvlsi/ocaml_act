@@ -17,8 +17,8 @@ let create dtype init creation_code_pos kind =
           failwith
             [%string
               "Trying to initialize cell %{i#Int} of memory of dtype \
-               %{Act_ir.Layout.sexp_of_t (Ir_dtype.layout dtype)#Sexp} with a \
-               value of max_layout %{Act_ir.Layout.sexp_of_t \
+               %{Layout.sexp_of_t (Ir_dtype.layout dtype)#Sexp} with a \
+               value of max_layout %{Layout.sexp_of_t \
                init_layout#Sexp}."]);
   let init = Array.map init ~f:dtype.Ir_dtype.cint_of in
   let cell_bitwidth =

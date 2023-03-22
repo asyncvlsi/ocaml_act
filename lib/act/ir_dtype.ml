@@ -3,12 +3,12 @@ open! Core
 type 'a t = {
   equal : 'a -> 'a -> bool;
   sexp_of_t : 'a -> Sexp.t;
-  max_layout_of : 'a -> Act_ir.Layout.t;
+  max_layout_of : 'a -> Layout.t;
   cint_of : 'a -> Act_ir.CInt.t;
   of_cint : Act_ir.CInt.t -> 'a option;
   sexp_of_cint : Act_ir.CInt.t -> Sexp.t;
   of_cint_assert_expr_fn : unit Act_ir.Expr.t;
-  layout : Act_ir.Layout.t;
+  layout : Layout.t;
   expr_tag : 'a Expr_tag.t;
 }
 [@@deriving sexp_of]
@@ -55,7 +55,7 @@ let equal_fn (t : 'a t) = Staged.stage t.equal
 let sexp_of_t_fn (t : 'a t) = Staged.stage t.sexp_of_t
 let max_layout_of t a = t.max_layout_of a
 
-let fits_into_dtype ~into (layout : Act_ir.Layout.t) =
+let fits_into_dtype ~into (layout : Layout.t) =
   match (into.layout, layout) with
   | Bits_fixed into, Bits_fixed layout -> layout <= into
 
