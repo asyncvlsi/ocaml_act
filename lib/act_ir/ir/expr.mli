@@ -14,7 +14,7 @@ type 'v t =
   | Div of 'v t * 'v t
   | Mod of 'v t * 'v t
   | LShift of 'v t * 'v t
-  | LogicalRShift of 'v t * 'v t
+  | RShift of 'v t * 'v t
   | BitAnd of 'v t * 'v t
   | BitOr of 'v t * 'v t
   | BitXor of 'v t * 'v t

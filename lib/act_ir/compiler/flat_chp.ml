@@ -135,7 +135,7 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
       | Div (a, b) -> Div (f a, f b)
       | Mod (a, b) -> Mod (f a, f b)
       | LShift (a, b) -> LShift (f a, f b)
-      | LogicalRShift (a, b) -> RShift (f a, f b)
+      | RShift (a, b) -> RShift (f a, f b)
       | BitAnd (a, b) -> BitAnd (f a, f b)
       | BitOr (a, b) -> BitOr (f a, f b)
       | BitXor (a, b) -> BitXor (f a, f b)

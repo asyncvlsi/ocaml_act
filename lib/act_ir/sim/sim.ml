@@ -497,7 +497,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
       | Div (a, b) -> push (Div (convert a, convert b))
       | Mod (a, b) -> push (Mod (convert a, convert b))
       | LShift (a, b) -> push (LShift (convert a, convert b))
-      | LogicalRShift (a, b) -> push (RShift (convert a, convert b))
+      | RShift (a, b) -> push (RShift (convert a, convert b))
       | BitAnd (a, b) -> push (BitAnd (convert a, convert b))
       | BitOr (a, b) -> push (BitOr (convert a, convert b))
       | BitXor (a, b) -> push (BitXor (convert a, convert b))

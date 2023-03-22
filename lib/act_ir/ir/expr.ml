@@ -10,7 +10,7 @@ type 'v t =
   | Div of 'v t * 'v t
   | Mod of 'v t * 'v t
   | LShift of 'v t * 'v t
-  | LogicalRShift of 'v t * 'v t
+  | RShift of 'v t * 'v t
   | BitAnd of 'v t * 'v t
   | BitOr of 'v t * 'v t
   | BitXor of 'v t * 'v t
@@ -40,9 +40,9 @@ let mul a b = Mul (a, b)
 let div a b = Div (a, b)
 let mod_ a b = Mod (a, b)
 let left_shift t ~amt = LShift (t, amt)
-let right_shift t ~amt = LogicalRShift (t, amt)
+let right_shift t ~amt = RShift (t, amt)
 let left_shift' t ~amt = LShift (t, of_int amt)
-let right_shift' t ~amt = LogicalRShift (t, of_int amt)
+let right_shift' t ~amt = RShift (t, of_int amt)
 let bit_and a b = BitAnd (a, b)
 let bit_or a b = BitOr (a, b)
 let bit_xor a b = BitXor (a, b)

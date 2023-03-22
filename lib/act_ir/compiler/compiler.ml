@@ -48,7 +48,7 @@ let sim ?seed (t : Compiled_program.t) =
       | BitOr (a, b) -> BitOr (f a, f b)
       | BitAnd (a, b) -> BitAnd (f a, f b)
       | LShift (a, b) -> LShift (f a, f b)
-      | RShift (a, b) -> LogicalRShift (f a, f b)
+      | RShift (a, b) -> RShift (f a, f b)
       | Clip (a, bits) -> Clip (f a, bits)
       | Concat l ->
           List.folding_map l ~init:0 ~f:(fun acc (e, bits) ->
@@ -61,9 +61,7 @@ let sim ?seed (t : Compiled_program.t) =
           List.init w ~f:(fun idx ->
               Ir.Expr.(
                 Mul
-                  ( BitAnd
-                      ( LogicalRShift (e, Const (Cint.of_int idx)),
-                        Const Cint.one ),
+                  ( BitAnd (RShift (e, Const (Cint.of_int idx)), Const Cint.one),
                     Const (Cint.of_int idx) )))
           |> List.reduce_exn ~f:(fun a b -> BitOr (a, b))
     in
@@ -250,9 +248,7 @@ let sim ?seed (t : Compiled_program.t) =
         Ir.Chp.if_else
           (Eq (Const Cint.zero, BitAnd (Const Cint.one, Var cmd)))
           [
-            Ir.Chp.read_mem mem
-              ~idx:(LogicalRShift (Var cmd, Const Cint.one))
-              ~dst:tmp;
+            Ir.Chp.read_mem mem ~idx:(RShift (Var cmd, Const Cint.one)) ~dst:tmp;
             Ir.Chp.send_var read_chan tmp;
           ]
           (match write_chan with
@@ -260,7 +256,7 @@ let sim ?seed (t : Compiled_program.t) =
               [
                 Ir.Chp.read write_chan tmp;
                 Ir.Chp.write_mem mem
-                  ~idx:(LogicalRShift (Var cmd, Const Cint.one))
+                  ~idx:(RShift (Var cmd, Const Cint.one))
                   ~value:(Var tmp);
               ]
           | None -> [ Ir.Chp.assert_ (Const Cint.zero) ]);

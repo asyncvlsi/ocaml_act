@@ -23,7 +23,7 @@ module K = struct
     | Div of 'v t * 'v t
     | Mod of 'v t * 'v t
     | LShift of 'v t * 'v t
-    | LogicalRShift of 'v t * 'v t
+    | RShift of 'v t * 'v t
     | BitAnd of 'v t * 'v t
     | BitOr of 'v t * 'v t
     | BitXor of 'v t * 'v t
@@ -81,10 +81,10 @@ module K = struct
           let a_asserts, a = ff a in
           let b_asserts, b = ff b in
           (a_asserts @ b_asserts, LShift (a, b))
-      | LogicalRShift (a, b) ->
+      | RShift (a, b) ->
           let a_asserts, a = ff a in
           let b_asserts, b = ff b in
-          (a_asserts @ b_asserts, LogicalRShift (a, b))
+          (a_asserts @ b_asserts, RShift (a, b))
       | BitAnd (a, b) ->
           let a_asserts, a = ff a in
           let b_asserts, b = ff b in
@@ -152,7 +152,7 @@ module K = struct
       | Div (a, b) -> Div (f a, f b)
       | Mod (a, b) -> Mod (f a, f b)
       | LShift (a, b) -> LShift (f a, f b)
-      | LogicalRShift (a, b) -> LogicalRShift (f a, f b)
+      | RShift (a, b) -> RShift (f a, f b)
       | BitAnd (a, b) -> BitAnd (f a, f b)
       | BitOr (a, b) -> BitOr (f a, f b)
       | BitXor (a, b) -> BitXor (f a, f b)
@@ -295,7 +295,7 @@ let left_shift a ~amt =
 let right_shift a ~amt =
   assert (Tag.equal cint_tag a.tag);
   assert (Tag.equal cint_tag amt.tag);
-  { k = LogicalRShift (a.k, amt.k); tag = cint_tag; max_bits = a.max_bits }
+  { k = RShift (a.k, amt.k); tag = cint_tag; max_bits = a.max_bits }
 
 let left_shift' a ~amt =
   left_shift a ~amt:(of_int amt) |> clip ~bits:(a.max_bits + amt)
