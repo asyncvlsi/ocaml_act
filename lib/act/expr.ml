@@ -1,7 +1,171 @@
 open! Core
 open! Core
 module Tag = Expr_tag
-module K = Act_ir.Ir.Expr
+
+module Assert = struct
+  type t = {
+    guards : Act_ir.Ir.Var.t Act_ir.Ir.Expr.t list;
+    cond : Act_ir.Ir.Var.t Act_ir.Ir.Expr.t;
+    log_e : Act_ir.Ir.Var.t Act_ir.Ir.Expr.t;
+    f : Act_ir.CInt.t -> string;
+  }
+  [@@deriving sexp_of]
+end
+
+module K = struct
+  type 'v t =
+    | Var of 'v
+    | Const of Act_ir.CInt.t
+    | Add of 'v t * 'v t
+    | Sub_no_wrap of 'v t * 'v t
+    | Sub_wrap of 'v t * 'v t * int
+    | Mul of 'v t * 'v t
+    | Div of 'v t * 'v t
+    | Mod of 'v t * 'v t
+    | LShift of 'v t * 'v t
+    | LogicalRShift of 'v t * 'v t
+    | BitAnd of 'v t * 'v t
+    | BitOr of 'v t * 'v t
+    | BitXor of 'v t * 'v t
+    | Eq of 'v t * 'v t
+    | Ne of 'v t * 'v t
+    | Lt of 'v t * 'v t
+    | Le of 'v t * 'v t
+    | Gt of 'v t * 'v t
+    | Ge of 'v t * 'v t
+    | Clip of 'v t * int
+    (* This asserts that the first expression (which must have value 0 or 1) is
+       1, and then returns the second value. In the simulator, if it is false,
+       it calls the function for a nice error report. *)
+    | With_assert_log of
+        (* assert *)
+        'v t
+        * (* value *)
+        'v t
+        * (* log_input *)
+        'v t
+        * (Act_ir.CInt.t -> string)
+  [@@deriving sexp_of]
+
+  let unwrap e =
+    let rec f assert_guards e =
+      let ff e = f assert_guards e in
+      match e with
+      | Var v -> ([], Act_ir.Ir.Expr.Var v)
+      | Const c -> ([], Const c)
+      | Add (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, Add (a, b))
+      | Sub_no_wrap (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, Sub_no_wrap (a, b))
+      | Sub_wrap (a, b, bits) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, Sub_wrap (a, b, bits))
+      | Mul (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, Mul (a, b))
+      | Div (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, Div (a, b))
+      | Mod (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, Mod (a, b))
+      | LShift (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, LShift (a, b))
+      | LogicalRShift (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, LogicalRShift (a, b))
+      | BitAnd (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, BitAnd (a, b))
+      | BitOr (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, BitOr (a, b))
+      | BitXor (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, BitXor (a, b))
+      | Eq (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, Eq (a, b))
+      | Ne (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, Ne (a, b))
+      | Lt (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, Lt (a, b))
+      | Le (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, Le (a, b))
+      | Gt (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, Gt (a, b))
+      | Ge (a, b) ->
+          let a_asserts, a = ff a in
+          let b_asserts, b = ff b in
+          (a_asserts @ b_asserts, Ge (a, b))
+      | Clip (a, bits) ->
+          let a_asserts, a = ff a in
+          (a_asserts, Clip (a, bits))
+      | With_assert_log (cond, value, log_e, fn) ->
+          let cond_asserts, cond = f assert_guards cond in
+          let log_e_asserts, log_e =
+            f
+              (assert_guards
+              @ [ Act_ir.Ir.Expr.Eq (Const Act_ir.CInt.zero, cond) ])
+              log_e
+          in
+          let assert_ =
+            { Assert.guards = assert_guards; cond; log_e; f = fn }
+          in
+          let value_asserts, value = f (assert_guards @ [ cond ]) value in
+          (cond_asserts @ log_e_asserts @ [ assert_ ] @ value_asserts, value)
+    in
+    f [] e
+
+  let wrap e =
+    let rec f e =
+      match e with
+      | Act_ir.Ir.Expr.Var v -> Var v
+      | Const c -> Const c
+      | Add (a, b) -> Add (f a, f b)
+      | Sub_no_wrap (a, b) -> Sub_no_wrap (f a, f b)
+      | Sub_wrap (a, b, bits) -> Sub_wrap (f a, f b, bits)
+      | Mul (a, b) -> Mul (f a, f b)
+      | Div (a, b) -> Div (f a, f b)
+      | Mod (a, b) -> Mod (f a, f b)
+      | LShift (a, b) -> LShift (f a, f b)
+      | LogicalRShift (a, b) -> LogicalRShift (f a, f b)
+      | BitAnd (a, b) -> BitAnd (f a, f b)
+      | BitOr (a, b) -> BitOr (f a, f b)
+      | BitXor (a, b) -> BitXor (f a, f b)
+      | Eq (a, b) -> Eq (f a, f b)
+      | Ne (a, b) -> Ne (f a, f b)
+      | Lt (a, b) -> Lt (f a, f b)
+      | Le (a, b) -> Le (f a, f b)
+      | Gt (a, b) -> Gt (f a, f b)
+      | Ge (a, b) -> Ge (f a, f b)
+      | Clip (a, bits) -> Clip (f a, bits)
+    in
+    f e
+end
 
 type 'a t = { k : Act_ir.Ir.Var.t K.t; tag : 'a Tag.t; max_bits : int }
 [@@deriving sexp_of]
@@ -213,20 +377,12 @@ let with_assert_log ?new_max_bits ~assert_e ~val_e ~log_e log_fn =
 let var v = var v
 
 module Internal = struct
-  module Assert = struct
-    type t = {
-      guards : Act_ir.Ir.Var.t Act_ir.Ir.Expr.t list;
-      cond : Act_ir.Ir.Var.t Act_ir.Ir.Expr.t;
-      log_e : Act_ir.Ir.Var.t Act_ir.Ir.Expr.t;
-      f : Act_ir.CInt.t -> string;
-    }
-    [@@deriving sexp_of]
-  end
+  module Assert = Assert
 
-  let unwrap t = ([], t.k)
+  let unwrap t = K.unwrap t.k
   let tag t = t.tag
   let max_bits t = t.max_bits
-  let wrap k tag max_bits = { k; tag; max_bits }
+  let wrap k tag max_bits = { k = K.wrap k; tag; max_bits }
 
   let with_set_tag_and_max_bits { k; tag = _; max_bits = old_max_bits } tag
       max_bits =

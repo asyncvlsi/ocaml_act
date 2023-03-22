@@ -508,13 +508,11 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
       | Gt (a, b) -> push (Gt (convert a, convert b))
       | Ge (a, b) -> push (Ge (convert a, convert b))
       | Clip (a, bits) -> push (Clip (convert a, bits))
-      | With_assert_log (assert_expr, val_expr, log_input, msg_fn) ->
-          let err_id = add_expr_assert ~f:(fun v _ -> msg_fn v) in
-          let assert_expr = convert assert_expr in
-          let log_input = convert log_input in
-          let c0 = push (Const Cint.zero) in
-          push_assert assert_expr err_id log_input c0;
-          convert val_expr
+      (* | With_assert_log (assert_expr, val_expr, log_input, msg_fn) -> let
+         err_id = add_expr_assert ~f:(fun v _ -> msg_fn v) in let assert_expr =
+         convert assert_expr in let log_input = convert log_input in let c0 =
+         push (Const Cint.zero) in push_assert assert_expr err_id log_input c0;
+         convert val_expr *)
     in
     let e = convert expr in
     push' (Return e);

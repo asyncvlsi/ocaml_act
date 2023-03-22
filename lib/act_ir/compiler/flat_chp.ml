@@ -148,10 +148,7 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
       | Var v -> of_var v
       | Clip (e, bits) -> Clip (f e, bits)
       | Const c -> Const c
-      | With_assert_log (a, v, _, _) ->
-          let a = f a in
-          of_assert a;
-          f v
+      (* | With_assert_log (a, v, _, _) -> let a = f a in of_assert a; f v *)
     in
     f e
   in

@@ -98,7 +98,7 @@ let%expect_test "test2" =
       int<32> v0;
       int<32> v1;
     chp {
-    (v0 := 123456); (v1 := 1); ( [true] ); ([bool(int(int((v0) != 1) = 0)) ->  [true]  [] bool(int((v0) != 1)) ->  *[ (v1 := (1 + (v1))); ( [true] ); ([bool(int(0 = ((v0) % 2))) -> v0 := ((v0) / 2) [] bool(int(int(0 = ((v0) % 2)) = 0)) -> v0 := (1 + (3 * (v0)))]); ( [true] ) <- bool(int((v0) != 1)) ] ])
+    (v0 := 123456); (v1 := 1); ([bool(int(int((v0) != 1) <= 1)) ->  [true]  [] bool(int(int(int((v0) != 1) <= 1) = 0)) ->  [true] ]); ( [true] ); ([bool(int(int((v0) != 1) = 0)) ->  [true]  [] bool(int((v0) != 1)) ->  *[ (v1 := (1 + (v1))); ([bool(int(int(0 = ((v0) % 2)) <= 1)) ->  [true]  [] bool(int(int(int(0 = ((v0) % 2)) <= 1) = 0)) ->  [true] ]); ( [true] ); ([bool(int(0 = ((v0) % 2))) -> v0 := ((v0) / 2) [] bool(int(int(0 = ((v0) % 2)) = 0)) -> v0 := (1 + (3 * (v0)))]) <- bool(int((v0) != 1)) ] ])
     }
     }
 
@@ -172,7 +172,7 @@ let%expect_test "test3" =
 
       int<32> v0;
     chp {
-    (v0 := 0); (C0?v0); (C1!((v0))); ( [true] ); ( [true] )
+    (v0 := 0); (C0?v0); (C1!((v0))); ([bool(int(int(200 = (v0)) <= 1)) ->  [true]  [] bool(int(int(int(200 = (v0)) <= 1) = 0)) ->  [true] ]); ( [true] ); ( [true] )
     }
     }
 
@@ -214,7 +214,7 @@ let%expect_test "test4" =
 
         int<32> v0;
       chp {
-      (v0 := 0); (C0?v0); (C1!((v0))); ( [true] ); ( [true] )
+      (v0 := 0); (C0?v0); (C1!((v0))); ([bool(int(int(210 = (v0)) <= 1)) ->  [true]  [] bool(int(int(int(210 = (v0)) <= 1) = 0)) ->  [true] ]); ( [true] ); ( [true] )
       }
       }
 
@@ -695,7 +695,7 @@ let%expect_test "mini cpu" =
       int<8> v1;
       int<8> v2;
     chp {
-    (v0 := 0); (v1 := 0); (v2 := 0); ( *[ (C0?v0); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ([bool(int(0 = (v0))) -> ((C1?v1), (C2?v2)); (C3!((((v1) + (v2)) & 255))) [] bool(int(1 = (v0))) -> ((C1?v1), (C2?v2)); (C3!((((v1) * (v2)) & 255))) [] bool(int(2 = (v0))) -> ((C1?v1), (C2?v2)); (C3!(((v1) & (v2)))) [] bool(int(3 = (v0))) -> ((C1?v1), (C2?v2)); (C3!(((v1) | (v2))))]) <- bool(1) ] )
+    (v0 := 0); (v1 := 0); (v2 := 0); ( *[ (C0?v0); ([bool(int(int(0 < 4) <= 1)) ->  [true]  [] bool(int(int(int(0 < 4) <= 1) = 0)) ->  [true] ]); ( [true] ); ([bool(int(0 < 4)) ->  [true]  [] bool(int(int(0 < 4) = 0)) ->  [true] ]); ( [true] ); ([bool(int(0 = int(int(0 = (v0)) <= 1))) -> ([bool(int(int(0 < 4) <= 1)) ->  [true]  [] bool(int(int(int(0 < 4) <= 1) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(0 = int(int(0 = (v0)) <= 1)) = 0)) ->  [true] ]); ([bool(int(0 = int(int(0 = (v0)) <= 1))) -> ([bool(int(0 < 4)) ->  [true]  [] bool(int(int(0 < 4) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(0 = int(int(0 = (v0)) <= 1)) = 0)) ->  [true] ]); ([bool(int(int(0 = (v0)) <= 1)) ->  [true]  [] bool(int(int(int(0 = (v0)) <= 1) = 0)) ->  [true] ]); ( [true] ); ([bool(int(int(0 = (v0)) <= 1)) -> ([bool(int(int(0 < 4) <= 1)) ->  [true]  [] bool(int(int(int(0 < 4) <= 1) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(int(0 = (v0)) <= 1) = 0)) ->  [true] ]); ([bool(int(int(0 = (v0)) <= 1)) -> ([bool(int(0 < 4)) ->  [true]  [] bool(int(int(0 < 4) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(int(0 = (v0)) <= 1) = 0)) ->  [true] ]); ([bool(int(int(1 < 4) <= 1)) ->  [true]  [] bool(int(int(int(1 < 4) <= 1) = 0)) ->  [true] ]); ( [true] ); ([bool(int(1 < 4)) ->  [true]  [] bool(int(int(1 < 4) = 0)) ->  [true] ]); ( [true] ); ([bool(int(0 = int(int(1 = (v0)) <= 1))) -> ([bool(int(int(1 < 4) <= 1)) ->  [true]  [] bool(int(int(int(1 < 4) <= 1) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(0 = int(int(1 = (v0)) <= 1)) = 0)) ->  [true] ]); ([bool(int(0 = int(int(1 = (v0)) <= 1))) -> ([bool(int(1 < 4)) ->  [true]  [] bool(int(int(1 < 4) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(0 = int(int(1 = (v0)) <= 1)) = 0)) ->  [true] ]); ([bool(int(int(1 = (v0)) <= 1)) ->  [true]  [] bool(int(int(int(1 = (v0)) <= 1) = 0)) ->  [true] ]); ( [true] ); ([bool(int(int(1 = (v0)) <= 1)) -> ([bool(int(int(1 < 4) <= 1)) ->  [true]  [] bool(int(int(int(1 < 4) <= 1) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(int(1 = (v0)) <= 1) = 0)) ->  [true] ]); ([bool(int(int(1 = (v0)) <= 1)) -> ([bool(int(1 < 4)) ->  [true]  [] bool(int(int(1 < 4) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(int(1 = (v0)) <= 1) = 0)) ->  [true] ]); ([bool(int(int(2 < 4) <= 1)) ->  [true]  [] bool(int(int(int(2 < 4) <= 1) = 0)) ->  [true] ]); ( [true] ); ([bool(int(2 < 4)) ->  [true]  [] bool(int(int(2 < 4) = 0)) ->  [true] ]); ( [true] ); ([bool(int(0 = int(int(2 = (v0)) <= 1))) -> ([bool(int(int(2 < 4) <= 1)) ->  [true]  [] bool(int(int(int(2 < 4) <= 1) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(0 = int(int(2 = (v0)) <= 1)) = 0)) ->  [true] ]); ([bool(int(0 = int(int(2 = (v0)) <= 1))) -> ([bool(int(2 < 4)) ->  [true]  [] bool(int(int(2 < 4) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(0 = int(int(2 = (v0)) <= 1)) = 0)) ->  [true] ]); ([bool(int(int(2 = (v0)) <= 1)) ->  [true]  [] bool(int(int(int(2 = (v0)) <= 1) = 0)) ->  [true] ]); ( [true] ); ([bool(int(int(2 = (v0)) <= 1)) -> ([bool(int(int(2 < 4) <= 1)) ->  [true]  [] bool(int(int(int(2 < 4) <= 1) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(int(2 = (v0)) <= 1) = 0)) ->  [true] ]); ([bool(int(int(2 = (v0)) <= 1)) -> ([bool(int(2 < 4)) ->  [true]  [] bool(int(int(2 < 4) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(int(2 = (v0)) <= 1) = 0)) ->  [true] ]); ([bool(int(int(3 < 4) <= 1)) ->  [true]  [] bool(int(int(int(3 < 4) <= 1) = 0)) ->  [true] ]); ( [true] ); ([bool(int(3 < 4)) ->  [true]  [] bool(int(int(3 < 4) = 0)) ->  [true] ]); ( [true] ); ([bool(int(0 = int(int(3 = (v0)) <= 1))) -> ([bool(int(int(3 < 4) <= 1)) ->  [true]  [] bool(int(int(int(3 < 4) <= 1) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(0 = int(int(3 = (v0)) <= 1)) = 0)) ->  [true] ]); ([bool(int(0 = int(int(3 = (v0)) <= 1))) -> ([bool(int(3 < 4)) ->  [true]  [] bool(int(int(3 < 4) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(0 = int(int(3 = (v0)) <= 1)) = 0)) ->  [true] ]); ([bool(int(int(3 = (v0)) <= 1)) ->  [true]  [] bool(int(int(int(3 = (v0)) <= 1) = 0)) ->  [true] ]); ( [true] ); ([bool(int(int(3 = (v0)) <= 1)) -> ([bool(int(int(3 < 4) <= 1)) ->  [true]  [] bool(int(int(int(3 < 4) <= 1) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(int(3 = (v0)) <= 1) = 0)) ->  [true] ]); ([bool(int(int(3 = (v0)) <= 1)) -> ([bool(int(3 < 4)) ->  [true]  [] bool(int(int(3 < 4) = 0)) ->  [true] ]); ( [true] ) [] bool(int(int(int(3 = (v0)) <= 1) = 0)) ->  [true] ]); ([bool(int(0 = (v0))) -> ((C1?v1), (C2?v2)); (C3!((((v1) + (v2)) & 255))) [] bool(int(1 = (v0))) -> ((C1?v1), (C2?v2)); (C3!((((v1) * (v2)) & 255))) [] bool(int(2 = (v0))) -> ((C1?v1), (C2?v2)); (C3!(((v1) & (v2)))) [] bool(int(3 = (v0))) -> ((C1?v1), (C2?v2)); (C3!(((v1) | (v2))))]) <- bool(1) ] )
     }
     }
 

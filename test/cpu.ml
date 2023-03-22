@@ -323,7 +323,7 @@ let%expect_test "test" =
         Sim.simulate_chp ir ~user_sendable_ports ~user_readable_ports)
   in
   Sim.read sim o (CInt.of_int 3);
-  print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
+  print_s [%sexp (Sim.wait ~max_steps:100000 sim () : unit Or_error.t)];
   [%expect {|
       (Ok ()) |}]
 
@@ -345,12 +345,12 @@ let%expect_test "test" =
   in
   Sim.send sim i (CInt.of_int 3);
   Sim.read sim o (CInt.of_int 3);
-  print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
+  print_s [%sexp (Sim.wait ~max_steps:100000 sim () : unit Or_error.t)];
   Sim.send sim i (CInt.of_int 7);
   Sim.send sim i (CInt.of_int 12);
   Sim.read sim o (CInt.of_int 7);
   Sim.read sim o (CInt.of_int 12);
-  print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
+  print_s [%sexp (Sim.wait ~max_steps:100000 sim () : unit Or_error.t)];
   [%expect {|
     (Ok ())
     (Ok ()) |}]
@@ -474,16 +474,16 @@ let%expect_test "fibonacci" =
   print_s [%sexp (Sim.wait sim ~max_steps:100000 () : unit Or_error.t)];
   Sim.send sim i (CInt.of_int 2);
   Sim.read sim o (CInt.of_int 1);
-  print_s [%sexp (Sim.wait sim ~max_steps:100000 () : unit Or_error.t)];
+  print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)];
   Sim.send sim i (CInt.of_int 7);
   Sim.read sim o (CInt.of_int 13);
-  print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)];
+  print_s [%sexp (Sim.wait sim ~max_steps:10000000 () : unit Or_error.t)];
   Sim.send sim i (CInt.of_int 8);
   Sim.read sim o (CInt.of_int 21);
-  print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)];
+  print_s [%sexp (Sim.wait sim ~max_steps:10000000 () : unit Or_error.t)];
   Sim.send sim i (CInt.of_int 12);
   Sim.read sim o (CInt.of_int 144);
-  print_s [%sexp (Sim.wait sim ~max_steps:1000000 () : unit Or_error.t)];
+  print_s [%sexp (Sim.wait sim ~max_steps:100000000 () : unit Or_error.t)];
   [%expect
     {|
     (Ok ())
