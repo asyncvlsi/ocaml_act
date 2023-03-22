@@ -9,7 +9,7 @@ type 'a t = {
   sexp_of_cint : Cint0.t -> Sexp.t;
   of_cint_assert_expr_fn : unit Ir_expr0.t;
   layout : Ir_layout.t;
-  expr_tag : 'a Ir_expr_tag.t;
+  expr_tag : 'a Expr_tag.t;
 }
 [@@deriving sexp_of]
 
@@ -38,7 +38,7 @@ let dummy_val =
     of_cint_assert_expr_fn = Var ();
     layout = Bits_fixed 0;
     expr_tag =
-      Ir_expr_tag.create
+      Expr_tag.create
         ~value_of_cint:(fun _ ->
           failwith "Cant call functions on Dtype.dummy_val")
         ~cint_of_value:(fun _ ->
@@ -68,7 +68,7 @@ let cbool_dtype =
     ~cint_of:(fun t -> Cbool0.to_cint t)
     ~of_cint_assert_expr_fn:(Ir_expr0.Le (Var (), Const Cint0.one))
     ~of_cint:Cbool0.of_cint ~layout:(Bits_fixed 1)
-    ~expr_tag:Ir_expr_tag.cbool_expr_tag
+    ~expr_tag:Expr_tag.cbool_expr_tag
 
 let cint_dtype ~bits =
   create ~equal:Cint0.equal ~sexp_of_t:Cint0.sexp_of_t
@@ -76,6 +76,6 @@ let cint_dtype ~bits =
     ~cint_of:(fun v -> v)
     ~of_cint:(fun v -> Some v)
     ~of_cint_assert_expr_fn:(Ir_expr0.Const Cint0.one) ~layout:(Bits_fixed bits)
-    ~expr_tag:Ir_expr_tag.cint_expr_tag
+    ~expr_tag:Expr_tag.cint_expr_tag
 
 let untype t = Obj.magic t

@@ -24,3 +24,4 @@ let cbool_expr_tag =
 
 let cint_expr_tag = create ~cint_of_value:Fn.id ~value_of_cint:(fun v -> Some v)
 let untyped_tag = Obj.magic cint_expr_tag
+let untype t = Obj.magic t

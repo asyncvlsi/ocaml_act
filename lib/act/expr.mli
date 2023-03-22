@@ -58,8 +58,10 @@ val false_ : Cbool0.t t
 (**/**)
 
 module Internal : sig
-  val unwrap : 'a t -> 'a Ir_expr.t
-  val wrap : 'a Ir_expr.t -> 'a t
+  val unwrap : 'a t -> Ir_var.t Ir_expr0.t
+  val max_bits : 'a t -> int
+  val tag : 'a t -> 'a Expr_tag.t
+  val wrap : Ir_var.t Ir_expr0.t -> 'a Expr_tag.t -> int -> 'a t
 end
 
 (**/**)

@@ -17,7 +17,9 @@ let create ?init (dtype : 'a Dtype.t) : 'a t =
               "Trying to initialize a variable of dtype %{Ir_layout.sexp_of_t \
                (Ir_dtype.layout dtype)#Sexp} with a value of max_layout \
                %{Ir_layout.sexp_of_t init_layout#Sexp}."]));
-  let v = Ir_var.create dtype loc init in
+  let init = Option.map init ~f:dtype.Ir_dtype.cint_of in
+  let bitwidth = match dtype.layout with Bits_fixed bitwidth -> bitwidth in
+  let v = Ir_var.create bitwidth loc init in
   { dtype; v }
 
 module Internal = struct

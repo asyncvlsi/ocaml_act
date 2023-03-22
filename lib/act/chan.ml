@@ -39,9 +39,10 @@ type 'a t = { r : 'a R.t; w : 'a W.t } [@@deriving sexp_of]
 let create (dtype : 'a Dtype.t) : 'a t =
   let loc = Code_pos.psite () in
   let dtype = Dtype.Internal.unwrap dtype |> Ir_dtype.untype in
+  let bitwidth = match dtype.layout with Bits_fixed bitwidth -> bitwidth in
   let u =
     {
-      Inner.c = Ir_chan.create dtype loc;
+      Inner.c = Ir_chan.create bitwidth loc;
       d =
         { dtype; wait_sendable_code_pos = None; wait_readable_code_pos = None };
     }
@@ -49,78 +50,12 @@ let create (dtype : 'a Dtype.t) : 'a t =
   { r = { u }; w = { u } }
 
 module Internal = struct
-  let wrap_'a (c : Ir_chan.t) : 'a t =
-    let u =
-      {
-        Inner.c;
-        d =
-          {
-            dtype = Ir_dtype.cint_dtype ~bits:c.bitwidth |> Ir_dtype.untype;
-            wait_sendable_code_pos = None;
-            wait_readable_code_pos = None;
-          };
-      }
-    in
-    { r = { u }; w = { u } }
-
-  let wrap_any (t : Ir_chan.t) : Any.t t = wrap_'a t
   let unwrap_r_inner t = t.R.u
   let unwrap_w_inner t = t.W.u
   let unwrap_r t = t.R.u.c
   let unwrap_w t = t.W.u.c
   let unwrap_ru t = t.Inner.c
   let unwrap_wu t = t.Inner.c
-
-  let wrap_ru c =
-    {
-      Inner.c;
-      d =
-        {
-          dtype = Ir_dtype.cint_dtype ~bits:c.bitwidth |> Ir_dtype.untype;
-          wait_sendable_code_pos = None;
-          wait_readable_code_pos = None;
-        };
-    }
-
-  let wrap_wu c =
-    {
-      Inner.c;
-      d =
-        {
-          dtype = Ir_dtype.cint_dtype ~bits:c.bitwidth |> Ir_dtype.untype;
-          wait_sendable_code_pos = None;
-          wait_readable_code_pos = None;
-        };
-    }
-
-  let wrap_r c =
-    let u =
-      {
-        Inner.c;
-        d =
-          {
-            dtype = Ir_dtype.cint_dtype ~bits:c.bitwidth |> Ir_dtype.untype;
-            wait_sendable_code_pos = None;
-            wait_readable_code_pos = None;
-          };
-      }
-    in
-    { R.u }
-
-  let wrap_w c =
-    let u =
-      {
-        Inner.c;
-        d =
-          {
-            dtype = Ir_dtype.cint_dtype ~bits:c.bitwidth |> Ir_dtype.untype;
-            wait_sendable_code_pos = None;
-            wait_readable_code_pos = None;
-          };
-      }
-    in
-    { W.u }
-
   let r_of_w t = { R.u = t.W.u }
   let w_of_r t = { W.u = t.R.u }
   let ru_of_wu t = t

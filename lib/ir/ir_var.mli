@@ -12,4 +12,4 @@ type t = {
 include Comparable with type t := t
 include Hashable with type t := t
 
-val create : 'a Ir_dtype.t -> Code_pos.t -> 'a option -> t
+val create : int -> Code_pos.t -> Cint0.t option -> t

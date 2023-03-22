@@ -9,7 +9,7 @@ type 'a t = {
   sexp_of_cint : Cint0.t -> Sexp.t;
   of_cint_assert_expr_fn : unit Ir_expr0.t;
   layout : Ir_layout.t;
-  expr_tag : 'a Ir_expr_tag.t;
+  expr_tag : 'a Expr_tag.t;
 }
 [@@deriving sexp_of]
 
@@ -21,7 +21,7 @@ val create :
   of_cint:(Cint0.t -> 'a option) ->
   of_cint_assert_expr_fn:unit Ir_expr0.t ->
   layout:Ir_layout.t ->
-  expr_tag:'a Ir_expr_tag.t ->
+  expr_tag:'a Expr_tag.t ->
   'a t
 
 val equal_ : 'a t -> 'a -> 'a -> bool
@@ -35,7 +35,7 @@ val max_layout_of : 'a t -> 'a -> Ir_layout.t
 val layout : 'a t -> Ir_layout.t
 val fits_into_dtype : into:'a t -> Ir_layout.t -> bool
 val fits_value : 'a t -> 'a -> bool
-val expr_tag : 'a t -> 'a Ir_expr_tag.t
+val expr_tag : 'a t -> 'a Expr_tag.t
 val untype : 'a t -> Any.t t
 
 (* premade dtypes *)

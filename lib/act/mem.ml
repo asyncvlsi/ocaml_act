@@ -19,7 +19,11 @@ let create dtype init creation_code_pos kind =
               "Trying to initialize cell %{i#Int} of memory of dtype \
                %{Ir_layout.sexp_of_t (Ir_dtype.layout dtype)#Sexp} with a \
                value of max_layout %{Ir_layout.sexp_of_t init_layout#Sexp}."]);
-  { dtype; m = Ir_mem.create dtype creation_code_pos init kind }
+  let init = Array.map init ~f:dtype.Ir_dtype.cint_of in
+  let cell_bitwidth =
+    match dtype.layout with Bits_fixed bitwidth -> bitwidth
+  in
+  { dtype; m = Ir_mem.create cell_bitwidth creation_code_pos init kind }
 
 let create_ug_mem dtype (arr : 'a array) : 'a ug_mem =
   let loc = Code_pos.psite () in

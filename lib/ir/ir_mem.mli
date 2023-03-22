@@ -11,4 +11,4 @@ type t = {
 
 include Comparable_and_hashable.S with type t := t
 
-val create : 'a Ir_dtype.t -> Code_pos.t -> 'a array -> [ `Mem | `Rom ] -> t
+val create : int -> Code_pos.t -> Cint0.t array -> [ `Mem | `Rom ] -> t

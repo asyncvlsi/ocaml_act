@@ -29,10 +29,6 @@ include T
 include Comparable.Make (T)
 include Hashable.Make (T)
 
-let create dtype init creation_code_pos =
+let create bitwidth creation_code_pos init =
   let id = Id.create () in
-  let init = Option.map init ~f:dtype.Ir_dtype.cint_of in
-  let bitwidth = match dtype.layout with Bits_fixed bitwidth -> bitwidth in
   { id; creation_code_pos; init; bitwidth }
-
-let create dtype creation_code_pos init = create dtype init creation_code_pos

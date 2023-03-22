@@ -520,7 +520,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     push' (Return e);
     { Inner.Expr.ns = Vec.to_array ns; asserts = Vec.to_array asserts }
   in
-  let convert_expr expr = convert_expr' (Ir_expr.untype expr).k in
+  let convert_expr expr = convert_expr' expr in
 
   let chan_id_pool = Chan_id_pool.create () in
   let get_chan chan_id = Chan_id_pool.get_id chan_id_pool chan_id in
@@ -579,13 +579,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
           (Assign (convert_id id, convert_expr expr))
     | Nop -> push_instr Code_pos.dummy_loc Nop
     | Log (loc, str) -> push_instr loc (Log0 str)
-    | Log1 (loc, expr, f) ->
-        push_instr loc
-          (Log1
-             ( convert_expr expr,
-               fun i ->
-                 Ir_expr.Tag.value_of_cint expr.tag i |> Option.value_exn |> f
-             ))
+    | Log1 (loc, expr, f) -> push_instr loc (Log1 (convert_expr expr, f))
     | Assert (loc, expr) -> push_instr loc (Assert (convert_expr expr))
     | Seq (loc, stmts) -> (
         match stmts with
@@ -639,7 +633,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     | DoWhile (loc, seq, expr) ->
         let top = push_instr loc Nop in
         convert' seq;
-        let not_expr = Ir_expr0.Eq ((Ir_expr.untype expr).k, Const Cint.zero) in
+        let not_expr = Ir_expr0.Eq (expr, Const Cint.zero) in
         push_instr loc (JumpIfFalse (convert_expr' not_expr, top))
     | ReadUGMem (loc, mem, idx, (dst, dst_sexper)) ->
         let mem_idx_reg, mem_id = get_mem mem in

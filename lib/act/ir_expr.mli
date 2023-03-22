@@ -1,8 +1,8 @@
 open! Core
-module Tag = Ir_expr_tag
+module Tag = Expr_tag
 
-val cbool_tag : Cbool0.t Ir_expr_tag.t
-val cint_tag : Cint0.t Ir_expr_tag.t
+val cbool_tag : Cbool0.t Expr_tag.t
+val cint_tag : Cint0.t Expr_tag.t
 
 module K = Ir_expr0
 

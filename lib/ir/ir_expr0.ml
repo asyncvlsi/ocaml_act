@@ -33,3 +33,38 @@ type 'v t =
       'v t
       * (Cint0.t -> string)
 [@@deriving sexp_of]
+
+let of_int i = Const (Cint0.of_int i)
+let of_cint i = Const i
+let zero = of_int 0
+let one = of_int 1
+let two = of_int 2
+let three = of_int 3
+let four = of_int 4
+let five = of_int 5
+let true_ = of_int 1
+let false_ = of_int 0
+let var v = Var v
+let add a b = Add (a, b)
+let sub a b = Sub_no_wrap (a, b)
+let mul a b = Mul (a, b)
+let div a b = Div (a, b)
+let mod_ a b = Mod (a, b)
+let left_shift t ~amt = LShift (t, amt)
+let right_shift t ~amt = LogicalRShift (t, amt)
+let left_shift' t ~amt = LShift (t, of_int amt)
+let right_shift' t ~amt = LogicalRShift (t, of_int amt)
+let bit_and a b = BitAnd (a, b)
+let bit_or a b = BitOr (a, b)
+let bit_xor a b = BitXor (a, b)
+let eq a b = Eq (a, b)
+let ne a b = Ne (a, b)
+let lt a b = Lt (a, b)
+let le a b = Le (a, b)
+let gt a b = Gt (a, b)
+let ge a b = Ge (a, b)
+let clip t ~bits = Clip (t, bits)
+let not_ t = eq t false_
+let and_ a b = BitAnd (a, b)
+let or_ a b = BitOr (a, b)
+let xor_ a b = BitXor (a, b)

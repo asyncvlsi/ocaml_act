@@ -60,7 +60,7 @@ end) : S with type t := X.t = struct
     |> List.max_elt ~compare:Int.compare
     |> Option.value_exn
 
-  let expr_tag = Ir_expr_tag.create ~cint_of_value:to_int ~value_of_cint:of_int
+  let expr_tag = Expr_tag.create ~cint_of_value:to_int ~value_of_cint:of_int
 
   let ok_cint_intervals =
     let l =
@@ -124,23 +124,19 @@ end) : S with type t := X.t = struct
                     Expr.(lt i (of_cint Cint0.(add v (of_int n)))))
         |> List.reduce ~f:Cbool.E.or_ |> Option.value_exn
       in
-      let i =
+      let ik =
         Expr.with_assert_log ~assert_e ~val_e:i ~log_e:i (fun i ->
             [%string "of_int for invalid enum value %{i#Cint0}"])
         |> Expr.Internal.unwrap
       in
-      Expr.Internal.wrap
-        { Ir_expr.k = i.k; tag; max_bits = Int.min max_bitwidth i.max_bits }
+      Expr.Internal.wrap ik tag
+        (Int.min max_bitwidth (Expr.Internal.max_bits i))
 
     let expr_to_int_expr t =
-      let t = Expr.Internal.unwrap t in
-      assert (Ir_expr_tag.equal t.tag tag);
-      Expr.Internal.wrap
-        {
-          Ir_expr.k = t.k;
-          tag = Ir_expr_tag.cint_expr_tag;
-          max_bits = t.max_bits;
-        }
+      assert (Expr_tag.equal (Expr.Internal.tag t) tag);
+      let k = Expr.Internal.unwrap t in
+      let max_bits = Expr.Internal.max_bits t in
+      Expr.Internal.wrap k Expr_tag.cint_expr_tag max_bits
 
     let const c = to_int c |> Expr.of_cint |> expr_of_int_expr
     let eq a b = Expr.eq (expr_to_int_expr a) (expr_to_int_expr b)

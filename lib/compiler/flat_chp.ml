@@ -159,7 +159,7 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
   let of_e e =
     let asserts = Queue.create () in
     let e =
-      of_e0 e.Ir_expr.k
+      of_e0 e
         ~of_var:(fun v -> Var (of_v v))
         ~of_assert:(fun cond -> Queue.enqueue asserts (Stmt.Assert cond))
     in

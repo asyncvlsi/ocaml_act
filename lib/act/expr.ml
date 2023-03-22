@@ -12,15 +12,15 @@ end
 let var (v : 'a Var.t) =
   let dtype = Var.Internal.dtype v |> Ir_dtype.untype in
   let v = Var.Internal.unwrap v in
-  let tag : 'a Ir_expr_tag.t =
+  let tag : 'a Expr_tag.t =
     let tag = Ir_dtype.expr_tag dtype in
-    Obj.magic (tag : Any.t Ir_expr_tag.t)
+    Obj.magic (tag : Any.t Expr_tag.t)
   in
   let max_bits = match Ir_dtype.layout dtype with Bits_fixed bits -> bits in
   { Ir_expr.k = Var v; tag; max_bits }
 
-let cint_tag = Ir_expr_tag.cint_expr_tag
-let cbool_tag = Ir_expr_tag.cbool_expr_tag
+let cint_tag = Expr_tag.cint_expr_tag
+let cbool_tag = Expr_tag.cbool_expr_tag
 
 let bool_of_int i =
   assert (Tag.equal cint_tag i.Ir_expr.tag);
@@ -221,6 +221,8 @@ let with_assert_log ?new_max_bits ~assert_e ~val_e ~log_e log_fn =
 let var v = var v
 
 module Internal = struct
-  let unwrap t = t
-  let wrap t = t
+  let unwrap t = t.Ir_expr.k
+  let tag t = t.Ir_expr.tag
+  let max_bits t = t.Ir_expr.max_bits
+  let wrap k tag max_bits = { Ir_expr.k; tag; max_bits }
 end

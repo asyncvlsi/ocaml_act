@@ -27,6 +27,7 @@ let of_procs procs ~iports ~oports =
   { Ir_process.inner = Subprocs procs; iports; oports }
 
 module Internal = struct
+  let wrap t = t
   let unwrap t = t
 end
 

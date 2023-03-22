@@ -36,3 +36,39 @@ type 'v t =
       'v t
       * (Cint0.t -> string)
 [@@deriving sexp_of]
+
+(* ops *)
+val var : 'v -> 'v t
+val of_int : int -> 'v t
+val of_cint : Cint0.t -> 'v t
+val add : 'v t -> 'v t -> 'v t
+val sub : 'v t -> 'v t -> 'v t
+val mul : 'v t -> 'v t -> 'v t
+val div : 'v t -> 'v t -> 'v t
+val mod_ : 'v t -> 'v t -> 'v t
+val left_shift : 'v t -> amt:'v t -> 'v t
+val right_shift : 'v t -> amt:'v t -> 'v t
+val left_shift' : 'v t -> amt:int -> 'v t
+val right_shift' : 'v t -> amt:int -> 'v t
+val bit_and : 'v t -> 'v t -> 'v t
+val bit_or : 'v t -> 'v t -> 'v t
+val bit_xor : 'v t -> 'v t -> 'v t
+val eq : 'v t -> 'v t -> 'v t
+val ne : 'v t -> 'v t -> 'v t
+val lt : 'v t -> 'v t -> 'v t
+val le : 'v t -> 'v t -> 'v t
+val gt : 'v t -> 'v t -> 'v t
+val ge : 'v t -> 'v t -> 'v t
+val clip : 'v t -> bits:int -> 'v t
+val not_ : 'v t -> 'v t
+val and_ : 'v t -> 'v t -> 'v t
+val or_ : 'v t -> 'v t -> 'v t
+val xor_ : 'v t -> 'v t -> 'v t
+val zero : 'v t
+val one : 'v t
+val two : 'v t
+val three : 'v t
+val four : 'v t
+val five : 'v t
+val true_ : 'v t
+val false_ : 'v t

@@ -100,7 +100,7 @@ module Chp = struct
     let expr =
       apply_overflow var_dtype expr ~overflow |> Expr.Internal.unwrap
     in
-    Ir_chp.Assign (loc, (var, var_dtype.sexp_of_cint), Ir_expr.untype expr)
+    Ir_chp.Assign (loc, (var, var_dtype.sexp_of_cint), expr)
     |> Chp.Internal.wrap
 
   let incr var_id ~overflow =
@@ -118,7 +118,7 @@ module Chp = struct
     let expr =
       apply_overflow chan_dtype expr ~overflow |> Expr.Internal.unwrap
     in
-    Ir_chp.Send (loc, (chan_id, chan_dtype.sexp_of_cint), Ir_expr.untype expr)
+    Ir_chp.Send (loc, (chan_id, chan_dtype.sexp_of_cint), expr)
     |> Chp.Internal.wrap
 
   let send_var chan_id var_id ~overflow =

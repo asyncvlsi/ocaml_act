@@ -51,18 +51,12 @@ val create : 'a Dtype.t -> 'a t
 module Internal : sig
   val dtype_r : 'a R.t -> 'a Ir_dtype.t
   val dtype_w : 'a W.t -> 'a Ir_dtype.t
-  val wrap_any : Ir_chan.t -> Any.t t
-  val wrap_'a : Ir_chan.t -> 'a t
   val unwrap_r_inner : 'a R.t -> Inner.t
   val unwrap_w_inner : 'a W.t -> Inner.t
   val unwrap_r : 'a R.t -> Ir_chan.t
   val unwrap_w : 'a W.t -> Ir_chan.t
   val unwrap_ru : R.U.t -> Ir_chan.t
   val unwrap_wu : W.U.t -> Ir_chan.t
-  val wrap_ru : Ir_chan.t -> R.U.t
-  val wrap_wu : Ir_chan.t -> W.U.t
-  val wrap_r : Ir_chan.t -> Any.t R.t
-  val wrap_w : Ir_chan.t -> Any.t W.t
   val r_of_w : 'a W.t -> 'a R.t
   val w_of_r : 'a R.t -> 'a W.t
   val ru_of_wu : W.U.t -> R.U.t
