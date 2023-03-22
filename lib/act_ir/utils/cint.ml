@@ -47,6 +47,8 @@ let four = of_int 4
 let five = of_int 5
 let left_shift a ~amt:b = Bigint.shift_left a (Bigint.to_int_exn b)
 let right_shift a ~amt:b = Bigint.( / ) a (Bigint.pow two b)
+let left_shift' a ~amt = left_shift a ~amt:(of_int amt)
+let right_shift' a ~amt = right_shift a ~amt:(of_int amt)
 let bit_and a b = Bigint.bit_and a b
 let bit_or a b = Bigint.bit_or a b
 let bit_xor a b = Bigint.bit_xor a b
@@ -64,6 +66,17 @@ let sub_wrap a b ~bits =
   (* TODO this could be better *)
   let shift = mul b (pow two (of_int bits)) in
   sub (add shift a) b |> clip ~bits
+
+let mask bits = sub (pow two (of_int bits)) one
+
+let ones_mask ~lower_inc ~upper_inc =
+  assert (Int.(lower_inc <= upper_inc));
+  let num_bits = Int.(upper_inc - lower_inc + 1) in
+  mask num_bits |> left_shift ~amt:(of_int lower_inc)
+
+let bit_slice e ~lower_inc ~upper_inc =
+  assert (Int.(lower_inc <= upper_inc));
+  bit_and e (ones_mask ~lower_inc ~upper_inc) |> right_shift' ~amt:lower_inc
 
 let%expect_test "width" =
   let f i = print_s [%sexp ((i, bitwidth (of_int i)) : int * int)] in

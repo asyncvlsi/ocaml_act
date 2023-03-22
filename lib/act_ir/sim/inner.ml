@@ -35,7 +35,6 @@ module Expr_assert_err_idx = Int
 
 module Expr = struct
   module NI = Int
-  module Assert_id = Int
 
   module N = struct
     module T = struct
@@ -59,7 +58,6 @@ module Expr = struct
         | Gt of NI.t * NI.t
         | Ge of NI.t * NI.t
         | Clip of NI.t * int
-        | Assert of NI.t * Assert_id.t
         | Return of NI.t
       [@@deriving sexp, hash, equal, compare]
     end
@@ -68,18 +66,14 @@ module Expr = struct
     include T
   end
 
-  type t = {
-    ns : N.t array;
-    asserts : (NI.t * NI.t * Expr_assert_err_idx.t) array;
-  }
-  [@@deriving sexp_of]
+  type t = { ns : N.t array } [@@deriving sexp_of]
 
   let var_ids t =
     Array.to_list t.ns
     |> List.filter_map ~f:(fun v ->
            match v with Var var_id -> Some var_id | _ -> None)
 
-  let dummy_expr = { ns = [| N.Const Cint.zero; N.Return 0 |]; asserts = [||] }
+  let dummy_expr = { ns = [| N.Const Cint.zero; N.Return 0 |] }
 end
 
 module Var_buff = struct
@@ -220,22 +214,7 @@ end
 (* This module doesnt know about dtypes. Everything is just a Cint. This should
    be fairly easy to port into c/c++/rust if we need the extra performance *)
 module E = struct
-  module Expr_kind = struct
-    type t =
-      | Send
-      | Guard of int
-      | Assert
-      | Assign
-      | Log1
-      | Jump_if_false
-      | Mem_idx
-      | Write_mem_value
-    [@@deriving sexp_of]
-  end
-
   type t =
-    | Eval_expr_failed of
-        Expr_kind.t * Expr_assert_err_idx.t * Cint.t * Cint.t * Instr_idx.t
     | Uninit_id of Var_id.t * Instr_idx.t
     | Simul_read_write_var of Instr_idx.t * Instr_idx.t * Var_id.t
     | Simul_write_write_var of Instr_idx.t * Instr_idx.t * Var_id.t
@@ -338,7 +317,7 @@ let step' t ~pc_idx =
     | 1 -> true
     | c -> failwith [%string "Simulator bug: unexpected bool value %{c#Int}"]
   in
-  let eval_var_table (expr : Expr.t) ~err_kind ~err_instr =
+  let eval_var_table (expr : Expr.t) =
     let reg = Array.create Cint.zero ~len:(Array.length expr.ns) in
     let res = ref None in
     let i = ref 0 in
@@ -364,26 +343,12 @@ let step' t ~pc_idx =
       | Gt (a, b) -> reg.(!i) <- Cint.gt reg.(a) reg.(b) |> of_bool
       | Ge (a, b) -> reg.(!i) <- Cint.ge reg.(a) reg.(b) |> of_bool
       | Clip (a, bits) -> reg.(!i) <- Cint.clip reg.(a) ~bits
-      | Assert (a, err_id) ->
-          if Cint.equal reg.(a) Cint.one then ()
-          else if Cint.equal reg.(a) Cint.zero then
-            let err_no, d1, d2 = expr.asserts.(err_id) in
-            res := Some (Error (err_no, reg.(d1), reg.(d2)))
-          else
-            failwith
-              "unexpect boolean value while evaluating Assert in Inner.Expr"
-      | Return a -> res := Some (Ok reg.(a)));
+      | Return a -> res := Some reg.(a));
       incr i
     done;
-    let res = Option.value_exn !res in
-    match res with
-    | Ok v -> Ok v
-    | Error (expr_err_id, v1, v2) ->
-        Error (E.Eval_expr_failed (err_kind, expr_err_id, v1, v2, err_instr))
+    Option.value_exn !res
   in
-  let eval_bool expr ~err_kind ~err_instr =
-    eval_var_table expr ~err_kind ~err_instr |> Result.map ~f:bool_of_cint
-  in
+  let eval_bool expr = eval_var_table expr |> bool_of_cint in
   let set_var_table ~var_id ~value =
     t.s.var_table.(var_id).value <- value;
     t.s.var_table.(var_id).is_inited <- true
@@ -471,9 +436,7 @@ let step' t ~pc_idx =
       chan.send_ready <- false;
       unguard chan.read_instr;
       unguard chan.send_instr;
-      let%bind.Result value =
-        eval_var_table chan.send_expr ~err_kind:Send ~err_instr:chan.send_instr
-      in
+      let value = eval_var_table chan.send_expr in
       let%bind.Result () =
         check_value_fits_width chan.bitwidth ~value
           ~error:
@@ -496,13 +459,10 @@ let step' t ~pc_idx =
   in
 
   let step_select l ~else_ ~pc ~pc_idx =
-    let%bind.Result branches =
+    let branches =
       List.mapi l ~f:(fun idx (expr, instr) ->
-          let%map.Result guard =
-            eval_bool expr ~err_kind:(Guard idx) ~err_instr:pc
-          in
+          let guard = eval_bool expr in
           (guard, instr, idx))
-      |> Result.all
     in
     let true_branches =
       List.filter branches ~f:(fun (g, _, _) -> g)
@@ -526,9 +486,7 @@ let step' t ~pc_idx =
       set_pc_and_guard ~pc_idx (pc + 1)
   | Assign (var_id, expr) ->
       unguard pc;
-      let%bind.Result value =
-        eval_var_table expr ~err_kind:Assign ~err_instr:pc
-      in
+      let value = eval_var_table expr in
       let%bind.Result () =
         let var_width = t.s.var_table.(var_id).bitwidth in
         check_value_fits_width var_width ~value
@@ -538,13 +496,11 @@ let step' t ~pc_idx =
       set_pc_and_guard ~pc_idx (pc + 1)
   | Assert (expr, log_e, msg_fn) -> (
       unguard pc;
-      let%bind.Result expr = eval_bool expr ~err_kind:Assert ~err_instr:pc in
+      let expr = eval_bool expr in
       match expr with
       | true -> set_pc_and_guard ~pc_idx (pc + 1)
       | false ->
-          let%bind.Result log_e =
-            eval_var_table log_e ~err_kind:Assert ~err_instr:pc
-          in
+          let log_e = eval_var_table log_e in
           let msg = msg_fn log_e in
           Error (E.Assert_failure (pc, msg)))
   | Log0 str ->
@@ -553,7 +509,7 @@ let step' t ~pc_idx =
       set_pc_and_guard ~pc_idx (pc + 1)
   | Log1 (expr, f) ->
       unguard pc;
-      let%bind.Result expr = eval_var_table expr ~err_kind:Log1 ~err_instr:pc in
+      let expr = eval_var_table expr in
       printf "%s" (f expr);
       set_pc_and_guard ~pc_idx (pc + 1)
   | Par instrs ->
@@ -575,9 +531,7 @@ let step' t ~pc_idx =
       set_pc_and_guard ~pc_idx inst
   | JumpIfFalse (expr, inst) ->
       unguard pc;
-      let%bind.Result expr =
-        eval_bool expr ~err_kind:Jump_if_false ~err_instr:pc
-      in
+      let expr = eval_bool expr in
       set_pc_and_guard ~pc_idx (if expr then pc + 1 else inst)
   | SelectImm l ->
       unguard pc;
@@ -721,9 +675,7 @@ let step' t ~pc_idx =
   | ReadMem (idx_expr, dst_id, _, mem_idx) ->
       unguard pc;
       let mem = t.s.mem_table.(mem_idx) in
-      let%bind.Result idx =
-        eval_var_table idx_expr ~err_kind:Mem_idx ~err_instr:pc
-      in
+      let idx = eval_var_table idx_expr in
       if Cint.(idx < zero) || Cint.(idx >= (Array.length mem.arr |> of_int))
       then Error (E.Mem_out_of_bounds (pc, idx, Array.length mem.arr))
       else
@@ -740,15 +692,11 @@ let step' t ~pc_idx =
   | WriteMem (idx_expr, src_expr, _, mem_idx) ->
       unguard pc;
       let mem = t.s.mem_table.(mem_idx) in
-      let%bind.Result idx =
-        eval_var_table idx_expr ~err_kind:Mem_idx ~err_instr:pc
-      in
+      let idx = eval_var_table idx_expr in
       if Cint.(idx < zero) || Cint.(idx >= (Array.length mem.arr |> of_int))
       then Error (E.Mem_out_of_bounds (pc, idx, Array.length mem.arr))
       else
-        let%bind.Result value =
-          eval_var_table src_expr ~err_kind:Write_mem_value ~err_instr:pc
-        in
+        let value = eval_var_table src_expr in
         let%bind.Result () =
           check_value_fits_width mem.cell_bitwidth ~value
             ~error:(E.Written_mem_value_doesnt_fit_in_cell (pc, mem_idx, value))

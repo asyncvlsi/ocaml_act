@@ -17,6 +17,8 @@ val div : t -> t -> t
 val mod_ : t -> t -> t
 val left_shift : t -> amt:t -> t
 val right_shift : t -> amt:t -> t
+val left_shift' : t -> amt:int -> t
+val right_shift' : t -> amt:int -> t
 val bit_and : t -> t -> t
 val bit_or : t -> t -> t
 val bit_xor : t -> t -> t
@@ -36,3 +38,5 @@ val two : t
 val three : t
 val four : t
 val five : t
+val ones_mask : lower_inc:int -> upper_inc:int -> t
+val bit_slice : t -> lower_inc:int -> upper_inc:int -> t

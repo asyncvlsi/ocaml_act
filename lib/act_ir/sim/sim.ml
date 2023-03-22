@@ -68,7 +68,6 @@ type t = {
   mem_table_info : Mem_buff_info.t array;
   enqueuer_table_info : Enqueuer_info.t array;
   dequeuer_table_info : Dequeuer_info.t array;
-  expr_assert_error_decoders : (Cint.t -> Cint.t -> string) array;
   (* io helpers *)
   all_enqueuers : (Inner.Instr_idx.t * Inner.Enqueuer_idx.t) Ir.Chan.Map.t;
   all_dequeuers : (Inner.Instr_idx.t * Inner.Dequeuer_idx.t) Ir.Chan.Map.t;
@@ -240,26 +239,6 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
         [%string
           "Written value doesnt fit in memory cell: got %{value#Sexp} but \
            memory cell has layout TODO at %{str_i write_instr}."]
-  | Eval_expr_failed (expr_kind, expr_err_id, cint0, cint1, pc) ->
-      let expr_kind =
-        match expr_kind with
-        | Assert -> "assert statement"
-        | Assign -> "assign statement"
-        | Guard idx -> [%string "guard of index %{idx#Int}"]
-        | Jump_if_false -> "while loop guard"
-        | Log1 -> "log statement"
-        | Mem_idx -> "index into memeory"
-        | Send -> "channel send statement"
-        | Write_mem_value -> "value being written to memory"
-      in
-      let error_string =
-        let f = t.expr_assert_error_decoders.(expr_err_id) in
-        f cint0 cint1
-      in
-      Error
-        [%string
-          "Error while evaluating expression from %{expr_kind} at %{str_i pc}: \
-           %{error_string}."]
   | Unstable_probe (pc, probe) -> (
       match probe with
       | Inner.Probe.Read_ready chan_idx ->
@@ -433,14 +412,6 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
   let push_instr loc ?sexper instr = Assem_builder.push ab loc ?sexper instr in
   let edit_instr loc idx instr = Assem_builder.edit ab loc idx instr in
 
-  let expr_assert_error_decoders =
-    Vec.create ~cap:10 ~default:(fun _ _ -> "")
-  in
-  let add_expr_assert ~f =
-    Vec.push expr_assert_error_decoders (fun a b -> f a b);
-    Vec.length expr_assert_error_decoders - 1
-  in
-
   let var_id_pool = Var_id_pool.create () in
   let convert_id id = Var_id_pool.to_assem_id var_id_pool id in
   (* Turns an Ir_expr into a Inner.Expr. Inner.Expr is a flat array. This code
@@ -450,26 +421,10 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     let ni_of_n = Inner.Expr.N.Table.create () in
     let push n =
       Hashtbl.find_or_add ni_of_n n ~default:(fun () ->
-          let n =
-            match n with Assert _ -> failwith "use push_assert" | _ -> n
-          in
           Vec.push ns n;
           Vec.length ns - 1)
     in
     let push' n = ignore (push n : Inner.Expr.NI.t) in
-    let next_assert_id = ref 0 in
-    let asserts = Vec.create ~cap:10 ~default:(0, 0, 0) in
-    let push_assert a err_no d1 d2 =
-      Hashtbl.find_or_add ni_of_n
-        (Assert (a, 0))
-        ~default:(fun () ->
-          let id = !next_assert_id in
-          incr next_assert_id;
-          Vec.push ns (Assert (a, id));
-          Vec.push asserts (err_no, d1, d2);
-          Vec.length ns - 1)
-      |> fun ni -> ignore (ni : Inner.Expr.NI.t)
-    in
     let rec convert x =
       match x with
       | Ir.Expr.Var var_id -> push (Var (convert_id var_id))
@@ -477,14 +432,6 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
       | Add (a, b) -> push (Add (convert a, convert b))
       | Sub_no_wrap (a, b) ->
           let a, b = (convert a, convert b) in
-          let err_id =
-            add_expr_assert ~f:(fun a b ->
-                [%string
-                  "Expr.Sub_no_wrap must have first arg (%{a#Cint}) >= second \
-                   arg (%{b#Cint})"])
-          in
-          let assert_expr = push (Ge (a, b)) in
-          push_assert assert_expr err_id a b;
           push (Sub_no_underflow (a, b))
       | Sub_wrap (a, b, bits) ->
           let a, b = (convert a, convert b) in
@@ -509,15 +456,10 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
       | Gt (a, b) -> push (Gt (convert a, convert b))
       | Ge (a, b) -> push (Ge (convert a, convert b))
       | Clip (a, bits) -> push (Clip (convert a, bits))
-      (* | With_assert_log (assert_expr, val_expr, log_input, msg_fn) -> let
-         err_id = add_expr_assert ~f:(fun v _ -> msg_fn v) in let assert_expr =
-         convert assert_expr in let log_input = convert log_input in let c0 =
-         push (Const Cint.zero) in push_assert assert_expr err_id log_input c0;
-         convert val_expr *)
     in
     let e = convert expr in
     push' (Return e);
-    { Inner.Expr.ns = Vec.to_array ns; asserts = Vec.to_array asserts }
+    { Inner.Expr.ns = Vec.to_array ns }
   in
   let convert_expr expr = convert_expr' expr in
 
@@ -699,9 +641,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
            let var_id =
              Var_id_pool.new_id var_id_pool (Send_enq_reg bitwidth)
            in
-           let send_expr =
-             { Inner.Expr.ns = [| Var var_id; Return 0 |]; asserts = [||] }
-           in
+           let send_expr = { Inner.Expr.ns = [| Var var_id; Return 0 |] } in
            let send_instr =
              push_instr Code_pos.dummy_loc (Send (send_expr, chan_idx))
            in
@@ -788,7 +728,6 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     enqueuer_table_info;
     dequeuer_table_info;
     mem_table_info;
-    expr_assert_error_decoders = Vec.to_array expr_assert_error_decoders;
     all_enqueuers;
     all_dequeuers;
     queued_user_ops = Queue.create ();

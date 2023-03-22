@@ -1,10 +1,5 @@
 open! Core
 
-type sexper = Cint.t -> Sexp.t [@@deriving sexp_of]
-type expr = Var.t Expr.t [@@deriving sexp_of]
-type bool_expr = Var.t Expr.t [@@deriving sexp_of]
-type cp = Code_pos.t [@@deriving sexp_of]
-
 module M = struct
   type t = {
     cp : Utils.Code_pos.t;

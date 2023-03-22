@@ -214,6 +214,18 @@ let five = of_int 5
 let true_ = of_bool true
 let false_ = of_bool false
 
+let with_assert_log ?new_max_bits ~assert_e ~val_e ~log_e log_fn =
+  assert (Tag.equal cbool_tag assert_e.tag);
+  let log_fn i =
+    let v = Tag.value_of_cint log_e.tag i |> Option.value_exn in
+    log_fn v
+  in
+  {
+    k = With_assert_log (assert_e.k, val_e.k, log_e.k, log_fn);
+    tag = val_e.tag;
+    max_bits = Option.value new_max_bits ~default:val_e.max_bits;
+  }
+
 let clip e ~bits =
   assert (Tag.equal cint_tag e.tag);
   let bits = Int.max bits 0 in
@@ -250,11 +262,6 @@ let add a b =
     tag = cint_tag;
     max_bits = 1 + Int.max a.max_bits b.max_bits;
   }
-
-let sub a b =
-  assert (Tag.equal cint_tag a.tag);
-  assert (Tag.equal cint_tag b.tag);
-  { k = Sub_no_wrap (a.k, b.k); tag = cint_tag; max_bits = a.max_bits }
 
 let sub_wrap a b ~bits =
   assert (Tag.equal cint_tag a.tag);
@@ -359,18 +366,6 @@ let ge a b =
 
 let add_wrap a b ~bits = add a b |> clip ~bits
 
-let with_assert_log ?new_max_bits ~assert_e ~val_e ~log_e log_fn =
-  assert (Tag.equal cbool_tag assert_e.tag);
-  let log_fn i =
-    let v = Tag.value_of_cint log_e.tag i |> Option.value_exn in
-    log_fn v
-  in
-  {
-    k = With_assert_log (assert_e.k, val_e.k, log_e.k, log_fn);
-    tag = val_e.tag;
-    max_bits = Option.value new_max_bits ~default:val_e.max_bits;
-  }
-
 let assert_width e ~bits =
   assert (Tag.equal cint_tag e.tag);
   let threshold = Act_ir.CInt.(pow two (of_int bits)) in
@@ -381,6 +376,22 @@ let assert_width e ~bits =
       [%string "%{e#Act_ir.CInt} has bitwidth greater than %{bits#Int}"])
 
 let var v = var v
+
+let sub a b =
+  assert (Tag.equal cint_tag a.tag);
+  assert (Tag.equal cint_tag b.tag);
+  let val_e =
+    { k = Sub_no_wrap (a.k, b.k); tag = cint_tag; max_bits = a.max_bits }
+  in
+  with_assert_log ~assert_e:(le b a) ~val_e
+    ~log_e:(bit_or (left_shift' a ~amt:b.max_bits) b)
+    (fun e ->
+      let a = Act_ir.CInt.right_shift' e ~amt:b.max_bits in
+      let b =
+        Act_ir.CInt.bit_slice e ~lower_inc:0 ~upper_inc:(b.max_bits - 1)
+      in
+      [%string
+        "Subtraction underflow for %{a#Act_ir.CInt} minus %{b#Act_ir.CInt}"])
 
 module Internal = struct
   module Assert = Assert
