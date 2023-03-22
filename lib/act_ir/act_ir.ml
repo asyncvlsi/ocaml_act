@@ -1,10 +1,17 @@
 open! Core
 
-module Utils = struct
-  module Any = Any
-  module Code_pos = Code_pos
-end
+module Utils = Utils
 
+module Ir_chan = Ir_chan
+module Ir_chp = Ir_chp
+module Cint = Cint
+module Cbool = Cbool
+module Ir_expr0 = Ir_expr0
+module Ir_mem = Ir_mem
+module Ir_process = Ir_process
+module Ir_var = Ir_var
+
+(* new names *)
 module Chan = Ir_chan
 module Chp = Ir_chp
 module CInt = Cint

@@ -7,7 +7,7 @@ end
 type sexper = Cint.t -> Sexp.t [@@deriving sexp_of]
 type expr = Ir_var.t Ir_expr0.t [@@deriving sexp_of]
 type bool_expr = Ir_var.t Ir_expr0.t [@@deriving sexp_of]
-type cp = Code_pos.t [@@deriving sexp_of]
+type cp = Utils.Code_pos.t [@@deriving sexp_of]
 
 type t =
   | Nop
