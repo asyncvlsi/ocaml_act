@@ -34,6 +34,44 @@ module Chp_exporter = struct
   module Var = Flat_chp.Var
   module Chan = Flat_chp.Chan
 
+  let rec strip stmt =
+    let open Flat_chp.Stmt in
+    match stmt with
+    | Par ns -> (
+        let ns =
+          List.map ns ~f:strip
+          |> List.filter ~f:(fun n -> match n with Nop -> false | _ -> true)
+          |> List.concat_map ~f:(fun n ->
+                 match n with Par ns -> ns | _ -> [ n ])
+        in
+        match ns with [] -> Nop | [ n ] -> n | ls -> Par ls)
+    | Seq ns -> (
+        let ns =
+          List.map ns ~f:strip
+          |> List.filter ~f:(fun n -> match n with Nop -> false | _ -> true)
+          |> List.concat_map ~f:(fun n ->
+                 match n with Seq ns -> ns | _ -> [ n ])
+        in
+        match ns with [] -> Nop | [ n ] -> n | ls -> Seq ls)
+    | SelectImm (guards, branches) ->
+        let branches = List.map branches ~f:strip in
+        if
+          List.exists branches ~f:(fun branch ->
+              match branch with Nop -> false | _ -> true)
+        then SelectImm (guards, branches)
+        else Nop
+    | Nondeterm_select branches ->
+        Nondeterm_select
+          (List.map branches ~f:(fun (probe, stmt) -> (probe, strip stmt)))
+    | DoWhile (seq, expr) -> DoWhile (strip seq, expr)
+    | Assign (id, expr) -> Assign (id, expr)
+    | Send (chan, expr) -> Send (chan, expr)
+    | ReadThenAssert (chan, var, assert_) -> ReadThenAssert (chan, var, assert_)
+    | Assert _ ->
+        (* Make this a Nop, unlike in Flat_chp.flatten *)
+        Nop
+    | Nop -> Nop
+
   let export_proc n ~iports ~oports ~name =
     let all_vars =
       let extract_expr (e : Var.t F_expr.t) = F_expr.var_ids e in
@@ -175,7 +213,8 @@ module Chp_exporter = struct
             let branches =
               List.zip_exn guards branches
               |> List.map ~f:(fun (g, n) ->
-                     [%string "bool(%{extract_expr g}) -> %{extract n}"])
+                     let n = match n with Nop -> "skip" | _ -> extract n in
+                     [%string "bool(%{extract_expr g}) -> %{n}"])
               |> String.concat ~sep:" [] "
             in
             [%string "[%{branches}]"]
@@ -203,6 +242,7 @@ module Chp_exporter = struct
 
   let export (chp_proc : Flat_chp.Proc.t) ~name =
     let stmt = Flat_chp.Stmt.flatten chp_proc.stmt in
+    let stmt = strip stmt in
     let io_ports = List.map ~f:fst (chp_proc.iports @ chp_proc.oports) in
     let s =
       export_proc stmt ~name ~iports:chp_proc.iports ~oports:chp_proc.oports

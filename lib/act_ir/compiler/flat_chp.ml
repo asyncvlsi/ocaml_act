@@ -68,7 +68,12 @@ module Stmt = struct
         in
         match ns with [] -> Nop | [ n ] -> n | ls -> Seq ls)
     | SelectImm (guards, branches) ->
-        SelectImm (guards, List.map branches ~f:flatten)
+        let branches = List.map branches ~f:flatten in
+        if
+          List.exists branches ~f:(fun branch ->
+              match branch with Nop -> false | _ -> true)
+        then SelectImm (guards, branches)
+        else Nop
     | Nondeterm_select branches ->
         Nondeterm_select
           (List.map branches ~f:(fun (probe, stmt) -> (probe, flatten stmt)))
@@ -76,8 +81,6 @@ module Stmt = struct
     | Assign (id, expr) -> Assign (id, expr)
     | Send (chan, expr) -> Send (chan, expr)
     | ReadThenAssert (chan, var, assert_) -> ReadThenAssert (chan, var, assert_)
-    (* | WaitUntilReadReady (_, chan) -> WaitUntilReadReady chan *)
-    (* | WaitUntilSendReady (_, chan) -> WaitUntilSendReady chan *)
     | Assert assert_ -> Assert assert_
     | Nop -> Nop
 end
