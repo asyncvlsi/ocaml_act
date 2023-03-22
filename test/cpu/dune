@@ -1,0 +1,6 @@
+(library
+ (name my_test_cpu)
+ (libraries act core)
+ (preprocess
+  (pps ppx_jane))
+ (inline_tests))

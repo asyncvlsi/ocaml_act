@@ -324,7 +324,8 @@ let%expect_test "test" =
   in
   Sim.read sim o (CInt.of_int 3);
   print_s [%sexp (Sim.wait ~max_steps:100000 sim () : unit Or_error.t)];
-  [%expect {|
+  [%expect
+    {|
       (Ok ()) |}]
 
 let%expect_test "test" =
@@ -339,6 +340,8 @@ let%expect_test "test" =
       Instr.to_int Jump;
     |]
   in
+  
+
   let sim, i, o =
     test instrs ~create:(fun ir ~user_sendable_ports ~user_readable_ports ->
         Sim.simulate_chp ir ~user_sendable_ports ~user_readable_ports)
@@ -351,7 +354,8 @@ let%expect_test "test" =
   Sim.read sim o (CInt.of_int 7);
   Sim.read sim o (CInt.of_int 12);
   print_s [%sexp (Sim.wait ~max_steps:100000 sim () : unit Or_error.t)];
-  [%expect {|
+  [%expect
+    {|
     (Ok ())
     (Ok ()) |}]
 

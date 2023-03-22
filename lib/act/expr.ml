@@ -138,7 +138,8 @@ module K = struct
           let value_asserts, value = f (assert_guards @ [ cond ]) value in
           (cond_asserts @ log_e_asserts @ [ assert_ ] @ value_asserts, value)
     in
-    f [] e
+    let asserts, ee = f [] e in
+    (asserts, ee)
 
   let wrap e =
     let rec f e =
@@ -190,7 +191,7 @@ let cbool_tag = Expr_tag.cbool_expr_tag
 let bool_of_int i =
   assert (Tag.equal cint_tag i.tag);
   let k = i.k in
-  let k =
+  let k = match i.max_bits with | 0| 1 -> i.k | _ -> 
     K.With_assert_log
       ( Le (k, Const (Act_ir.CInt.of_int 1)),
         k,

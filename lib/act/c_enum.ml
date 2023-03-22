@@ -138,7 +138,11 @@ end) : S with type t := X.t = struct
       Expr.Internal.with_set_tag_and_max_bits t Expr_tag.cint_expr_tag
         (Expr.Internal.max_bits t)
 
-    let const c = to_int c |> Expr.of_cint |> expr_of_int_expr
+    let const c =
+      Expr.Internal.with_set_tag_and_max_bits
+        (to_int c |> Expr.of_cint)
+        tag max_bitwidth
+
     let eq a b = Expr.eq (expr_to_int_expr a) (expr_to_int_expr b)
     let of_int = expr_of_int_expr
     let to_int = expr_to_int_expr
