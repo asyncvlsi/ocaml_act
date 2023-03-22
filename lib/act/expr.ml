@@ -171,17 +171,10 @@ end
 type 'a t = { k : Act_ir.Ir.Var.t K.t; tag : 'a Tag.t; max_bits : int }
 [@@deriving sexp_of]
 
-module U = struct
-  type nonrec t = Act_ir.Utils.Any.t t [@@deriving sexp_of]
-end
-
-let var (v : 'a Var.t) =
-  let dtype = Var.Internal.dtype v |> Ir_dtype.untype in
+let var v =
+  let dtype = Var.Internal.dtype v in
   let v = Var.Internal.unwrap v in
-  let tag : 'a Expr_tag.t =
-    let tag = Ir_dtype.expr_tag dtype in
-    Obj.magic (tag : Act_ir.Utils.Any.t Expr_tag.t)
-  in
+  let tag = Ir_dtype.expr_tag dtype in
   let max_bits = match Ir_dtype.layout dtype with Bits_fixed bits -> bits in
   { k = Var v; tag; max_bits }
 
@@ -191,12 +184,15 @@ let cbool_tag = Expr_tag.cbool_expr_tag
 let bool_of_int i =
   assert (Tag.equal cint_tag i.tag);
   let k = i.k in
-  let k = match i.max_bits with | 0| 1 -> i.k | _ -> 
-    K.With_assert_log
-      ( Le (k, Const (Act_ir.CInt.of_int 1)),
-        k,
-        k,
-        fun c -> [%string "Invalid cast Cint to Cbool: %{c#Act_ir.CInt}"] )
+  let k =
+    match i.max_bits with
+    | 0 | 1 -> i.k
+    | _ ->
+        K.With_assert_log
+          ( Le (k, Const (Act_ir.CInt.of_int 1)),
+            k,
+            k,
+            fun c -> [%string "Invalid cast Cint to Cbool: %{c#Act_ir.CInt}"] )
   in
   { k; tag = cbool_tag; max_bits = 1 }
 

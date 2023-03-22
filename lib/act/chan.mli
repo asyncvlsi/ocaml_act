@@ -7,7 +7,6 @@ module Inner : sig
     type t = {
       mutable wait_readable_code_pos : Act_ir.Utils.Code_pos.t option;
       mutable wait_sendable_code_pos : Act_ir.Utils.Code_pos.t option;
-      dtype : Act_ir.Utils.Any.t Ir_dtype.t;
     }
   end
 
@@ -28,7 +27,7 @@ module R : sig
     include Comparable with type t := t
   end
 
-  type 'a t = { u : U.t } [@@deriving sexp_of]
+  type 'a t = { u : U.t; dtype : 'a Ir_dtype.t } [@@deriving sexp_of]
 end
 
 module W : sig
@@ -39,7 +38,7 @@ module W : sig
     include Comparable with type t := t
   end
 
-  type 'a t = { u : U.t } [@@deriving sexp_of]
+  type 'a t = { u : U.t; dtype : 'a Ir_dtype.t } [@@deriving sexp_of]
 end
 
 type 'a t = { r : 'a R.t; w : 'a W.t } [@@deriving sexp_of]

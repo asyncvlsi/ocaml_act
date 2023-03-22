@@ -27,24 +27,6 @@ let create ~equal ~sexp_of_t ~max_layout_of ~cint_of ~of_cint
     sexp_of_cint = (fun i -> Option.sexp_of_t sexp_of_t (of_cint i));
   }
 
-let dummy_val =
-  {
-    equal = (fun _ _ -> failwith "Cant call functions on Dtype.dummy_val");
-    sexp_of_t = (fun _ -> failwith "Cant call functions on Dtype.dummy_val");
-    sexp_of_cint = (fun _ -> failwith "Cant call functions on Dtype.dummy_val");
-    max_layout_of = (fun _ -> failwith "Cant call functions on Dtype.dummy_val");
-    cint_of = (fun _ -> failwith "Cant call functions on Dtype.dummy_val");
-    of_cint = (fun _ -> failwith "Cant call functions on Dtype.dummy_val");
-    of_cint_assert_expr_fn = Var ();
-    layout = Bits_fixed 0;
-    expr_tag =
-      Expr_tag.create
-        ~value_of_cint:(fun _ ->
-          failwith "Cant call functions on Dtype.dummy_val")
-        ~cint_of_value:(fun _ ->
-          failwith "Cant call functions on Dtype.dummy_val");
-  }
-
 let layout t = t.layout
 let equal_ (t : 'a t) (a : 'a) (b : 'a) = t.equal a b
 let sexp_of_t_ (t : 'a t) (a : 'a) = t.sexp_of_t a
@@ -77,5 +59,3 @@ let cint_dtype ~bits =
     ~of_cint:(fun v -> Some v)
     ~of_cint_assert_expr_fn:(Act_ir.Ir.Expr.Const Act_ir.CInt.one)
     ~layout:(Bits_fixed bits) ~expr_tag:Expr_tag.cint_expr_tag
-
-let untype t = Obj.magic t

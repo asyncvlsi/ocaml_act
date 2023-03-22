@@ -324,8 +324,7 @@ let%expect_test "test" =
   in
   Sim.read sim o (CInt.of_int 3);
   print_s [%sexp (Sim.wait ~max_steps:100000 sim () : unit Or_error.t)];
-  [%expect
-    {|
+  [%expect {|
       (Ok ()) |}]
 
 let%expect_test "test" =
@@ -340,7 +339,6 @@ let%expect_test "test" =
       Instr.to_int Jump;
     |]
   in
-  
 
   let sim, i, o =
     test instrs ~create:(fun ir ~user_sendable_ports ~user_readable_ports ->
@@ -354,8 +352,7 @@ let%expect_test "test" =
   Sim.read sim o (CInt.of_int 7);
   Sim.read sim o (CInt.of_int 12);
   print_s [%sexp (Sim.wait ~max_steps:100000 sim () : unit Or_error.t)];
-  [%expect
-    {|
+  [%expect {|
     (Ok ())
     (Ok ()) |}]
 
@@ -465,7 +462,6 @@ let fib_instrs =
   |]
 
 let%expect_test "fibonacci" =
-  (* let t = Caml.Sys.time () in *)
   let sim, i, o =
     test fib_instrs ~create:(fun ir ~user_sendable_ports ~user_readable_ports ->
         Sim.simulate_chp ir ~user_sendable_ports ~user_readable_ports)
@@ -505,6 +501,7 @@ let%expect_test "fibonacci - compiled dataflow" =
           ~to_:`Dataflow
         |> Compiler.sim)
   in
+  (* Printf.printf "Setup time: %fs\n" (Caml.Sys.time () -. t); *)
   Sim.send sim i (CInt.of_int 0);
   Sim.read sim o (CInt.of_int 0);
   print_s [%sexp (Sim.wait sim ~max_steps:10000000 () : unit Or_error.t)];
@@ -532,8 +529,7 @@ let%expect_test "fibonacci - compiled dataflow" =
     (Ok ())
     (Ok ()) |}]
 
-(* Printf.printf "Execution time: %fs\n" (Caml.Sys.time () -. t); [%expect {|
-   |}]; *)
+(* Printf.printf "Total time: %fs\n" (Caml.Sys.time () -. t); [%expect {| |}] *)
 
 (* let t = Caml.Sys.time () in *)
 (* let sim, i, o = test instrs ~create:(fun ir ~user_sendable_ports

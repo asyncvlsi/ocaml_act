@@ -5,7 +5,6 @@ module Inner = struct
     type t = {
       mutable wait_readable_code_pos : Act_ir.Utils.Code_pos.t option;
       mutable wait_sendable_code_pos : Act_ir.Utils.Code_pos.t option;
-      dtype : Act_ir.Utils.Any.t Ir_dtype.t;
     }
   end
 
@@ -25,29 +24,28 @@ end
 module R = struct
   module U = Inner
 
-  type 'a t = { u : U.t } [@@deriving sexp_of]
+  type 'a t = { u : U.t; dtype : 'a Ir_dtype.t } [@@deriving sexp_of]
 end
 
 module W = struct
   module U = Inner
 
-  type 'a t = { u : U.t } [@@deriving sexp_of]
+  type 'a t = { u : U.t; dtype : 'a Ir_dtype.t } [@@deriving sexp_of]
 end
 
 type 'a t = { r : 'a R.t; w : 'a W.t } [@@deriving sexp_of]
 
 let create (dtype : 'a Dtype.t) : 'a t =
   let loc = Act_ir.Utils.Code_pos.psite () in
-  let dtype = Dtype.Internal.unwrap dtype |> Ir_dtype.untype in
+  let dtype = Dtype.Internal.unwrap dtype in
   let bitwidth = match dtype.layout with Bits_fixed bitwidth -> bitwidth in
   let u =
     {
       Inner.c = Act_ir.Ir.Chan.create bitwidth loc;
-      d =
-        { dtype; wait_sendable_code_pos = None; wait_readable_code_pos = None };
+      d = { wait_sendable_code_pos = None; wait_readable_code_pos = None };
     }
   in
-  { r = { u }; w = { u } }
+  { r = { u; dtype }; w = { u; dtype } }
 
 module Internal = struct
   let unwrap_r_inner t = t.R.u
@@ -56,10 +54,10 @@ module Internal = struct
   let unwrap_w t = t.W.u.c
   let unwrap_ru t = t.Inner.c
   let unwrap_wu t = t.Inner.c
-  let r_of_w t = { R.u = t.W.u }
-  let w_of_r t = { W.u = t.R.u }
+  let r_of_w t = { R.u = t.W.u; dtype = t.dtype }
+  let w_of_r t = { W.u = t.R.u; dtype = t.dtype }
   let ru_of_wu t = t
   let wu_of_ru t = t
-  let dtype_r r = r.R.u.d.dtype |> Obj.magic
-  let dtype_w w = w.W.u.d.dtype |> Obj.magic
+  let dtype_r r = r.R.dtype
+  let dtype_w w = w.W.dtype
 end

@@ -17,14 +17,14 @@ let wait t ?max_steps ?line_numbers () =
 let wait' t ?max_steps () = Act_ir.Sim.wait' t ?max_steps ()
 
 let send t chan value =
-  let chan = Chan.Internal.unwrap_w_inner chan in
-  let value = chan.d.dtype.cint_of (Act_ir.Utils.Any.of_magic value) in
-  Act_ir.Sim.send t chan.c value
+  let cchan = Chan.Internal.unwrap_w_inner chan in
+  let value = chan.dtype.cint_of value in
+  Act_ir.Sim.send t cchan.c value
 
 let read t chan value =
-  let chan = Chan.Internal.unwrap_r_inner chan in
-  let value = chan.d.dtype.cint_of (Act_ir.Utils.Any.of_magic value) in
-  Act_ir.Sim.read t chan.c value
+  let cchan = Chan.Internal.unwrap_r_inner chan in
+  let value = chan.dtype.cint_of value in
+  Act_ir.Sim.read t cchan.c value
 
 module Internal = struct
   let wrap t = t

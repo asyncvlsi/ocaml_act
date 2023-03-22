@@ -36,10 +36,8 @@ val layout : 'a t -> Layout.t
 val fits_into_dtype : into:'a t -> Layout.t -> bool
 val fits_value : 'a t -> 'a -> bool
 val expr_tag : 'a t -> 'a Expr_tag.t
-val untype : 'a t -> Act_ir.Utils.Any.t t
 
 (* premade dtypes *)
 
-val dummy_val : Act_ir.Utils.Any.t t
 val cbool_dtype : Cbool0.t t
 val cint_dtype : bits:int -> Act_ir.CInt.t t

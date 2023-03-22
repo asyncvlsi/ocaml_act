@@ -13,5 +13,3 @@ val cint_of_value : 'a t -> 'a -> Act_ir.CInt.t
 val value_of_cint : 'a t -> Act_ir.CInt.t -> 'a option
 val cbool_expr_tag : Cbool0.t t
 val cint_expr_tag : Act_ir.CInt.t t
-val untyped_tag : 'a t
-val untype : 'a t -> Act_ir.Utils.Any.t t
