@@ -77,7 +77,7 @@ module N : sig
     | Assign of Var_id.t * Expr.t
     | Log0 of string
     | Log1 of Expr.t * (Cint.t -> string)
-    | Assert of Expr.t
+    | Assert of Expr.t * Expr.t * (Cint.t -> string)
     | Par of Instr_idx.t list
     | ParJoin of Par_join.t
     | Jump of Instr_idx.t
@@ -130,7 +130,7 @@ module E : sig
     | Select_no_guards_true of Instr_idx.t
     | Select_multiple_guards_true of Instr_idx.t * int list
     | Assigned_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * Cint.t
-    | Assert_failure of Instr_idx.t
+    | Assert_failure of Instr_idx.t * string
     | Simul_chan_readers of Instr_idx.t * Instr_idx.t
     | Simul_chan_senders of Instr_idx.t * Instr_idx.t
     | Select_multiple_true_probes of Instr_idx.t * (int * (Probe.t * int)) list

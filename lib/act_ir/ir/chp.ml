@@ -27,7 +27,13 @@ module Log1 = struct
 end
 
 module Assert = struct
-  type t = { m : M.t; expr : Var.t Expr.t } [@@deriving sexp_of]
+  type t = {
+    m : M.t;
+    expr : Var.t Expr.t;
+    log_e : Var.t Expr.t;
+    msg_fn : Cint.t -> string;
+  }
+  [@@deriving sexp_of]
 end
 
 module Assign = struct
@@ -115,7 +121,9 @@ let write_mem ?(m = M.none) mem ~idx ~value =
 
 let log1 ?(m = M.none) expr ~f = Log1 { m; expr; f }
 let log ?m str = log1 ?m (Const Cint.zero) ~f:(fun _ -> str)
-let assert_ ?(m = M.none) expr = Assert { m; expr }
+let assert1 ?(m = M.none) expr log_e ~f = Assert { m; expr; log_e; msg_fn = f }
+let assert0 ?m expr str = assert1 ?m expr (Const Cint.zero) ~f:(fun _ -> str)
+let assert_ ?m expr = assert0 ?m expr ""
 
 (* control flow *)
 let seq ?(m = M.none) ns =

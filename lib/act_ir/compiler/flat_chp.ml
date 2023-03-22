@@ -194,7 +194,7 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
       | Seq { m = _; ns } -> Seq (List.map ns ~f:of_n)
       | Nop _ -> Nop
       | Log1 _ -> Nop
-      | Assert { m = _; expr } ->
+      | Assert { m = _; expr; log_e = _; msg_fn = _ } ->
           let expr, asserts = of_e expr in
           Seq [ Seq asserts; Assert expr ]
       (* | Loop (_, n) -> DoWhile (of_n n, F_expr.Const Cint.one) *)

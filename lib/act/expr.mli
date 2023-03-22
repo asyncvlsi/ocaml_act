@@ -38,6 +38,7 @@ val le : Act_ir.CInt.t t -> Act_ir.CInt.t t -> Cbool0.t t
 val gt : Act_ir.CInt.t t -> Act_ir.CInt.t t -> Cbool0.t t
 val ge : Act_ir.CInt.t t -> Act_ir.CInt.t t -> Cbool0.t t
 val clip : Act_ir.CInt.t t -> bits:int -> Act_ir.CInt.t t
+val assert_width : Act_ir.CInt.t t -> bits:int -> Act_ir.CInt.t t
 val add_wrap : Act_ir.CInt.t t -> Act_ir.CInt.t t -> bits:int -> Act_ir.CInt.t t
 val sub_wrap : Act_ir.CInt.t t -> Act_ir.CInt.t t -> bits:int -> Act_ir.CInt.t t
 val not_ : Cbool0.t t -> Cbool0.t t

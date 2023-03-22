@@ -2,7 +2,7 @@ open! Core
 module Id : Identifiable
 
 type t = { id : Id.t; bitwidth : int; creation_code_pos : Utils.Code_pos.t }
-[@@deriving sexp, equal, compare, hash]
+[@@deriving sexp, equal]
 (** @canonical Act_ir.Ir.Chan.t *)
 
 type comparator_witness

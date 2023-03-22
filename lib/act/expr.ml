@@ -371,6 +371,15 @@ let with_assert_log ?new_max_bits ~assert_e ~val_e ~log_e log_fn =
     max_bits = Option.value new_max_bits ~default:val_e.max_bits;
   }
 
+let assert_width e ~bits =
+  assert (Tag.equal cint_tag e.tag);
+  let threshold = Act_ir.CInt.(pow two (of_int bits)) in
+  with_assert_log ~new_max_bits:bits
+    ~assert_e:(le e (of_cint threshold))
+    ~val_e:e ~log_e:e
+    (fun e ->
+      [%string "%{e#Act_ir.CInt} has bitwidth greater than %{bits#Int}"])
+
 let var v = var v
 
 module Internal = struct

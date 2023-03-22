@@ -133,7 +133,8 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
         [%string
           "Simultanious readers on channel: statement 1 %{str_i fst_pc}, \
            statement 2 %{str_i snd_pc}."]
-  | Assert_failure pc -> Error [%string "Assertion failed: %{str_i pc}."]
+  | Assert_failure (pc, msg) ->
+      Error [%string "Assertion failed %{str_i pc}: %{msg}."]
   | Simul_read_write_var (read_pc, write_pc, var_id) ->
       let var =
         match t.var_table_info.(var_id).src with
@@ -577,7 +578,10 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
           (Assign (convert_id var, convert_expr expr))
     | Nop m -> push_instr m.cp Nop
     | Log1 { m; expr; f } -> push_instr m.cp (Log1 (convert_expr expr, f))
-    | Assert { m; expr } -> push_instr m.cp (Assert (convert_expr expr))
+    | Assert { m; expr; log_e; msg_fn } ->
+        let expr = convert_expr expr in
+        let log_e = convert_expr log_e in
+        push_instr m.cp (Assert (expr, log_e, msg_fn))
     | Seq { m; ns = stmts } -> (
         match stmts with
         | [] -> push_instr m.cp Nop

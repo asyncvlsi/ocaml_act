@@ -156,7 +156,7 @@ module N = struct
     | Assign of Var_id.t * Expr.t
     | Log0 of string
     | Log1 of Expr.t * (Cint.t -> string)
-    | Assert of Expr.t
+    | Assert of Expr.t * Expr.t * (Cint.t -> string)
     | Par of Instr_idx.t list
     | ParJoin of Par_join.t
     | Jump of Instr_idx.t
@@ -187,7 +187,8 @@ module N = struct
     | Log0 _ | Read (_, _) | Jump _ -> []
     | Log1 (expr, _) -> Expr.var_ids expr
     | Assign (_, expr) -> Expr.var_ids expr
-    | Assert expr | JumpIfFalse (expr, _) -> Expr.var_ids expr
+    | Assert (expr, log_e, _) -> Expr.var_ids expr @ Expr.var_ids log_e
+    | JumpIfFalse (expr, _) -> Expr.var_ids expr
     | SelectImm l | SelectImmElse (l, _) ->
         List.concat_map l ~f:(fun (expr, _) -> Expr.var_ids expr)
     | Send (expr, _) -> Expr.var_ids expr
@@ -243,7 +244,7 @@ module E = struct
     | Select_no_guards_true of Instr_idx.t
     | Select_multiple_guards_true of Instr_idx.t * int list
     | Assigned_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * Cint.t
-    | Assert_failure of Instr_idx.t
+    | Assert_failure of Instr_idx.t * string
     | Simul_chan_readers of Instr_idx.t * Instr_idx.t
     | Simul_chan_senders of Instr_idx.t * Instr_idx.t
     | Select_multiple_true_probes of Instr_idx.t * (int * (Probe.t * int)) list
@@ -535,12 +536,17 @@ let step' t ~pc_idx =
       in
       let () = set_var_table ~var_id ~value in
       set_pc_and_guard ~pc_idx (pc + 1)
-  | Assert expr -> (
+  | Assert (expr, log_e, msg_fn) -> (
       unguard pc;
       let%bind.Result expr = eval_bool expr ~err_kind:Assert ~err_instr:pc in
       match expr with
       | true -> set_pc_and_guard ~pc_idx (pc + 1)
-      | false -> Error (E.Assert_failure pc))
+      | false ->
+          let%bind.Result log_e =
+            eval_var_table log_e ~err_kind:Assert ~err_instr:pc
+          in
+          let msg = msg_fn log_e in
+          Error (E.Assert_failure (pc, msg)))
   | Log0 str ->
       (* unguard pc; *)
       printf "%s" str;

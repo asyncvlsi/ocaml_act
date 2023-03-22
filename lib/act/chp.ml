@@ -5,13 +5,7 @@ type t = Act_ir.Ir.Chp.t [@@deriving sexp_of]
 let unpack_expr_asserts loc (asserts : Expr.Internal.Assert.t list) =
   let m = Act_ir.Ir.Chp.M.create loc in
   List.map asserts ~f:(fun { guards; cond; log_e; f } ->
-      let assert_ =
-        Act_ir.Ir.Chp.seq ~m
-          [
-            Act_ir.Ir.Chp.if_else ~m cond [] [ Act_ir.Ir.Chp.log1 ~m log_e ~f ];
-            Act_ir.Ir.Chp.assert_ cond;
-          ]
-      in
+      let assert_ = Act_ir.Ir.Chp.assert1 ~m cond log_e ~f in
       match guards with
       | [] -> assert_
       | gaurds ->

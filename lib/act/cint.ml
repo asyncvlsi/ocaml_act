@@ -83,12 +83,10 @@ module E = struct
 end
 
 let apply_overflow dtype expr ~overflow =
+  let bits = match Ir_dtype.layout dtype with Bits_fixed width -> width in
   match overflow with
-  | Overflow_behavior.Cant -> expr
-  | Mask ->
-      let bits = match Ir_dtype.layout dtype with Bits_fixed width -> width in
-      let mask = sub (pow two (of_int bits)) one in
-      E.(bit_and expr (of_cint mask))
+  | Overflow_behavior.Cant -> Expr.assert_width expr ~bits
+  | Mask -> Expr.clip expr ~bits
 
 module Chp = struct
   type t = Chp.t

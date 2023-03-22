@@ -26,7 +26,13 @@ module Log1 : sig
 end
 
 module Assert : sig
-  type t = { m : M.t; expr : Var.t Expr.t } [@@deriving sexp_of]
+  type t = {
+    m : M.t;
+    expr : Var.t Expr.t;
+    log_e : Var.t Expr.t;
+    msg_fn : Cint.t -> string;
+  }
+  [@@deriving sexp_of]
 end
 
 module Assign : sig
@@ -117,6 +123,10 @@ val write_mem : ?m:M.t -> Mem.t -> idx:Var.t Expr.t -> value:Var.t Expr.t -> t
 val log : ?m:M.t -> string -> t
 val log1 : ?m:M.t -> Var.t Expr.t -> f:(Cint.t -> string) -> t
 val assert_ : ?m:M.t -> Var.t Expr.t -> t
+val assert0 : ?m:M.t -> Var.t Expr.t -> string -> t
+
+val assert1 :
+  ?m:M.t -> Var.t Expr.t -> Var.t Expr.t -> f:(Cint.t -> string) -> t
 
 (* control flow *)
 val seq : ?m:M.t -> t list -> t

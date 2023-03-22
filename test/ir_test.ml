@@ -173,7 +173,7 @@ let%expect_test "test4" =
   [%expect
     {|
     send 1
-    (Error "Assertion failed: in test/ir_test.ml on line 154.") |}]
+    (Error "Assertion failed in test/ir_test.ml on line 154: .") |}]
 
 let%expect_test "test5" =
   let var1 = Var.create CInt.dtype_32 in
@@ -578,4 +578,4 @@ let%expect_test "test2" =
   [%expect
     {|
     (Error
-     "Assigned value doesnt fit in var: got (190) but variable has layout TODO at in test/ir_test.ml on line 555.") |}]
+     "Assertion failed in test/ir_test.ml on line 555: 190 has bitwidth greater than 6.") |}]
