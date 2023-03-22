@@ -1,30 +1,34 @@
 open! Core
 
-type t = Act_ir.Process.t [@@deriving sexp_of]
+type t = Act_ir.Ir.Process.t [@@deriving sexp_of]
 
 let of_chp ?(with_dflow_interface = false) chp ~iports ~oports =
   let iports =
-    List.map iports ~f:Chan.Internal.unwrap_ru |> Act_ir.Chan.Set.of_list
+    List.map iports ~f:Chan.Internal.unwrap_ru |> Act_ir.Ir.Chan.Set.of_list
   in
   let oports =
-    List.map oports ~f:Chan.Internal.unwrap_wu |> Act_ir.Chan.Set.of_list
+    List.map oports ~f:Chan.Internal.unwrap_wu |> Act_ir.Ir.Chan.Set.of_list
   in
   match with_dflow_interface with
   | false ->
       (* TODO do checks *)
-      { Act_ir.Process.inner = Chp (Chp.Internal.unwrap chp); iports; oports }
+      {
+        Act_ir.Ir.Process.inner = Chp (Chp.Internal.unwrap chp);
+        iports;
+        oports;
+      }
   | true ->
       (* TODO do checks *)
       { inner = Dflow_iface_on_chp (Chp.Internal.unwrap chp); iports; oports }
 
 let of_procs procs ~iports ~oports =
   let iports =
-    List.map iports ~f:Chan.Internal.unwrap_ru |> Act_ir.Chan.Set.of_list
+    List.map iports ~f:Chan.Internal.unwrap_ru |> Act_ir.Ir.Chan.Set.of_list
   in
   let oports =
-    List.map oports ~f:Chan.Internal.unwrap_wu |> Act_ir.Chan.Set.of_list
+    List.map oports ~f:Chan.Internal.unwrap_wu |> Act_ir.Ir.Chan.Set.of_list
   in
-  { Act_ir.Process.inner = Subprocs procs; iports; oports }
+  { Act_ir.Ir.Process.inner = Subprocs procs; iports; oports }
 
 module Internal = struct
   let wrap t = t

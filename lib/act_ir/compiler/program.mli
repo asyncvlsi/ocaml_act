@@ -11,9 +11,9 @@ end
 
 type t = {
   processes : Process.t list;
-  top_iports : (Interproc_chan.t * Ir_chan.t) list;
-  top_oports : (Interproc_chan.t * Ir_chan.t) list;
+  top_iports : (Interproc_chan.t * Ir.Chan.t) list;
+  top_oports : (Interproc_chan.t * Ir.Chan.t) list;
 }
 [@@deriving sexp_of]
 
-val of_process : Ir_process.t -> t
+val of_process : Ir.Process.t -> t

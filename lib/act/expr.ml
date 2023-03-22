@@ -42,10 +42,7 @@ let of_cint c =
   { Ir_expr.k = Const c; tag = cint_tag; max_bits = Act_ir.CInt.bitwidth c }
 
 let of_int i = of_cint (Act_ir.CInt.of_int i)
-
-let of_bool b =
-  Act_ir.CBool.of_bool b |> Act_ir.CBool.to_cint |> of_cint |> bool_of_int
-
+let of_bool b = Cbool0.of_bool b |> Cbool0.to_cint |> of_cint |> bool_of_int
 let zero = of_int 0
 let one = of_int 1
 let two = of_int 2

@@ -1,32 +1,32 @@
 open! Core
 
 module Chan_end = struct
-  type t = Read of Ir_chan.t | Send of Ir_chan.t [@@deriving sexp_of]
+  type t = Read of Chan.t | Send of Chan.t [@@deriving sexp_of]
 end
 
 type sexper = Cint.t -> Sexp.t [@@deriving sexp_of]
-type expr = Ir_var.t Ir_expr0.t [@@deriving sexp_of]
-type bool_expr = Ir_var.t Ir_expr0.t [@@deriving sexp_of]
+type expr = Var.t Expr.t [@@deriving sexp_of]
+type bool_expr = Var.t Expr.t [@@deriving sexp_of]
 type cp = Code_pos.t [@@deriving sexp_of]
 
 type t =
   | Nop
-  | Assign of cp * (Ir_var.t * sexper) * expr
+  | Assign of cp * (Var.t * sexper) * expr
   | Log of cp * string
   | Log1 of cp * expr * (Cint.t -> string)
   | Assert of cp * expr
   | Seq of cp * t list
   | Par of cp * t list
-  | Read of cp * Ir_chan.t * (Ir_var.t * sexper)
-  | Send of cp * (Ir_chan.t * sexper) * expr
+  | Read of cp * Chan.t * (Var.t * sexper)
+  | Send of cp * (Chan.t * sexper) * expr
   | Loop of cp * t
   | WhileLoop of cp * bool_expr * t
   | DoWhile of cp * t * bool_expr
   | SelectImm of cp * (bool_expr * t) list * t option
-  | ReadUGMem of cp * Ir_mem.t * expr * (Ir_var.t * sexper)
-  | WriteUGMem of cp * (Ir_mem.t * sexper) * expr * expr
-  | WaitUntilReadReady of cp * Ir_chan.t
-  | WaitUntilSendReady of cp * Ir_chan.t
+  | ReadUGMem of cp * Mem.t * expr * (Var.t * sexper)
+  | WriteUGMem of cp * (Mem.t * sexper) * expr * expr
+  | WaitUntilReadReady of cp * Chan.t
+  | WaitUntilSendReady of cp * Chan.t
   | Nondeterm_select of cp * (Chan_end.t * t) list
 [@@deriving sexp_of]
 

@@ -6,7 +6,7 @@ module type E_S = sig
 
   val var : elt Var.t -> elt Expr.t
   val const : elt -> elt Expr.t
-  val eq : elt Expr.t -> elt Expr.t -> Act_ir.CBool.t Expr.t
+  val eq : elt Expr.t -> elt Expr.t -> Cbool0.t Expr.t
   val to_int : elt Expr.t -> Act_ir.CInt.t Expr.t
   val of_int : Act_ir.CInt.t Expr.t -> elt Expr.t
 end

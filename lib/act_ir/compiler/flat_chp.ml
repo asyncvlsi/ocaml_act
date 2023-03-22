@@ -92,10 +92,10 @@ module Proc = struct
   [@@deriving sexp_of]
 end
 
-let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
+let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
     ~dflowable =
   let next_v_id = ref 0 in
-  let var_of_var = Ir_var.Table.create () in
+  let var_of_var = Ir.Var.Table.create () in
   let new_var bitwidth =
     let id = !next_v_id in
     incr next_v_id;
@@ -106,7 +106,7 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
   in
 
   let next_c_id = ref 0 in
-  let chan_of_chan = Ir_chan.Table.create () in
+  let chan_of_chan = Ir.Chan.Table.create () in
   let new_chan bitwidth =
     let id = !next_c_id in
     incr next_c_id;
@@ -119,7 +119,7 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
   let of_e0 e ~of_assert ~of_var =
     let rec f e =
       match e with
-      | Ir_expr0.Add (a, b) -> F_expr.Add (f a, f b)
+      | Ir.Expr.Add (a, b) -> F_expr.Add (f a, f b)
       | Sub_no_wrap (a, b) ->
           let a, b = (f a, f b) in
           of_assert (F_expr.Ge (a, b));
@@ -172,7 +172,7 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
      code for now. *)
 
   (* We pull each mem out into seperate process *)
-  let mems_table = Ir_mem.Table.create () in
+  let mems_table = Ir.Mem.Table.create () in
   let chans_of_mem mem =
     Hashtbl.find_or_add mems_table mem ~default:(fun () ->
         let idx_bits = mem.init |> Array.length |> Int.ceil_log2 in
@@ -193,7 +193,7 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
   let of_chp n =
     let rec of_n n =
       match n with
-      | Ir_chp.Par (_, ns) -> Stmt.Par (List.map ns ~f:of_n)
+      | Ir.Chp.Par (_, ns) -> Stmt.Par (List.map ns ~f:of_n)
       | Seq (_, ns) -> Seq (List.map ns ~f:of_n)
       | Nop -> Nop
       | Log (_, _) -> Nop
@@ -315,7 +315,7 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
     (* This map conversion makes the order deterministic *)
     let inits =
       Hashtbl.to_alist var_of_var
-      |> Ir_var.Map.of_alist_exn |> Map.to_alist
+      |> Ir.Var.Map.of_alist_exn |> Map.to_alist
       |> List.map ~f:(fun (var, var_id) ->
              let init = Option.value var.init ~default:Cint.zero in
              Stmt.Assign (var_id, Const init))
@@ -358,7 +358,7 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
     Set.diff write_chans read_chans |> Map.of_key_set ~f:interproc_chan_of_chan
   in
 
-  let mems = mems_table |> Hashtbl.to_alist |> Ir_mem.Map.of_alist_exn in
+  let mems = mems_table |> Hashtbl.to_alist |> Ir.Mem.Map.of_alist_exn in
   let mems =
     Map.map mems
       ~f:(fun (cmd_chan, write_chan, read_chan, idx_bits, cell_bits) ->
@@ -393,7 +393,7 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
 
    let dummy_chan_of_mem_table = Ir.Mem.Table.create () in let dummy_chan_of_mem
    mem = Hashtbl.find_or_add dummy_chan_of_mem_table mem ~default:(fun () ->
-   Chan.W.create (Cint.dtype ~bits:1) |> Ir_chan.unwrap_w) in
+   Chan.W.create (Cint.dtype ~bits:1) |> Ir.Chan.unwrap_w) in
 
    (* check that par branches dont both use the same side of the same channel *)
    let rec chans n ~r ~w = let f n = chans n ~r ~w in match n with | Ir.Chp.Par
@@ -407,8 +407,8 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
    dummy_chan_of_mem mem ] | Log _ | Log1 _ | Assert _ -> [] |
    WaitUntilReadReady (_, _) | WaitUntilSendReady (_, _) -> failwith
    "unreachable: handled above" in let r_chans n = chans n ~r:true ~w:false |>
-   Ir_chan.Set.of_list in let w_chans n = chans n ~r:false ~w:true |>
-   Ir_chan.Set.of_list in
+   Ir.Chan.Set.of_list in let w_chans n = chans n ~r:false ~w:true |>
+   Ir.Chan.Set.of_list in
 
    let subsets_2 l = List.mapi l ~f:(fun i x -> (i, x)) |> List.concat_map
    ~f:(fun (i, x) -> List.drop l (i + 1) |> List.map ~f:(fun y -> (x, y))) in

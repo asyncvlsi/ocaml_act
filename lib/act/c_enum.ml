@@ -6,7 +6,7 @@ module type E_S = sig
 
   val var : elt Var.t -> elt Expr.t
   val const : elt -> elt Expr.t
-  val eq : elt Expr.t -> elt Expr.t -> Act_ir.CBool.t Expr.t
+  val eq : elt Expr.t -> elt Expr.t -> Cbool0.t Expr.t
   val to_int : elt Expr.t -> Act_ir.CInt.t Expr.t
   val of_int : Act_ir.CInt.t Expr.t -> elt Expr.t
 end
@@ -86,16 +86,16 @@ end) : S with type t := X.t = struct
   let of_cint_assert_expr_fn =
     List.map ok_cint_intervals ~f:(fun (v, n) ->
         match n with
-        | 1 -> Act_ir.Expr.(Eq (Const v, Var ()))
+        | 1 -> Act_ir.Ir.Expr.(Eq (Const v, Var ()))
         | _ ->
             if Act_ir.CInt.equal v (Act_ir.CInt.of_int 0) then
-              Act_ir.Expr.(Lt (Var (), Const Act_ir.CInt.(add v (of_int n))))
+              Act_ir.Ir.Expr.(Lt (Var (), Const Act_ir.CInt.(add v (of_int n))))
             else
-              Act_ir.Expr.(
+              Act_ir.Ir.Expr.(
                 BitAnd
                   ( Le (Const v, Var ()),
                     Lt (Var (), Const Act_ir.CInt.(add v (of_int n))) )))
-    |> List.reduce ~f:(fun a b -> Act_ir.Expr.(BitOr (a, b)))
+    |> List.reduce ~f:(fun a b -> Act_ir.Ir.Expr.(BitOr (a, b)))
     |> Option.value_exn
 
   let dtype =

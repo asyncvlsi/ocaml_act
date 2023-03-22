@@ -8,6 +8,7 @@ type t = {
   bitwidth : int;
 }
 [@@deriving sexp_of]
+(** @canonical Act_ir.Ir.Var.t *)
 
 include Comparable with type t := t
 include Hashable with type t := t

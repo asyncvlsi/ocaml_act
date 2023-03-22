@@ -11,17 +11,17 @@ end
 
 type t = {
   processes : Process.t list;
-  top_iports : (Interproc_chan.t * Ir_chan.t) list;
-  top_oports : (Interproc_chan.t * Ir_chan.t) list;
+  top_iports : (Interproc_chan.t * Ir.Chan.t) list;
+  top_oports : (Interproc_chan.t * Ir.Chan.t) list;
 }
 [@@deriving sexp_of]
 
-let of_process (process : Ir_process.t) =
+let of_process (process : Ir.Process.t) =
   let user_sendable_ports = Set.to_list process.iports in
   let user_readable_ports = Set.to_list process.oports in
 
   let next_interproc_chan_id = ref 0 in
-  let interproc_chan_of_ir_chan_tbl = Ir_chan.Table.create () in
+  let interproc_chan_of_ir_chan_tbl = Ir.Chan.Table.create () in
   let new_interproc_chan bitwidth =
     let id = !next_interproc_chan_id in
     let id = Interproc_chan.Id.of_int id in
@@ -34,7 +34,7 @@ let of_process (process : Ir_process.t) =
   in
 
   let chp_procs, mem_maps =
-    let rec helper (proc : Ir_process.t) =
+    let rec helper (proc : Ir.Process.t) =
       match proc.inner with
       | Subprocs subprocs -> List.concat_map subprocs ~f:helper
       | Dflow_iface_on_chp chp ->
@@ -57,7 +57,7 @@ let of_process (process : Ir_process.t) =
 
   let mem_procs =
     List.concat_map mem_maps ~f:Map.to_alist
-    |> Ir_mem.Map.of_alist_multi |> Map.to_alist
+    |> Ir.Mem.Map.of_alist_multi |> Map.to_alist
     |> List.concat_map ~f:(fun (mem, chans) ->
            let (chans, bits), ctrl_procs =
              match chans with

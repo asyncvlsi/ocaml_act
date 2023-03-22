@@ -14,8 +14,8 @@ val of_procs : t list -> iports:Chan.R.U.t list -> oports:Chan.W.U.t list -> t
 (**/**)
 
 module Internal : sig
-  val wrap : Act_ir.Process.t -> t
-  val unwrap : t -> Act_ir.Process.t
+  val wrap : Act_ir.Ir.Process.t -> t
+  val unwrap : t -> Act_ir.Ir.Process.t
 end
 
 (**/**)

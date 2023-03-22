@@ -11,7 +11,7 @@ module Inner = struct
 
   module T = struct
     type t = {
-      c : Act_ir.Chan.t;
+      c : Act_ir.Ir.Chan.t;
       d : (D.t[@hash.ignore] [@compare.ignore] [@equal.ignore] [@sexp.opaque]);
     }
     [@@deriving hash, compare, equal, sexp]
@@ -42,7 +42,7 @@ let create (dtype : 'a Dtype.t) : 'a t =
   let bitwidth = match dtype.layout with Bits_fixed bitwidth -> bitwidth in
   let u =
     {
-      Inner.c = Act_ir.Chan.create bitwidth loc;
+      Inner.c = Act_ir.Ir.Chan.create bitwidth loc;
       d =
         { dtype; wait_sendable_code_pos = None; wait_readable_code_pos = None };
     }

@@ -29,21 +29,21 @@ val read_ug_rom : 'a Mem.ug_rom -> idx:Act_ir.CInt.t Expr.t -> dst:'a Var.t -> t
 val log : string -> t
 val log1 : 'a Var.t -> f:('a -> string) -> t
 val log1' : 'a Expr.t -> f:('a -> string) -> t
-val assert_ : Act_ir.CBool.t Expr.t -> t
+val assert_ : Cbool0.t Expr.t -> t
 
 (* control flow *)
 val seq : t list -> t
 val par : t list -> t
-val if_else : Act_ir.CBool.t Expr.t -> t list -> t list -> t
+val if_else : Cbool0.t Expr.t -> t list -> t list -> t
 val loop : t list -> t
-val while_loop : Act_ir.CBool.t Expr.t -> t list -> t
-val select_imm : (Act_ir.CBool.t Expr.t * t) list -> else_:t option -> t
+val while_loop : Cbool0.t Expr.t -> t list -> t
+val select_imm : (Cbool0.t Expr.t * t) list -> else_:t option -> t
 
 (**/**)
 
 module Internal : sig
-  val unwrap : t -> Act_ir.Chp.t
-  val wrap : Act_ir.Chp.t -> t
+  val unwrap : t -> Act_ir.Ir.Chp.t
+  val wrap : Act_ir.Ir.Chp.t -> t
 end
 
 (**/**)

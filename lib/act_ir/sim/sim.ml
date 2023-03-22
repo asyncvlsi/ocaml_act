@@ -8,7 +8,7 @@ end
 
 module Var_id_src = struct
   type t =
-    | Var of Ir_var.t
+    | Var of Ir.Var.t
     | Mem_idx_reg of int
     | Read_deq_reg of int
     | Send_enq_reg of int
@@ -31,11 +31,11 @@ module Var_buff_info = struct
 end
 
 module Chan_buff_info = struct
-  type t = { src : (Ir_chan.t[@sexp.opaque]) } [@@deriving sexp_of]
+  type t = { src : (Ir.Chan.t[@sexp.opaque]) } [@@deriving sexp_of]
 end
 
 module Mem_buff_info = struct
-  type t = { src : (Ir_mem.t[@sexp.opaque]) } [@@deriving sexp_of]
+  type t = { src : (Ir.Mem.t[@sexp.opaque]) } [@@deriving sexp_of]
 end
 
 module Enqueuer_info = struct
@@ -70,8 +70,8 @@ type t = {
   dequeuer_table_info : Dequeuer_info.t array;
   expr_assert_error_decoders : (Cint.t -> Cint.t -> string) array;
   (* io helpers *)
-  all_enqueuers : (Inner.Instr_idx.t * Inner.Enqueuer_idx.t) Ir_chan.Map.t;
-  all_dequeuers : (Inner.Instr_idx.t * Inner.Dequeuer_idx.t) Ir_chan.Map.t;
+  all_enqueuers : (Inner.Instr_idx.t * Inner.Enqueuer_idx.t) Ir.Chan.Map.t;
+  all_dequeuers : (Inner.Instr_idx.t * Inner.Dequeuer_idx.t) Ir.Chan.Map.t;
   (* per-wait state *)
   queued_user_ops : Queued_user_op.t Queue.t;
 }
@@ -368,14 +368,14 @@ end
 module Var_id_pool = struct
   type t = {
     mutable next_id : int;
-    id_of_var : Inner.Var_id.t Ir_var.Table.t;
+    id_of_var : Inner.Var_id.t Ir.Var.Table.t;
     src_of_id : Var_id_src.t Inner.Var_id.Table.t;
   }
 
   let create () =
     {
       next_id = 0;
-      id_of_var = Ir_var.Table.create ();
+      id_of_var = Ir.Var.Table.create ();
       src_of_id = Inner.Var_id.Table.create ();
     }
 
@@ -393,10 +393,10 @@ end
 module Chan_id_pool = struct
   type t = {
     mutable next_id : int;
-    id_of_chan : Inner.Chan_id.t Ir_chan.Table.t;
+    id_of_chan : Inner.Chan_id.t Ir.Chan.Table.t;
   }
 
-  let create () = { next_id = 0; id_of_chan = Ir_chan.Table.create () }
+  let create () = { next_id = 0; id_of_chan = Ir.Chan.Table.create () }
 
   let new_id t =
     t.next_id <- t.next_id + 1;
@@ -409,10 +409,10 @@ end
 module Mem_id_pool = struct
   type t = {
     mutable next_id : int;
-    id_of_mem : (Inner.Var_id.t * Inner.Mem_id.t) Ir_mem.Table.t;
+    id_of_mem : (Inner.Var_id.t * Inner.Mem_id.t) Ir.Mem.Table.t;
   }
 
-  let create () = { next_id = 0; id_of_mem = Ir_mem.Table.create () }
+  let create () = { next_id = 0; id_of_mem = Ir.Mem.Table.create () }
 
   let new_id t =
     t.next_id <- t.next_id + 1;
@@ -471,7 +471,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     in
     let rec convert x =
       match x with
-      | Ir_expr0.Var var_id -> push (Var (convert_id var_id))
+      | Ir.Expr.Var var_id -> push (Var (convert_id var_id))
       | Const c -> push (Const c)
       | Add (a, b) -> push (Add (convert a, convert b))
       | Sub_no_wrap (a, b) ->
@@ -574,7 +574,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
       merge
     in
     match stmt with
-    | Ir_chp.Assign (loc, (id, id_sexper), expr) ->
+    | Ir.Chp.Assign (loc, (id, id_sexper), expr) ->
         push_instr ~sexper:id_sexper loc
           (Assign (convert_id id, convert_expr expr))
     | Nop -> push_instr Code_pos.dummy_loc Nop
@@ -633,7 +633,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     | DoWhile (loc, seq, expr) ->
         let top = push_instr loc Nop in
         convert' seq;
-        let not_expr = Ir_expr0.Eq (expr, Const Cint.zero) in
+        let not_expr = Ir.Expr.Eq (expr, Const Cint.zero) in
         push_instr loc (JumpIfFalse (convert_expr' not_expr, top))
     | ReadUGMem (loc, mem, idx, (dst, dst_sexper)) ->
         let mem_idx_reg, mem_id = get_mem mem in
@@ -691,7 +691,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
            ((chan, (read_instr, dequeuer_idx)), (sexper, var_id, chan_idx)))
     |> List.unzip
   in
-  let all_dequeuers = Ir_chan.Map.of_alist_exn all_dequeuers in
+  let all_dequeuers = Ir.Chan.Map.of_alist_exn all_dequeuers in
   let dequeuers, dequeuer_table_info =
     List.map dequeuer_table ~f:(fun (sexper, var_id, chan) ->
         ({ Inner.Dequeuer_spec.var_id }, { Dequeuer_info.chan; sexper }))
@@ -718,7 +718,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
            ((chan, (send_instr, enqueuer_idx)), (var_id, chan_idx)))
     |> List.unzip
   in
-  let all_enqueuers = Ir_chan.Map.of_alist_exn all_enqueuers in
+  let all_enqueuers = Ir.Chan.Map.of_alist_exn all_enqueuers in
   let enqueuers, enqueuer_table_info =
     List.map enqueuer_table ~f:(fun (var_id, chan) ->
         ({ Inner.Enqueuer_spec.var_id }, { Enqueuer_info.chan }))
@@ -807,14 +807,14 @@ let reset t =
   t.is_done <- false;
   Queue.clear t.queued_user_ops
 
-let simulate ?(seed = 0) (process : Ir_process.t) =
+let simulate ?(seed = 0) (process : Ir.Process.t) =
   let chp =
-    let rec extract (proc : Ir_process.t) =
+    let rec extract (proc : Ir.Process.t) =
       match proc.inner with
       | Chp chp -> chp
       | Dflow_iface_on_chp chp -> (* TODO add buffers and stuff? *) chp
       | Subprocs subprocs ->
-          Ir_chp.Par (Code_pos.dummy_loc, List.map subprocs ~f:extract)
+          Ir.Chp.Par (Code_pos.dummy_loc, List.map subprocs ~f:extract)
     in
     extract process
   in
@@ -827,7 +827,7 @@ let simulate ?(seed = 0) (process : Ir_process.t) =
 
 let queue_user_io_op t call_site chan value chan_instr queuer =
   let ivalue = value in
-  let chan_bitwidth = chan.Ir_chan.bitwidth in
+  let chan_bitwidth = chan.Ir.Chan.bitwidth in
   if chan_bitwidth >= Cint.bitwidth ivalue then
     Queue.enqueue t.queued_user_ops
       { Queued_user_op.queuer; chan_instr; value = ivalue; call_site }

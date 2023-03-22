@@ -1,6 +1,6 @@
 open! Core
 
-type t = Act_ir.Chp.t [@@deriving sexp_of]
+type t = Act_ir.Ir.Chp.t [@@deriving sexp_of]
 
 module Internal = struct
   let unwrap t = t
@@ -27,7 +27,7 @@ let assign var_id expr =
     var_dtype;
   let var_id = Var.Internal.unwrap var_id in
   let expr = Expr.Internal.unwrap expr in
-  Act_ir.Chp.Assign (loc, (var_id, var_dtype.sexp_of_cint), expr)
+  Act_ir.Ir.Chp.Assign (loc, (var_id, var_dtype.sexp_of_cint), expr)
 
 let read chan_id var_id =
   let loc = Act_ir.Utils.Code_pos.psite () in
@@ -41,7 +41,7 @@ let read chan_id var_id =
      larger layout."
     (Ir_dtype.layout chan_dtype)
     var_dtype;
-  Act_ir.Chp.Read (loc, chan_id, (var_id, var_dtype.sexp_of_cint))
+  Act_ir.Ir.Chp.Read (loc, chan_id, (var_id, var_dtype.sexp_of_cint))
 
 let send chan_id expr =
   let loc = Act_ir.Utils.Code_pos.psite () in
@@ -54,7 +54,7 @@ let send chan_id expr =
     chan_dtype;
   let expr = Expr.Internal.unwrap expr in
   let chan_id = Chan.Internal.unwrap_w chan_id in
-  Act_ir.Chp.Send (loc, (chan_id, chan_dtype.sexp_of_cint), expr)
+  Act_ir.Ir.Chp.Send (loc, (chan_id, chan_dtype.sexp_of_cint), expr)
 
 let send_var chan_id var_id = send chan_id Expr.(var var_id)
 
@@ -72,7 +72,7 @@ let wait_probe_r chan_id =
   | None ->
       if Option.is_none chan.d.wait_readable_code_pos then
         chan.d.wait_readable_code_pos <- Some loc);
-  Act_ir.Chp.WaitUntilSendReady (loc, chan.c)
+  Act_ir.Ir.Chp.WaitUntilSendReady (loc, chan.c)
 
 let wait_probe_w chan_id =
   let loc = Act_ir.Utils.Code_pos.psite () in
@@ -88,7 +88,7 @@ let wait_probe_w chan_id =
   | None ->
       if Option.is_none chan.d.wait_sendable_code_pos then
         chan.d.wait_sendable_code_pos <- Some loc);
-  Act_ir.Chp.WaitUntilReadReady (loc, chan.c)
+  Act_ir.Ir.Chp.WaitUntilReadReady (loc, chan.c)
 
 let select_probe_r _ = failwith "TODO"
 let select_probe_w _ = failwith "TODO"
@@ -106,7 +106,7 @@ let read_ug_mem (mem : 'a Mem.ug_mem) ~idx ~(dst : 'a Var.t) =
      variable with a larger layout."
     (Ir_dtype.layout mem_dtype)
     dst_dtype;
-  Act_ir.Chp.ReadUGMem
+  Act_ir.Ir.Chp.ReadUGMem
     ( Act_ir.Utils.Code_pos.psite (),
       mem,
       Expr.Internal.unwrap idx,
@@ -123,7 +123,7 @@ let write_ug_mem (mem : 'a Mem.ug_mem) ~idx ~(value : 'a Expr.t) =
     (Bits_fixed (Expr.Internal.max_bits value))
     mem_dtype;
   let value = Expr.Internal.unwrap value in
-  Act_ir.Chp.WriteUGMem
+  Act_ir.Ir.Chp.WriteUGMem
     ( Act_ir.Utils.Code_pos.psite (),
       (mem, mem_dtype.sexp_of_cint),
       Expr.Internal.unwrap idx,
@@ -143,13 +143,13 @@ let read_ug_rom (rom : 'a Mem.ug_rom) ~idx ~(dst : 'a Var.t) =
      variable with a larger layout."
     (Ir_dtype.layout rom_dtype)
     dst_dtype;
-  Act_ir.Chp.ReadUGMem
+  Act_ir.Ir.Chp.ReadUGMem
     ( Act_ir.Utils.Code_pos.psite (),
       rom,
       Expr.Internal.unwrap idx,
       (dst, dst_dtype.sexp_of_cint) )
 
-let log str = Act_ir.Chp.Log (Act_ir.Utils.Code_pos.psite (), str)
+let log str = Act_ir.Ir.Chp.Log (Act_ir.Utils.Code_pos.psite (), str)
 
 let log1' (expr : 'a Expr.t) ~(f : 'a -> string) =
   let f v =
@@ -157,30 +157,31 @@ let log1' (expr : 'a Expr.t) ~(f : 'a -> string) =
     |> Option.map ~f |> Option.value ~default:""
   in
   let expr = Expr.Internal.unwrap expr in
-  Act_ir.Chp.Log1 (Act_ir.Utils.Code_pos.psite (), expr, f)
+  Act_ir.Ir.Chp.Log1 (Act_ir.Utils.Code_pos.psite (), expr, f)
 
 let log1 var ~f = log1' (Expr.var var) ~f
 
 let assert_ expr =
-  Act_ir.Chp.Assert (Act_ir.Utils.Code_pos.psite (), Expr.Internal.unwrap expr)
+  Act_ir.Ir.Chp.Assert
+    (Act_ir.Utils.Code_pos.psite (), Expr.Internal.unwrap expr)
 
-let seq l = Act_ir.Chp.Seq (Act_ir.Utils.Code_pos.psite (), l)
-let par l = Act_ir.Chp.Par (Act_ir.Utils.Code_pos.psite (), l)
+let seq l = Act_ir.Ir.Chp.Seq (Act_ir.Utils.Code_pos.psite (), l)
+let par l = Act_ir.Ir.Chp.Par (Act_ir.Utils.Code_pos.psite (), l)
 
 let if_else expr t_br f_br =
-  Act_ir.Chp.SelectImm
+  Act_ir.Ir.Chp.SelectImm
     ( Act_ir.Utils.Code_pos.psite (),
       [ (Expr.Internal.unwrap expr, seq t_br) ],
       Some (seq f_br) )
 
-let loop t = Act_ir.Chp.Loop (Act_ir.Utils.Code_pos.psite (), seq t)
+let loop t = Act_ir.Ir.Chp.Loop (Act_ir.Utils.Code_pos.psite (), seq t)
 
 let while_loop expr t =
-  Act_ir.Chp.WhileLoop
+  Act_ir.Ir.Chp.WhileLoop
     (Act_ir.Utils.Code_pos.psite (), Expr.Internal.unwrap expr, seq t)
 
 let select_imm branches ~else_ =
-  Act_ir.Chp.SelectImm
+  Act_ir.Ir.Chp.SelectImm
     ( Act_ir.Utils.Code_pos.psite (),
       List.map branches ~f:(fun (guard, stmt) ->
           (Expr.Internal.unwrap guard, stmt)),

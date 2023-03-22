@@ -1,7 +1,7 @@
 open! Core
-include Act_ir.CBool
-include Comparable.Make (Act_ir.CBool)
-include Hashable.Make (Act_ir.CBool)
+include Cbool0
+include Comparable.Make (Cbool0)
+include Hashable.Make (Cbool0)
 
 let to_int t = to_cint t
 let of_int i = of_cint i
@@ -32,7 +32,7 @@ module Chp = struct
     Chp.select_imm ~else_:None
       (List.map [ false; true ] ~f:(fun op -> (E.(eq (const op) expr), f op)))
 
-  let toggle (var_id : Act_ir.CBool.t Var.t) =
+  let toggle (var_id : Cbool0.t Var.t) =
     Chp.assign var_id E.(var var_id |> not_)
 
   let set_true var_id = Chp.assign var_id E.true_

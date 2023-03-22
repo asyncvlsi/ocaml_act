@@ -10,8 +10,8 @@ include Stringable with type t := t
 val of_bool : bool -> t
 val to_bool : t -> bool
 val bitwidth : t -> int
-val to_cint : t -> Cint.t
-val of_cint : Cint.t -> t option
+val to_cint : t -> Act_ir.CInt.t
+val of_cint : Act_ir.CInt.t -> t option
 val not_ : t -> t
 val and_ : t -> t -> t
 val or_ : t -> t -> t

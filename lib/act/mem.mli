@@ -13,8 +13,8 @@ val create_ug_rom : 'a Dtype.t -> 'a array -> 'a ug_rom
 (**/**)
 
 module Internal : sig
-  val unwrap_ug_mem : 'a ug_mem -> Act_ir.Mem.t
-  val unwrap_ug_rom : 'a ug_rom -> Act_ir.Mem.t
+  val unwrap_ug_mem : 'a ug_mem -> Act_ir.Ir.Mem.t
+  val unwrap_ug_rom : 'a ug_rom -> Act_ir.Ir.Mem.t
   val dtype : ('kind, 'a) t -> 'a Ir_dtype.t
 end
 

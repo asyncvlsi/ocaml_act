@@ -7,7 +7,7 @@ type 'a t = {
   cint_of : 'a -> Act_ir.CInt.t;
   of_cint : Act_ir.CInt.t -> 'a option;
   sexp_of_cint : Act_ir.CInt.t -> Sexp.t;
-  of_cint_assert_expr_fn : unit Act_ir.Expr.t;
+  of_cint_assert_expr_fn : unit Act_ir.Ir.Expr.t;
   layout : Layout.t;
   expr_tag : 'a Expr_tag.t;
 }
@@ -63,11 +63,11 @@ let fits_value t value = fits_into_dtype (max_layout_of t value) ~into:t
 let expr_tag t = t.expr_tag
 
 let cbool_dtype =
-  create ~equal:Act_ir.CBool.equal ~sexp_of_t:Act_ir.CBool.sexp_of_t
+  create ~equal:Cbool0.equal ~sexp_of_t:Cbool0.sexp_of_t
     ~max_layout_of:(fun _ -> Bits_fixed 1)
-    ~cint_of:(fun t -> Act_ir.CBool.to_cint t)
-    ~of_cint_assert_expr_fn:(Act_ir.Expr.Le (Var (), Const Act_ir.CInt.one))
-    ~of_cint:Act_ir.CBool.of_cint ~layout:(Bits_fixed 1)
+    ~cint_of:(fun t -> Cbool0.to_cint t)
+    ~of_cint_assert_expr_fn:(Act_ir.Ir.Expr.Le (Var (), Const Act_ir.CInt.one))
+    ~of_cint:Cbool0.of_cint ~layout:(Bits_fixed 1)
     ~expr_tag:Expr_tag.cbool_expr_tag
 
 let cint_dtype ~bits =
@@ -75,7 +75,7 @@ let cint_dtype ~bits =
     ~max_layout_of:(fun v -> Bits_fixed (Act_ir.CInt.bitwidth v))
     ~cint_of:(fun v -> v)
     ~of_cint:(fun v -> Some v)
-    ~of_cint_assert_expr_fn:(Act_ir.Expr.Const Act_ir.CInt.one)
+    ~of_cint_assert_expr_fn:(Act_ir.Ir.Expr.Const Act_ir.CInt.one)
     ~layout:(Bits_fixed bits) ~expr_tag:Expr_tag.cint_expr_tag
 
 let untype t = Obj.magic t

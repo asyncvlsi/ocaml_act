@@ -1,7 +1,7 @@
 open! Core
 
 type t [@@deriving sexp, hash, compare, equal]
-(** @canonical Act.CInt.t *)
+(** @canonical Act_ir.CInt.t *)
 
 include Comparable with type t := t
 include Hashable with type t := t

@@ -8,6 +8,7 @@ type t = {
   init : (Cint.t array[@hash.ignore] [@compare.ignore] [@equal.ignore]);
   kind : [ `Mem | `Rom ];
 }
+(** @canonical Act_ir.Ir.Mem.t *)
 
 include Comparable_and_hashable.S with type t := t
 

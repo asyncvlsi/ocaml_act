@@ -1,12 +1,12 @@
 open! Core
 module Tag = Expr_tag
 
-val cbool_tag : Act_ir.CBool.t Expr_tag.t
+val cbool_tag : Cbool0.t Expr_tag.t
 val cint_tag : Act_ir.CInt.t Expr_tag.t
 
-module K = Act_ir.Expr
+module K = Act_ir.Ir.Expr
 
-type 'a t = { k : Act_ir.Var.t K.t; tag : 'a Tag.t; max_bits : int }
+type 'a t = { k : Act_ir.Ir.Var.t K.t; tag : 'a Tag.t; max_bits : int }
 [@@deriving sexp_of]
 
 module U : sig
