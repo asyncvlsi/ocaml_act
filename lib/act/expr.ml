@@ -1,5 +1,4 @@
 open! Core
-
 open! Core
 module Tag = Expr_tag
 module K = Act_ir.Ir.Expr
@@ -10,7 +9,6 @@ type 'a t = { k : Act_ir.Ir.Var.t K.t; tag : 'a Tag.t; max_bits : int }
 module U = struct
   type nonrec t = Act_ir.Utils.Any.t t [@@deriving sexp_of]
 end
-
 
 let var (v : 'a Var.t) =
   let dtype = Var.Internal.dtype v |> Ir_dtype.untype in
@@ -62,11 +60,7 @@ let clip e ~bits =
 
 let not_ b =
   assert (Tag.equal cbool_tag b.tag);
-  {
-    k = Eq (b.k, Const Act_ir.CInt.zero);
-    tag = cbool_tag;
-    max_bits = 1;
-  }
+  { k = Eq (b.k, Const Act_ir.CInt.zero); tag = cbool_tag; max_bits = 1 }
 
 let and_ a b =
   assert (Tag.equal cbool_tag a.tag);
@@ -109,11 +103,7 @@ let sub_wrap a b ~bits =
 let mul a b =
   assert (Tag.equal cint_tag a.tag);
   assert (Tag.equal cint_tag b.tag);
-  {
-    k = Mul (a.k, b.k);
-    tag = cint_tag;
-    max_bits = a.max_bits + b.max_bits;
-  }
+  { k = Mul (a.k, b.k); tag = cint_tag; max_bits = a.max_bits + b.max_bits }
 
 let div a b =
   assert (Tag.equal cint_tag a.tag);
@@ -141,11 +131,7 @@ let left_shift a ~amt =
 let right_shift a ~amt =
   assert (Tag.equal cint_tag a.tag);
   assert (Tag.equal cint_tag amt.tag);
-  {
-    k = LogicalRShift (a.k, amt.k);
-    tag = cint_tag;
-    max_bits = a.max_bits;
-  }
+  { k = LogicalRShift (a.k, amt.k); tag = cint_tag; max_bits = a.max_bits }
 
 let left_shift' a ~amt =
   left_shift a ~amt:(of_int amt) |> clip ~bits:(a.max_bits + amt)
@@ -219,8 +205,7 @@ let with_assert_log ?new_max_bits ~assert_e ~val_e ~log_e log_fn =
     log_fn v
   in
   {
-    k =
-      With_assert_log (assert_e.k, val_e.k, log_e.k, log_fn);
+    k = With_assert_log (assert_e.k, val_e.k, log_e.k, log_fn);
     tag = val_e.tag;
     max_bits = Option.value new_max_bits ~default:val_e.max_bits;
   }
