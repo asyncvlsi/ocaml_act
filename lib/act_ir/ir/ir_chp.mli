@@ -4,7 +4,7 @@ module Chan_end : sig
   type t = Read of Ir_chan.t | Send of Ir_chan.t [@@deriving sexp_of]
 end
 
-type sexper = Cint0.t -> Sexp.t [@@deriving sexp_of]
+type sexper = Cint.t -> Sexp.t [@@deriving sexp_of]
 type expr = Ir_var.t Ir_expr0.t [@@deriving sexp_of]
 type bool_expr = Ir_var.t Ir_expr0.t [@@deriving sexp_of]
 type cp = Code_pos.t [@@deriving sexp_of]
@@ -13,7 +13,7 @@ type t =
   | Nop
   | Assign of cp * (Ir_var.t * sexper) * expr
   | Log of cp * string
-  | Log1 of cp * expr * (Cint0.t -> string)
+  | Log1 of cp * expr * (Cint.t -> string)
   | Assert of cp * expr
   | Seq of cp * t list
   | Par of cp * t list

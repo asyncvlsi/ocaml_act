@@ -1,6 +1,6 @@
 open! Core
 
-type t = Cint0.t [@@deriving sexp, hash, compare, equal]
+type t = Act_ir.CInt.t [@@deriving sexp, hash, compare, equal]
 (** @canonical Act.CInt.t *)
 
 include Comparable with type t := t
@@ -46,12 +46,12 @@ val dtype_64 : t Dtype.t
 val dtype : bits:int -> t Dtype.t
 
 module E : sig
-  type t = Cint0.t Expr.t
+  type t = Act_ir.CInt.t Expr.t
 
-  val var : Cint0.t Var.t -> t
-  val of_cint : Cint0.t -> t
+  val var : Act_ir.CInt.t Var.t -> t
+  val of_cint : Act_ir.CInt.t -> t
   val of_int : int -> t
-  val of_bool : Cbool0.t Expr.t -> t
+  val of_bool : Act_ir.CBool.t Expr.t -> t
 
   (* ops *)
   val add : t -> t -> t
@@ -77,14 +77,14 @@ module E : sig
   val bit_slice : t -> lower_inc:int -> upper_inc:int -> t
 
   (* compairison *)
-  val eq : t -> t -> Cbool0.t Expr.t
-  val ne : t -> t -> Cbool0.t Expr.t
-  val lt : t -> t -> Cbool0.t Expr.t
-  val gt : t -> t -> Cbool0.t Expr.t
-  val le : t -> t -> Cbool0.t Expr.t
-  val ge : t -> t -> Cbool0.t Expr.t
-  val is_zero : t -> Cbool0.t Expr.t
-  val is_nonzero : t -> Cbool0.t Expr.t
+  val eq : t -> t -> Act_ir.CBool.t Expr.t
+  val ne : t -> t -> Act_ir.CBool.t Expr.t
+  val lt : t -> t -> Act_ir.CBool.t Expr.t
+  val gt : t -> t -> Act_ir.CBool.t Expr.t
+  val le : t -> t -> Act_ir.CBool.t Expr.t
+  val ge : t -> t -> Act_ir.CBool.t Expr.t
+  val is_zero : t -> Act_ir.CBool.t Expr.t
+  val is_nonzero : t -> Act_ir.CBool.t Expr.t
 
   (* clippers *)
   val clip : t -> bits:int -> t
@@ -107,19 +107,28 @@ module Chp : sig
   type t = Chp.t
 
   val assign :
-    Cint0.t Var.t -> Cint0.t Expr.t -> overflow:Overflow_behavior.t -> t
+    Act_ir.CInt.t Var.t ->
+    Act_ir.CInt.t Expr.t ->
+    overflow:Overflow_behavior.t ->
+    t
 
-  val incr : Cint0.t Var.t -> overflow:Overflow_behavior.t -> t
-  val decr : Cint0.t Var.t -> underflow:Overflow_behavior.t -> t
+  val incr : Act_ir.CInt.t Var.t -> overflow:Overflow_behavior.t -> t
+  val decr : Act_ir.CInt.t Var.t -> underflow:Overflow_behavior.t -> t
 
   val send :
-    Cint0.t Chan.W.t -> Cint0.t Expr.t -> overflow:Overflow_behavior.t -> t
+    Act_ir.CInt.t Chan.W.t ->
+    Act_ir.CInt.t Expr.t ->
+    overflow:Overflow_behavior.t ->
+    t
 
   val send_var :
-    Cint0.t Chan.W.t -> Cint0.t Var.t -> overflow:Overflow_behavior.t -> t
+    Act_ir.CInt.t Chan.W.t ->
+    Act_ir.CInt.t Var.t ->
+    overflow:Overflow_behavior.t ->
+    t
 end
 
 module Chan : sig
-  val bw_le : Cint0.t Chan.R.t -> int -> bool
-  val bw_ge : Cint0.t Chan.W.t -> int -> bool
+  val bw_le : Act_ir.CInt.t Chan.R.t -> int -> bool
+  val bw_ge : Act_ir.CInt.t Chan.W.t -> int -> bool
 end

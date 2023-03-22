@@ -5,32 +5,14 @@ let dummy_loc = Code_pos.dummy_loc
 module Compiled_program = struct
   type t = Opt_program.t [@@deriving sexp_of]
 
-  let of_process process ~to_ =
-    let program = Process.Internal.unwrap process |> Program.of_process in
+  let of_process (process : Ir_process.t) ~to_ =
+    let program = process |> Program.of_process in
     match to_ with
     | `Chp_and_dataflow -> Opt_program.of_prog program
     | `Prod_rules -> failwith "TODO"
-
-  let of_chp_process chp ~user_sendable_ports ~user_readable_ports ~to_ =
-    let iports = user_sendable_ports |> List.map ~f:Chan.Internal.ru_of_wu in
-    let oports = user_readable_ports |> List.map ~f:Chan.Internal.wu_of_ru in
-    let process =
-      match to_ with
-      | `Chp -> Process.of_chp chp ~iports ~oports
-      | `Dataflow ->
-          Process.of_chp ~with_dflow_interface:true chp ~iports ~oports
-      | `Prod_rules -> failwith "TODO"
-    in
-    let to_ = `Chp_and_dataflow in
-    of_process process ~to_
 end
 
 let compile process ~to_ = Compiled_program.of_process process ~to_
-
-let compile_chp chp ~user_sendable_ports ~user_readable_ports ~to_ =
-  Compiled_program.of_chp_process chp ~user_sendable_ports ~user_readable_ports
-    ~to_
-
 let export t = Opt_program.export t
 
 let export_print t =
@@ -44,15 +26,13 @@ let sim ?seed (t : Compiled_program.t) =
   let of_interproc_chan interproc_chan =
     Hashtbl.find_or_add ir_chan_of_interproc_chan interproc_chan
       ~default:(fun () ->
-        let dtype = Cint.dtype ~bits:interproc_chan.bitwidth in
-        let interproc_chan = Chan.create dtype in
-        Chan.Internal.unwrap_r interproc_chan.r)
+        Ir_chan.create interproc_chan.bitwidth Code_pos.dummy_loc)
   in
 
   let expr_k_of_expr e ~of_v ~bits_of_var =
     let rec f e =
       match e with
-      | F_expr.Var v -> Ir_expr.K.Var (of_v v)
+      | F_expr.Var v -> Ir_expr0.Var (of_v v)
       | Const c -> Const c
       | Add (a, b) -> Add (f a, f b)
       | Sub_no_wrap (a, b) -> Sub_no_wrap (f a, f b)
@@ -75,13 +55,13 @@ let sim ?seed (t : Compiled_program.t) =
       | Concat l ->
           List.folding_map l ~init:0 ~f:(fun acc (e, bits) ->
               ( acc + bits,
-                Ir_expr.K.LShift (Clip (f e, bits), Const (Cint.of_int acc)) ))
+                Ir_expr0.LShift (Clip (f e, bits), Const (Cint.of_int acc)) ))
           |> List.reduce_exn ~f:(fun a b -> BitOr (a, b))
       | Log2OneHot e ->
           let w = F_expr.bitwidth e ~bits_of_var in
           let e = f e in
           List.init w ~f:(fun idx ->
-              Ir_expr.K.(
+              Ir_expr0.(
                 Mul
                   ( BitAnd
                       ( LogicalRShift (e, Const (Cint.of_int idx)),
@@ -99,10 +79,7 @@ let sim ?seed (t : Compiled_program.t) =
       Hashtbl.find_or_add ir_chan_of_chan c ~default:(fun () ->
           match interproc_chan with
           | Some interproc_chan -> of_interproc_chan interproc_chan
-          | None ->
-              let dtype = Cint.dtype ~bits:c.bitwidth in
-              let c = Chan.create dtype in
-              Chan.Internal.unwrap_r c.r)
+          | None -> Ir_chan.create c.bitwidth Code_pos.dummy_loc)
     in
     List.iter chp.iports ~f:(fun (interproc_chan, chp_chan) ->
         let (_ : Ir_chan.t) = of_c chp_chan ~interproc_chan in
@@ -114,8 +91,7 @@ let sim ?seed (t : Compiled_program.t) =
     let ir_var_of_var = Flat_chp.Var.Table.create () in
     let of_v v =
       Hashtbl.find_or_add ir_var_of_var v ~default:(fun () ->
-          let dtype = Cint.dtype ~bits:v.bitwidth in
-          Var.create dtype |> Var.Internal.unwrap)
+          Ir_var.create v.bitwidth Code_pos.dummy_loc None)
     in
 
     (* let dtype_of_cw c = c.Ir_chan.d.dtype in *)
@@ -155,10 +131,7 @@ let sim ?seed (t : Compiled_program.t) =
       Hashtbl.find_or_add ir_chan_of_chan c ~default:(fun () ->
           match interproc_chan with
           | Some interproc_chan -> of_interproc_chan interproc_chan
-          | None ->
-              let dtype = Cint.dtype ~bits:c.bitwidth in
-              let c = Chan.create dtype in
-              Chan.Internal.unwrap_r c.r)
+          | None -> Ir_chan.create c.bitwidth Code_pos.dummy_loc)
     in
     List.iter dflow.iports ~f:(fun (interproc_chan, chp_chan) ->
         let (_ : Ir_chan.t) = of_c chp_chan ~interproc_chan in
@@ -167,7 +140,7 @@ let sim ?seed (t : Compiled_program.t) =
         let (_ : Ir_chan.t) = of_c chp_chan ~interproc_chan in
         ());
 
-    let new_var' ?init bits = Ir_var.create bits Code_pos.dummy_loc init in
+    let new_var ?init bits = Ir_var.create bits Code_pos.dummy_loc init in
 
     let of_stmt chp =
       match chp with
@@ -175,7 +148,7 @@ let sim ?seed (t : Compiled_program.t) =
           let module FBlock = Flat_dflow.FBlock in
           let var_of_in =
             FBlock.ins fblock
-            |> List.map ~f:(fun i -> (i, new_var' i.bitwidth))
+            |> List.map ~f:(fun i -> (i, new_var i.bitwidth))
             |> Flat_dflow.Var.Map.of_alist_exn
           in
           let exprs = FBlock.expr_list fblock in
@@ -196,8 +169,8 @@ let sim ?seed (t : Compiled_program.t) =
           in
           Ir_chp.loop [ do_reads; do_sends ]
       | Split (g, i, os) ->
-          let tmp = new_var' i.bitwidth in
-          let g_var = new_var' g.bitwidth in
+          let tmp = new_var i.bitwidth in
+          let g_var = new_var g.bitwidth in
           Ir_chp.loop
             [
               Ir_chp.read (of_c g) g_var;
@@ -214,8 +187,8 @@ let sim ?seed (t : Compiled_program.t) =
                 ~else_:None;
             ]
       | Merge (g, ins, o) ->
-          let tmp = new_var' o.bitwidth in
-          let g_var = new_var' g.bitwidth in
+          let tmp = new_var o.bitwidth in
+          let g_var = new_var g.bitwidth in
           Ir_chp.loop
             [
               Ir_chp.read (of_c g) g_var;
@@ -230,15 +203,15 @@ let sim ?seed (t : Compiled_program.t) =
           assert (Int.equal dst.bitwidth src.bitwidth);
           match init with
           | Some init ->
-              let tmp = new_var' src.bitwidth ~init in
+              let tmp = new_var src.bitwidth ~init in
               Ir_chp.loop
                 [ Ir_chp.send_var (of_c dst) tmp; Ir_chp.read (of_c src) tmp ]
           | None ->
-              let tmp = new_var' src.bitwidth in
+              let tmp = new_var src.bitwidth in
               Ir_chp.loop
                 [ Ir_chp.read (of_c src) tmp; Ir_chp.send_var (of_c dst) tmp ])
       | Clone (i, os) ->
-          let tmp = new_var' i.bitwidth in
+          let tmp = new_var i.bitwidth in
           Ir_chp.loop
             [
               Ir_chp.read (of_c i) tmp;
@@ -246,7 +219,7 @@ let sim ?seed (t : Compiled_program.t) =
                 (List.map os ~f:(fun o -> Ir_chp.send_var (of_c o) tmp));
             ]
       | Sink i ->
-          let tmp = new_var' i.bitwidth in
+          let tmp = new_var i.bitwidth in
           Ir_chp.loop [ Ir_chp.read (of_c i) tmp ]
     in
     Ir_chp.Par (Code_pos.dummy_loc, List.map dflow.stmt ~f:of_stmt)
@@ -267,10 +240,10 @@ let sim ?seed (t : Compiled_program.t) =
       [
         Ir_chp.read cmd_chan cmd;
         Ir_chp.if_else
-          (Eq (Const Cint0.zero, BitAnd (Const Cint0.one, Var cmd)))
+          (Eq (Const Cint.zero, BitAnd (Const Cint.one, Var cmd)))
           [
             Ir_chp.read_mem mem
-              ~idx:(LogicalRShift (Var cmd, Const Cint0.one))
+              ~idx:(LogicalRShift (Var cmd, Const Cint.one))
               ~dst:tmp;
             Ir_chp.send_var read_chan tmp;
           ]
@@ -279,10 +252,10 @@ let sim ?seed (t : Compiled_program.t) =
               [
                 Ir_chp.read write_chan tmp;
                 Ir_chp.write_mem mem
-                  ~idx:(LogicalRShift (Var cmd, Const Cint0.one))
+                  ~idx:(LogicalRShift (Var cmd, Const Cint.one))
                   ~value:(Var tmp);
               ]
-          | None -> [ Ir_chp.assert_ (Const Cint0.zero) ]);
+          | None -> [ Ir_chp.assert_ (Const Cint.zero) ]);
       ]
   in
 
@@ -300,4 +273,4 @@ let sim ?seed (t : Compiled_program.t) =
 
   let process = { Ir_process.inner = Chp chp; iports; oports } in
 
-  Sim.simulate ?seed (Process.Internal.wrap process)
+  Sim.simulate ?seed process

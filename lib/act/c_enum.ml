@@ -6,9 +6,9 @@ module type E_S = sig
 
   val var : elt Var.t -> elt Expr.t
   val const : elt -> elt Expr.t
-  val eq : elt Expr.t -> elt Expr.t -> Cbool0.t Expr.t
-  val to_int : elt Expr.t -> Cint0.t Expr.t
-  val of_int : Cint0.t Expr.t -> elt Expr.t
+  val eq : elt Expr.t -> elt Expr.t -> Act_ir.CBool.t Expr.t
+  val to_int : elt Expr.t -> Act_ir.CInt.t Expr.t
+  val of_int : Act_ir.CInt.t Expr.t -> elt Expr.t
 end
 
 module type Chp_S = sig
@@ -27,8 +27,8 @@ module type S = sig
 
   val dtype : t Dtype.t
   val bitwidth : t -> int
-  val to_int : t -> Cint0.t
-  val of_int : Cint0.t -> t option
+  val to_int : t -> Act_ir.CInt.t
+  val of_int : Act_ir.CInt.t -> t option
 
   module E : E_S with type elt := t
   module Chp : Chp_S with type elt := t
@@ -37,7 +37,7 @@ end
 module Make (X : sig
   type t [@@deriving sexp, hash, compare, equal]
 
-  val mapping : (t * Cint0.t) list
+  val mapping : (t * Act_ir.CInt.t) list
 end) : S with type t := X.t = struct
   module T = struct
     type t = X.t [@@deriving sexp, hash, compare, equal]
@@ -50,10 +50,10 @@ end) : S with type t := X.t = struct
   let to_int t = List.find_exn X.mapping ~f:(fun (op, _) -> X.equal op t) |> snd
 
   let of_int i =
-    List.find X.mapping ~f:(fun (_, op_code) -> Cint0.equal op_code i)
+    List.find X.mapping ~f:(fun (_, op_code) -> Act_ir.CInt.equal op_code i)
     |> Option.map ~f:fst
 
-  let bitwidth t = to_int t |> Cint0.bitwidth
+  let bitwidth t = to_int t |> Act_ir.CInt.bitwidth
 
   let max_bitwidth =
     List.map X.mapping ~f:(fun (t, _) -> bitwidth t)
@@ -64,16 +64,18 @@ end) : S with type t := X.t = struct
 
   let ok_cint_intervals =
     let l =
-      List.map X.mapping ~f:snd |> Cint0.Set.of_list |> Core.Set.to_list
+      List.map X.mapping ~f:snd |> Act_ir.CInt.Set.of_list |> Core.Set.to_list
       |> Array.of_list
     in
     Array.filter_mapi l ~f:(fun i v ->
-        if Int.(i > 0) && Cint0.equal l.(i - 1) Cint0.(sub v one) then None
+        if Int.(i > 0) && Act_ir.CInt.equal l.(i - 1) Act_ir.CInt.(sub v one)
+        then None
         else
           let n = ref 1 in
           let j = ref (i + 1) in
           while
-            Int.(!j < Array.length l) && Cint0.(eq l.(!j) (add v (of_int !n)))
+            Int.(!j < Array.length l)
+            && Act_ir.CInt.(eq l.(!j) (add v (of_int !n)))
           do
             incr j;
             incr n
@@ -84,16 +86,16 @@ end) : S with type t := X.t = struct
   let of_cint_assert_expr_fn =
     List.map ok_cint_intervals ~f:(fun (v, n) ->
         match n with
-        | 1 -> Ir_expr0.(Eq (Const v, Var ()))
+        | 1 -> Act_ir.Expr.(Eq (Const v, Var ()))
         | _ ->
-            if Cint0.equal v (Cint0.of_int 0) then
-              Ir_expr0.(Lt (Var (), Const Cint0.(add v (of_int n))))
+            if Act_ir.CInt.equal v (Act_ir.CInt.of_int 0) then
+              Act_ir.Expr.(Lt (Var (), Const Act_ir.CInt.(add v (of_int n))))
             else
-              Ir_expr0.(
+              Act_ir.Expr.(
                 BitAnd
                   ( Le (Const v, Var ()),
-                    Lt (Var (), Const Cint0.(add v (of_int n))) )))
-    |> List.reduce ~f:(fun a b -> Ir_expr0.(BitOr (a, b)))
+                    Lt (Var (), Const Act_ir.CInt.(add v (of_int n))) )))
+    |> List.reduce ~f:(fun a b -> Act_ir.Expr.(BitOr (a, b)))
     |> Option.value_exn
 
   let dtype =
@@ -116,17 +118,17 @@ end) : S with type t := X.t = struct
             match n with
             | 1 -> Expr.(eq (of_cint v) i)
             | _ ->
-                if Cint0.equal v (Cint0.of_int 0) then
-                  Expr.(lt i (of_cint Cint0.(add v (of_int n))))
+                if Act_ir.CInt.equal v (Act_ir.CInt.of_int 0) then
+                  Expr.(lt i (of_cint Act_ir.CInt.(add v (of_int n))))
                 else
                   Cbool.E.and_
                     Expr.(le (of_cint v) i)
-                    Expr.(lt i (of_cint Cint0.(add v (of_int n)))))
+                    Expr.(lt i (of_cint Act_ir.CInt.(add v (of_int n)))))
         |> List.reduce ~f:Cbool.E.or_ |> Option.value_exn
       in
       let ik =
         Expr.with_assert_log ~assert_e ~val_e:i ~log_e:i (fun i ->
-            [%string "of_int for invalid enum value %{i#Cint0}"])
+            [%string "of_int for invalid enum value %{i#Act_ir.CInt}"])
         |> Expr.Internal.unwrap
       in
       Expr.Internal.wrap ik tag

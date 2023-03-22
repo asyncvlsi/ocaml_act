@@ -521,7 +521,7 @@ let%expect_test "error send too big value" =
   [%expect
     {|
     (Failure
-     "Value doesnt fit in chan: got value 1000 but channel has layout (Bits_fixed 8).") |}]
+     "Value doesnt fit in chan: got value 1000 but channel has bitwidth 8.") |}]
 
 let%expect_test "error read too big value" =
   Expect_test_helpers_core.require_does_raise [%here] (fun () ->
@@ -534,7 +534,7 @@ let%expect_test "error read too big value" =
   [%expect
     {|
     (Failure
-     "Value doesnt fit in chan: got value 257 but channel has layout (Bits_fixed 8).") |}]
+     "Value doesnt fit in chan: got value 257 but channel has bitwidth 8.") |}]
 
 let%expect_test "test2" =
   let ir dtype init_val =

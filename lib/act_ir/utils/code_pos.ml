@@ -22,8 +22,7 @@ let get_call_site_at_idx ~idx =
 let library_filenames =
   String.Set.of_list
     [
-      "lib/act/code_pos.ml";
-      "lib/utils/code_pos.ml";
+      "lib/act_ir/utils/code_pos.ml";
       "lib/act/act.ml";
       "lib/act/ir.ml";
       "lib/act/cint.ml";
@@ -31,7 +30,8 @@ let library_filenames =
       "lib/act/chan.ml";
       "lib/act/var.ml";
       "lib/act/chp.ml";
-      "lib/sim/sim.ml";
+      "lib/act_ir/sim/sim.ml";
+      "lib/act/sim.ml";
       "list.ml";
       "src/list0.ml";
       "collector/expect_test_collector.ml";

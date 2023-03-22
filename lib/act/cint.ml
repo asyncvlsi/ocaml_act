@@ -1,5 +1,5 @@
 open! Core
-include Cint0
+include Act_ir.CInt
 
 let dtype ~bits = Ir_dtype.cint_dtype ~bits |> Dtype.Internal.wrap
 let dtype_4 = dtype ~bits:4
@@ -18,7 +18,7 @@ let ones_mask ~lower_inc ~upper_inc =
   mask num_bits |> left_shift ~amt:(of_int lower_inc)
 
 module E = struct
-  type t = Cint0.t Expr.t
+  type t = Act_ir.CInt.t Expr.t
 
   let var = Expr.var
   let of_cint = Expr.of_cint
@@ -75,8 +75,8 @@ module E = struct
     Expr.with_assert_log ~new_max_bits:bits ~assert_e ~val_e:e ~log_e:e
       (fun c ->
         [%string
-          "expected %{c#Cint0} < %{(Cint0.(pow (of_int 2) (of_int \
-           bits)))#Cint0}"])
+          "expected %{c#Act_ir.CInt} < %{(Act_ir.CInt.(pow (of_int 2) (of_int \
+           bits)))#Act_ir.CInt}"])
 
   let concat2 _ _ = failwith "TODO"
   let concat _ = failwith "TODO"
@@ -94,13 +94,13 @@ module Chp = struct
   type t = Chp.t
 
   let assign var expr ~overflow =
-    let loc = Code_pos.psite () in
+    let loc = Act_ir.Utils.Code_pos.psite () in
     let var_dtype = Var.Internal.dtype var in
     let var = Var.Internal.unwrap var in
     let expr =
       apply_overflow var_dtype expr ~overflow |> Expr.Internal.unwrap
     in
-    Ir_chp.Assign (loc, (var, var_dtype.sexp_of_cint), expr)
+    Act_ir.Chp.Assign (loc, (var, var_dtype.sexp_of_cint), expr)
     |> Chp.Internal.wrap
 
   let incr var_id ~overflow =
@@ -112,13 +112,13 @@ module Chp = struct
     assign var_id expr ~overflow:underflow
 
   let send chan_id expr ~overflow =
-    let loc = Code_pos.psite () in
+    let loc = Act_ir.Utils.Code_pos.psite () in
     let chan_dtype = Chan.Internal.dtype_w chan_id in
     let chan_id = Chan.Internal.unwrap_w chan_id in
     let expr =
       apply_overflow chan_dtype expr ~overflow |> Expr.Internal.unwrap
     in
-    Ir_chp.Send (loc, (chan_id, chan_dtype.sexp_of_cint), expr)
+    Act_ir.Chp.Send (loc, (chan_id, chan_dtype.sexp_of_cint), expr)
     |> Chp.Internal.wrap
 
   let send_var chan_id var_id ~overflow =

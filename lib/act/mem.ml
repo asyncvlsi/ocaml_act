@@ -1,6 +1,6 @@
 open! Core
 
-type ('kind, 'a) t = { dtype : 'a Ir_dtype.t; m : Ir_mem.t }
+type ('kind, 'a) t = { dtype : 'a Ir_dtype.t; m : Act_ir.Mem.t }
 [@@deriving sexp_of]
 
 type 'a ug_mem = ([ `Mem ], 'a) t
@@ -17,20 +17,21 @@ let create dtype init creation_code_pos kind =
           failwith
             [%string
               "Trying to initialize cell %{i#Int} of memory of dtype \
-               %{Ir_layout.sexp_of_t (Ir_dtype.layout dtype)#Sexp} with a \
-               value of max_layout %{Ir_layout.sexp_of_t init_layout#Sexp}."]);
+               %{Act_ir.Layout.sexp_of_t (Ir_dtype.layout dtype)#Sexp} with a \
+               value of max_layout %{Act_ir.Layout.sexp_of_t \
+               init_layout#Sexp}."]);
   let init = Array.map init ~f:dtype.Ir_dtype.cint_of in
   let cell_bitwidth =
     match dtype.layout with Bits_fixed bitwidth -> bitwidth
   in
-  { dtype; m = Ir_mem.create cell_bitwidth creation_code_pos init kind }
+  { dtype; m = Act_ir.Mem.create cell_bitwidth creation_code_pos init kind }
 
 let create_ug_mem dtype (arr : 'a array) : 'a ug_mem =
-  let loc = Code_pos.psite () in
+  let loc = Act_ir.Utils.Code_pos.psite () in
   create dtype arr loc `Mem
 
 let create_ug_rom dtype (arr : 'a array) : 'a ug_rom =
-  let loc = Code_pos.psite () in
+  let loc = Act_ir.Utils.Code_pos.psite () in
   create dtype arr loc `Rom
 
 module Internal = struct

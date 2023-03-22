@@ -2,7 +2,7 @@ open! Core
 
 type 'v t =
   | Var of 'v
-  | Const of Cint0.t
+  | Const of Cint.t
   | Add of 'v t * 'v t
   | Sub_no_wrap of 'v t * 'v t
   | Sub_wrap of 'v t * 'v t * int
@@ -31,10 +31,10 @@ type 'v t =
       'v t
       * (* log_input *)
       'v t
-      * (Cint0.t -> string)
+      * (Cint.t -> string)
 [@@deriving sexp_of]
 
-let of_int i = Const (Cint0.of_int i)
+let of_int i = Const (Cint.of_int i)
 let of_cint i = Const i
 let zero = of_int 0
 let one = of_int 1

@@ -19,7 +19,7 @@ module T = struct
   type t = {
     id : Id.t;
     creation_code_pos : Code_pos.t;
-    init : Cint0.t option;
+    init : Cint.t option;
     bitwidth : int;
   }
   [@@deriving hash, compare, equal, sexp]

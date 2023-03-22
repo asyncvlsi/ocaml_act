@@ -3,12 +3,12 @@ open! Core
 type 'a t = {
   equal : 'a -> 'a -> bool;
   sexp_of_t : 'a -> Sexp.t;
-  max_layout_of : 'a -> Ir_layout.t;
-  cint_of : 'a -> Cint0.t;
-  of_cint : Cint0.t -> 'a option;
-  sexp_of_cint : Cint0.t -> Sexp.t;
-  of_cint_assert_expr_fn : unit Ir_expr0.t;
-  layout : Ir_layout.t;
+  max_layout_of : 'a -> Act_ir.Layout.t;
+  cint_of : 'a -> Act_ir.CInt.t;
+  of_cint : Act_ir.CInt.t -> 'a option;
+  sexp_of_cint : Act_ir.CInt.t -> Sexp.t;
+  of_cint_assert_expr_fn : unit Act_ir.Expr.t;
+  layout : Act_ir.Layout.t;
   expr_tag : 'a Expr_tag.t;
 }
 [@@deriving sexp_of]
@@ -16,30 +16,30 @@ type 'a t = {
 val create :
   equal:('a -> 'a -> bool) ->
   sexp_of_t:('a -> Sexp.t) ->
-  max_layout_of:('a -> Ir_layout.t) ->
-  cint_of:('a -> Cint0.t) ->
-  of_cint:(Cint0.t -> 'a option) ->
-  of_cint_assert_expr_fn:unit Ir_expr0.t ->
-  layout:Ir_layout.t ->
+  max_layout_of:('a -> Act_ir.Layout.t) ->
+  cint_of:('a -> Act_ir.CInt.t) ->
+  of_cint:(Act_ir.CInt.t -> 'a option) ->
+  of_cint_assert_expr_fn:unit Act_ir.Expr.t ->
+  layout:Act_ir.Layout.t ->
   expr_tag:'a Expr_tag.t ->
   'a t
 
 val equal_ : 'a t -> 'a -> 'a -> bool
 val sexp_of_t_ : 'a t -> 'a -> Sexp.t
-val cint_of_value : 'a t -> 'a -> Cint0.t
-val of_cint_assert_expr_fn : 'a t -> unit Ir_expr0.t
-val value_of_cint_exn : 'a t -> Cint0.t -> 'a
+val cint_of_value : 'a t -> 'a -> Act_ir.CInt.t
+val of_cint_assert_expr_fn : 'a t -> unit Act_ir.Expr.t
+val value_of_cint_exn : 'a t -> Act_ir.CInt.t -> 'a
 val equal_fn : 'a t -> ('a -> 'a -> bool) Staged.t
 val sexp_of_t_fn : 'a t -> ('a -> Sexp.t) Staged.t
-val max_layout_of : 'a t -> 'a -> Ir_layout.t
-val layout : 'a t -> Ir_layout.t
-val fits_into_dtype : into:'a t -> Ir_layout.t -> bool
+val max_layout_of : 'a t -> 'a -> Act_ir.Layout.t
+val layout : 'a t -> Act_ir.Layout.t
+val fits_into_dtype : into:'a t -> Act_ir.Layout.t -> bool
 val fits_value : 'a t -> 'a -> bool
 val expr_tag : 'a t -> 'a Expr_tag.t
-val untype : 'a t -> Any.t t
+val untype : 'a t -> Act_ir.Utils.Any.t t
 
 (* premade dtypes *)
 
-val dummy_val : Any.t t
-val cbool_dtype : Cbool0.t t
-val cint_dtype : bits:int -> Cint0.t t
+val dummy_val : Act_ir.Utils.Any.t t
+val cbool_dtype : Act_ir.CBool.t t
+val cint_dtype : bits:int -> Act_ir.CInt.t t

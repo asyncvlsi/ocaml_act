@@ -6,9 +6,9 @@ module type E_S = sig
 
   val var : elt Var.t -> elt Expr.t
   val const : elt -> elt Expr.t
-  val eq : elt Expr.t -> elt Expr.t -> Cbool0.t Expr.t
-  val to_int : elt Expr.t -> Cint0.t Expr.t
-  val of_int : Cint0.t Expr.t -> elt Expr.t
+  val eq : elt Expr.t -> elt Expr.t -> Act_ir.CBool.t Expr.t
+  val to_int : elt Expr.t -> Act_ir.CInt.t Expr.t
+  val of_int : Act_ir.CInt.t Expr.t -> elt Expr.t
 end
 
 module type Chp_S = sig
@@ -27,8 +27,8 @@ module type S = sig
 
   val dtype : t Dtype.t
   val bitwidth : t -> int
-  val to_int : t -> Cint0.t
-  val of_int : Cint0.t -> t option
+  val to_int : t -> Act_ir.CInt.t
+  val of_int : Act_ir.CInt.t -> t option
 
   module E : E_S with type elt := t
   module Chp : Chp_S with type elt := t
@@ -37,5 +37,5 @@ end
 module Make (X : sig
   type t [@@deriving sexp, hash, compare, equal]
 
-  val mapping : (t * Cint0.t) list
+  val mapping : (t * Act_ir.CInt.t) list
 end) : S with type t := X.t

@@ -2,7 +2,7 @@
 
 (library
  (public_name act)
- (libraries bignum core zarith)
+ (libraries core act_ir)
  (preprocess
   (pps ppx_jane))
  (inline_tests))

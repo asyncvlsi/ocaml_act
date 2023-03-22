@@ -471,7 +471,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     in
     let rec convert x =
       match x with
-      | Ir_expr.K.Var var_id -> push (Var (convert_id var_id))
+      | Ir_expr0.Var var_id -> push (Var (convert_id var_id))
       | Const c -> push (Const c)
       | Add (a, b) -> push (Add (convert a, convert b))
       | Sub_no_wrap (a, b) ->
@@ -807,8 +807,7 @@ let reset t =
   t.is_done <- false;
   Queue.clear t.queued_user_ops
 
-let simulate ?(seed = 0) process =
-  let process = Process.Internal.unwrap process in
+let simulate ?(seed = 0) (process : Ir_process.t) =
   let chp =
     let rec extract (proc : Ir_process.t) =
       match proc.inner with
@@ -826,33 +825,22 @@ let simulate ?(seed = 0) process =
   reset t;
   t
 
-let simulate_chp ?(seed = 0) chp ~user_sendable_ports ~user_readable_ports =
-  let iports = user_sendable_ports |> List.map ~f:Chan.Internal.ru_of_wu in
-  let oports = user_readable_ports |> List.map ~f:Chan.Internal.wu_of_ru in
-  let process = Process.of_chp chp ~iports ~oports in
-  simulate ~seed process
-
 let queue_user_io_op t call_site chan value chan_instr queuer =
-  let value = Any.of_magic value in
-  let ivalue = Ir_dtype.cint_of_value chan.Chan.Inner.d.dtype value in
-  let chan_bitwidth =
-    match Ir_dtype.layout chan.d.dtype with Bits_fixed bitwidth -> bitwidth
-  in
+  let ivalue = value in
+  let chan_bitwidth = chan.Ir_chan.bitwidth in
   if chan_bitwidth >= Cint.bitwidth ivalue then
     Queue.enqueue t.queued_user_ops
       { Queued_user_op.queuer; chan_instr; value = ivalue; call_site }
   else
-    let value = Ir_dtype.sexp_of_t_ chan.d.dtype value in
-    let layout = Ir_dtype.layout chan.d.dtype |> Ir_layout.sexp_of_t in
+    let value = Cint.sexp_of_t value in
     failwith
       [%string
         "Value doesnt fit in chan: got value %{value#Sexp} but channel has \
-         layout %{layout#Sexp}."]
+         bitwidth %{chan_bitwidth#Int}."]
 
 let send t chan value =
-  let chan = Chan.Internal.unwrap_w_inner chan in
   let call_site = Code_pos.psite () in
-  match Map.find t.all_enqueuers chan.c with
+  match Map.find t.all_enqueuers chan with
   | None ->
       failwith
         "the provided chan_id was not regestered as a user-sendable chan in \
@@ -861,9 +849,8 @@ let send t chan value =
       queue_user_io_op t call_site chan value send_instr (`Send enqueuer)
 
 let read t chan value =
-  let chan = Chan.Internal.unwrap_r_inner chan in
   let call_site = Code_pos.psite () in
-  match Map.find t.all_dequeuers chan.c with
+  match Map.find t.all_dequeuers chan with
   | None ->
       failwith
         "the provided chan_id was not regestered as a user-readable chan in \

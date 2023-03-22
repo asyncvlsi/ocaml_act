@@ -2,8 +2,8 @@ open! Core
 
 type 'a t = {
   id : int;
-  cint_of_value : 'a -> Cint0.t;
-  value_of_cint : Cint0.t -> 'a option;
+  cint_of_value : 'a -> Act_ir.CInt.t;
+  value_of_cint : Act_ir.CInt.t -> 'a option;
 }
 [@@deriving fields, sexp_of]
 
@@ -20,7 +20,7 @@ let create ~cint_of_value ~value_of_cint =
   { id = new_id (); cint_of_value; value_of_cint }
 
 let cbool_expr_tag =
-  create ~cint_of_value:Cbool0.to_cint ~value_of_cint:Cbool0.of_cint
+  create ~cint_of_value:Act_ir.CBool.to_cint ~value_of_cint:Act_ir.CBool.of_cint
 
 let cint_expr_tag = create ~cint_of_value:Fn.id ~value_of_cint:(fun v -> Some v)
 let untyped_tag = Obj.magic cint_expr_tag

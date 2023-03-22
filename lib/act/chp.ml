@@ -1,6 +1,6 @@
 open! Core
 
-type t = Ir_chp.t [@@deriving sexp_of]
+type t = Act_ir.Chp.t [@@deriving sexp_of]
 
 module Internal = struct
   let unwrap t = t
@@ -13,11 +13,11 @@ let fail_if_layout_does_not_fit_dtype err_msg layout dtype =
   | false ->
       failwith
         (sprintf err_msg
-           (Ir_layout.sexp_of_t layout |> Sexp.to_string)
-           (Ir_dtype.layout dtype |> Ir_layout.sexp_of_t |> Sexp.to_string))
+           (Act_ir.Layout.sexp_of_t layout |> Sexp.to_string)
+           (Ir_dtype.layout dtype |> Act_ir.Layout.sexp_of_t |> Sexp.to_string))
 
 let assign var_id expr =
-  let loc = Code_pos.psite () in
+  let loc = Act_ir.Utils.Code_pos.psite () in
   let var_dtype = Var.Internal.dtype var_id in
   fail_if_layout_does_not_fit_dtype
     "Assignment of expression with max_layout %s into variable with layout %s. \
@@ -27,10 +27,10 @@ let assign var_id expr =
     var_dtype;
   let var_id = Var.Internal.unwrap var_id in
   let expr = Expr.Internal.unwrap expr in
-  Ir_chp.Assign (loc, (var_id, var_dtype.sexp_of_cint), expr)
+  Act_ir.Chp.Assign (loc, (var_id, var_dtype.sexp_of_cint), expr)
 
 let read chan_id var_id =
-  let loc = Code_pos.psite () in
+  let loc = Act_ir.Utils.Code_pos.psite () in
   let chan_dtype = Chan.Internal.dtype_r chan_id in
   let chan_id = Chan.Internal.unwrap_r chan_id in
   let var_dtype = Var.Internal.dtype var_id in
@@ -41,10 +41,10 @@ let read chan_id var_id =
      larger layout."
     (Ir_dtype.layout chan_dtype)
     var_dtype;
-  Ir_chp.Read (loc, chan_id, (var_id, var_dtype.sexp_of_cint))
+  Act_ir.Chp.Read (loc, chan_id, (var_id, var_dtype.sexp_of_cint))
 
 let send chan_id expr =
-  let loc = Code_pos.psite () in
+  let loc = Act_ir.Utils.Code_pos.psite () in
   let chan_dtype = Chan.Internal.dtype_w chan_id in
   (* print_s [%sexp (chan_id: _ Chan.W.t)]; *)
   fail_if_layout_does_not_fit_dtype
@@ -54,12 +54,12 @@ let send chan_id expr =
     chan_dtype;
   let expr = Expr.Internal.unwrap expr in
   let chan_id = Chan.Internal.unwrap_w chan_id in
-  Ir_chp.Send (loc, (chan_id, chan_dtype.sexp_of_cint), expr)
+  Act_ir.Chp.Send (loc, (chan_id, chan_dtype.sexp_of_cint), expr)
 
 let send_var chan_id var_id = send chan_id Expr.(var var_id)
 
 let wait_probe_r chan_id =
-  let loc = Code_pos.psite () in
+  let loc = Act_ir.Utils.Code_pos.psite () in
   let chan = Chan.Internal.unwrap_r_inner chan_id in
   (match chan.d.wait_sendable_code_pos with
   | Some wait_sendable_code_pos ->
@@ -72,10 +72,10 @@ let wait_probe_r chan_id =
   | None ->
       if Option.is_none chan.d.wait_readable_code_pos then
         chan.d.wait_readable_code_pos <- Some loc);
-  Ir_chp.WaitUntilSendReady (loc, chan.c)
+  Act_ir.Chp.WaitUntilSendReady (loc, chan.c)
 
 let wait_probe_w chan_id =
-  let loc = Code_pos.psite () in
+  let loc = Act_ir.Utils.Code_pos.psite () in
   let chan = Chan.Internal.unwrap_w_inner chan_id in
   (match chan.d.wait_readable_code_pos with
   | Some wait_readable_code_pos ->
@@ -88,7 +88,7 @@ let wait_probe_w chan_id =
   | None ->
       if Option.is_none chan.d.wait_sendable_code_pos then
         chan.d.wait_sendable_code_pos <- Some loc);
-  Ir_chp.WaitUntilReadReady (loc, chan.c)
+  Act_ir.Chp.WaitUntilReadReady (loc, chan.c)
 
 let select_probe_r _ = failwith "TODO"
 let select_probe_w _ = failwith "TODO"
@@ -106,8 +106,8 @@ let read_ug_mem (mem : 'a Mem.ug_mem) ~idx ~(dst : 'a Var.t) =
      variable with a larger layout."
     (Ir_dtype.layout mem_dtype)
     dst_dtype;
-  Ir_chp.ReadUGMem
-    ( Code_pos.psite (),
+  Act_ir.Chp.ReadUGMem
+    ( Act_ir.Utils.Code_pos.psite (),
       mem,
       Expr.Internal.unwrap idx,
       (dst, dst_dtype.sexp_of_cint) )
@@ -123,8 +123,8 @@ let write_ug_mem (mem : 'a Mem.ug_mem) ~idx ~(value : 'a Expr.t) =
     (Bits_fixed (Expr.Internal.max_bits value))
     mem_dtype;
   let value = Expr.Internal.unwrap value in
-  Ir_chp.WriteUGMem
-    ( Code_pos.psite (),
+  Act_ir.Chp.WriteUGMem
+    ( Act_ir.Utils.Code_pos.psite (),
       (mem, mem_dtype.sexp_of_cint),
       Expr.Internal.unwrap idx,
       value )
@@ -143,13 +143,13 @@ let read_ug_rom (rom : 'a Mem.ug_rom) ~idx ~(dst : 'a Var.t) =
      variable with a larger layout."
     (Ir_dtype.layout rom_dtype)
     dst_dtype;
-  Ir_chp.ReadUGMem
-    ( Code_pos.psite (),
+  Act_ir.Chp.ReadUGMem
+    ( Act_ir.Utils.Code_pos.psite (),
       rom,
       Expr.Internal.unwrap idx,
       (dst, dst_dtype.sexp_of_cint) )
 
-let log str = Ir_chp.Log (Code_pos.psite (), str)
+let log str = Act_ir.Chp.Log (Act_ir.Utils.Code_pos.psite (), str)
 
 let log1' (expr : 'a Expr.t) ~(f : 'a -> string) =
   let f v =
@@ -157,27 +157,31 @@ let log1' (expr : 'a Expr.t) ~(f : 'a -> string) =
     |> Option.map ~f |> Option.value ~default:""
   in
   let expr = Expr.Internal.unwrap expr in
-  Ir_chp.Log1 (Code_pos.psite (), expr, f)
+  Act_ir.Chp.Log1 (Act_ir.Utils.Code_pos.psite (), expr, f)
 
 let log1 var ~f = log1' (Expr.var var) ~f
-let assert_ expr = Ir_chp.Assert (Code_pos.psite (), Expr.Internal.unwrap expr)
-let seq l = Ir_chp.Seq (Code_pos.psite (), l)
-let par l = Ir_chp.Par (Code_pos.psite (), l)
+
+let assert_ expr =
+  Act_ir.Chp.Assert (Act_ir.Utils.Code_pos.psite (), Expr.Internal.unwrap expr)
+
+let seq l = Act_ir.Chp.Seq (Act_ir.Utils.Code_pos.psite (), l)
+let par l = Act_ir.Chp.Par (Act_ir.Utils.Code_pos.psite (), l)
 
 let if_else expr t_br f_br =
-  Ir_chp.SelectImm
-    ( Code_pos.psite (),
+  Act_ir.Chp.SelectImm
+    ( Act_ir.Utils.Code_pos.psite (),
       [ (Expr.Internal.unwrap expr, seq t_br) ],
       Some (seq f_br) )
 
-let loop t = Ir_chp.Loop (Code_pos.psite (), seq t)
+let loop t = Act_ir.Chp.Loop (Act_ir.Utils.Code_pos.psite (), seq t)
 
 let while_loop expr t =
-  Ir_chp.WhileLoop (Code_pos.psite (), Expr.Internal.unwrap expr, seq t)
+  Act_ir.Chp.WhileLoop
+    (Act_ir.Utils.Code_pos.psite (), Expr.Internal.unwrap expr, seq t)
 
 let select_imm branches ~else_ =
-  Ir_chp.SelectImm
-    ( Code_pos.psite (),
+  Act_ir.Chp.SelectImm
+    ( Act_ir.Utils.Code_pos.psite (),
       List.map branches ~f:(fun (guard, stmt) ->
           (Expr.Internal.unwrap guard, stmt)),
       else_ )

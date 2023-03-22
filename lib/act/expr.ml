@@ -6,7 +6,7 @@ module Tag = Ir_expr.Tag
 module K = Ir_expr.K
 
 module U = struct
-  type nonrec t = Any.t t [@@deriving sexp_of]
+  type nonrec t = Act_ir.Utils.Any.t t [@@deriving sexp_of]
 end
 
 let var (v : 'a Var.t) =
@@ -14,7 +14,7 @@ let var (v : 'a Var.t) =
   let v = Var.Internal.unwrap v in
   let tag : 'a Expr_tag.t =
     let tag = Ir_dtype.expr_tag dtype in
-    Obj.magic (tag : Any.t Expr_tag.t)
+    Obj.magic (tag : Act_ir.Utils.Any.t Expr_tag.t)
   in
   let max_bits = match Ir_dtype.layout dtype with Bits_fixed bits -> bits in
   { Ir_expr.k = Var v; tag; max_bits }
@@ -27,10 +27,10 @@ let bool_of_int i =
   let k = i.k in
   let k =
     K.With_assert_log
-      ( Le (k, Const (Cint0.of_int 1)),
+      ( Le (k, Const (Act_ir.CInt.of_int 1)),
         k,
         k,
-        fun c -> [%string "Invalid cast Cint to Cbool: %{c#Cint0}"] )
+        fun c -> [%string "Invalid cast Cint to Cbool: %{c#Act_ir.CInt}"] )
   in
   { Ir_expr.k; tag = cbool_tag; max_bits = 1 }
 
@@ -39,10 +39,13 @@ let int_of_bool b =
   { Ir_expr.k = b.k; tag = cint_tag; max_bits = 1 }
 
 let of_cint c =
-  { Ir_expr.k = Const c; tag = cint_tag; max_bits = Cint0.bitwidth c }
+  { Ir_expr.k = Const c; tag = cint_tag; max_bits = Act_ir.CInt.bitwidth c }
 
-let of_int i = of_cint (Cint0.of_int i)
-let of_bool b = Cbool0.of_bool b |> Cbool0.to_cint |> of_cint |> bool_of_int
+let of_int i = of_cint (Act_ir.CInt.of_int i)
+
+let of_bool b =
+  Act_ir.CBool.of_bool b |> Act_ir.CBool.to_cint |> of_cint |> bool_of_int
+
 let zero = of_int 0
 let one = of_int 1
 let two = of_int 2
@@ -59,7 +62,11 @@ let clip e ~bits =
 
 let not_ b =
   assert (Tag.equal cbool_tag b.Ir_expr.tag);
-  { Ir_expr.k = Eq (b.k, Const Cint0.zero); tag = cbool_tag; max_bits = 1 }
+  {
+    Ir_expr.k = Eq (b.k, Const Act_ir.CInt.zero);
+    tag = cbool_tag;
+    max_bits = 1;
+  }
 
 let and_ a b =
   assert (Tag.equal cbool_tag a.Ir_expr.tag);

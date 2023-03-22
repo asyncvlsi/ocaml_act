@@ -1,0 +1,8 @@
+(include_subdirs unqualified)
+
+(library
+ (public_name act_ir)
+ (libraries bignum core zarith)
+ (preprocess
+  (pps ppx_jane))
+ (inline_tests))

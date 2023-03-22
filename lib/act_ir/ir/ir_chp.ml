@@ -4,7 +4,7 @@ module Chan_end = struct
   type t = Read of Ir_chan.t | Send of Ir_chan.t [@@deriving sexp_of]
 end
 
-type sexper = Cint0.t -> Sexp.t [@@deriving sexp_of]
+type sexper = Cint.t -> Sexp.t [@@deriving sexp_of]
 type expr = Ir_var.t Ir_expr0.t [@@deriving sexp_of]
 type bool_expr = Ir_var.t Ir_expr0.t [@@deriving sexp_of]
 type cp = Code_pos.t [@@deriving sexp_of]
@@ -13,7 +13,7 @@ type t =
   | Nop
   | Assign of cp * (Ir_var.t * sexper) * expr
   | Log of cp * string
-  | Log1 of cp * expr * (Cint0.t -> string)
+  | Log1 of cp * expr * (Cint.t -> string)
   | Assert of cp * expr
   | Seq of cp * t list
   | Par of cp * t list
@@ -31,14 +31,14 @@ type t =
 [@@deriving sexp_of]
 
 let cp = Code_pos.dummy_loc
-let assign v e = Assign (cp, (v, Cint0.sexp_of_t), e)
-let read c v = Read (cp, c, (v, Cint0.sexp_of_t))
-let send c e = Send (cp, (c, Cint0.sexp_of_t), e)
-let send_var c v = Send (cp, (c, Cint0.sexp_of_t), Var v)
-let read_mem mem ~idx ~dst = ReadUGMem (cp, mem, idx, (dst, Cint0.sexp_of_t))
+let assign v e = Assign (cp, (v, Cint.sexp_of_t), e)
+let read c v = Read (cp, c, (v, Cint.sexp_of_t))
+let send c e = Send (cp, (c, Cint.sexp_of_t), e)
+let send_var c v = Send (cp, (c, Cint.sexp_of_t), Var v)
+let read_mem mem ~idx ~dst = ReadUGMem (cp, mem, idx, (dst, Cint.sexp_of_t))
 
 let write_mem mem ~idx ~value =
-  WriteUGMem (cp, (mem, Cint0.sexp_of_t), idx, value)
+  WriteUGMem (cp, (mem, Cint.sexp_of_t), idx, value)
 
 (* phantom instructions *)
 let log s = Log (cp, s)

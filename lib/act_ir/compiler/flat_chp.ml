@@ -119,7 +119,7 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
   let of_e0 e ~of_assert ~of_var =
     let rec f e =
       match e with
-      | Ir_expr.K.Add (a, b) -> F_expr.Add (f a, f b)
+      | Ir_expr0.Add (a, b) -> F_expr.Add (f a, f b)
       | Sub_no_wrap (a, b) ->
           let a, b = (f a, f b) in
           of_assert (F_expr.Ge (a, b));

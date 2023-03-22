@@ -5,7 +5,7 @@ open! Core
 
 type 'v t =
   | Var of 'v
-  | Const of Cint0.t
+  | Const of Cint.t
   | Add of 'v t * 'v t
   | Sub_no_wrap of 'v t * 'v t
   | Sub_wrap of 'v t * 'v t * int
@@ -34,13 +34,13 @@ type 'v t =
       'v t
       * (* log_input *)
       'v t
-      * (Cint0.t -> string)
+      * (Cint.t -> string)
 [@@deriving sexp_of]
 
 (* ops *)
 val var : 'v -> 'v t
 val of_int : int -> 'v t
-val of_cint : Cint0.t -> 'v t
+val of_cint : Cint.t -> 'v t
 val add : 'v t -> 'v t -> 'v t
 val sub : 'v t -> 'v t -> 'v t
 val mul : 'v t -> 'v t -> 'v t

@@ -20,7 +20,7 @@ module T = struct
     id : Id.t;
     cell_bitwidth : int;
     creation_code_pos : Code_pos.t;
-    init : (Cint0.t array[@hash.ignore] [@compare.ignore] [@equal.ignore]);
+    init : (Cint.t array[@hash.ignore] [@compare.ignore] [@equal.ignore]);
     kind : [ `Mem | `Rom ];
   }
   [@@deriving hash, compare, equal, sexp]
