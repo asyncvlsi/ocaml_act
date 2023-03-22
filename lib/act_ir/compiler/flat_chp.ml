@@ -193,27 +193,26 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
   let of_chp n =
     let rec of_n n =
       match n with
-      | Ir.Chp.Par (_, ns) -> Stmt.Par (List.map ns ~f:of_n)
-      | Seq (_, ns) -> Seq (List.map ns ~f:of_n)
-      | Nop -> Nop
-      | Log (_, _) -> Nop
-      | Log1 (_, _, _) -> Nop
-      | Assert (_, e) ->
-          let e, asserts = of_e e in
-          Seq [ Seq asserts; Assert e ]
-      | Loop (_, n) -> DoWhile (of_n n, F_expr.Const Cint.one)
-      | DoWhile (_, seq, expr) ->
+      | Ir.Chp.Par { m = _; ns } -> Stmt.Par (List.map ns ~f:of_n)
+      | Seq { m = _; ns } -> Seq (List.map ns ~f:of_n)
+      | Nop _ -> Nop
+      | Log1 _ -> Nop
+      | Assert { m = _; expr } ->
           let expr, asserts = of_e expr in
-          DoWhile (Seq [ of_n seq; Seq asserts ], expr)
-      | Assign (_, (id, _), expr) ->
+          Seq [ Seq asserts; Assert expr ]
+      (* | Loop (_, n) -> DoWhile (of_n n, F_expr.Const Cint.one) *)
+      | DoWhile { m = _; n; g } ->
+          let g, asserts = of_e g in
+          DoWhile (Seq [ of_n n; Seq asserts ], g)
+      | Assign { m = _; var; expr } ->
           let expr, asserts = of_e expr in
           Seq
             [
               Seq asserts;
-              (* Assert (assert_fits_cond id.d.dtype expr); *)
-              Assign (of_v id, expr);
+              (* Assert (assert_fits_cond var.d.dtype expr); *)
+              Assign (of_v var, expr);
             ]
-      | Send (_, (chan, _), expr) ->
+      | Send { m = _; chan; expr } ->
           let expr, asserts = of_e expr in
           Seq
             [
@@ -221,13 +220,13 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
               (* Assert (assert_fits_cond chan.d.dtype expr); *)
               Send (of_c chan, expr);
             ]
-      | Read (_, chan, (var, _)) ->
+      | Read { m = _; chan; var } ->
           ReadThenAssert
             ( of_c chan,
               of_v var,
               F_expr.Const Cint.one
               (* assert_fits_cond var.d.dtype (Var (of_v var)) *) )
-      | SelectImm (_, branches, else_) ->
+      | SelectImm { m = _; branches; else_ } ->
           let guards = List.map branches ~f:(fun (guard, _) -> of_e guard) in
           let else_guard =
             match else_ with
@@ -246,16 +245,15 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
           in
           (* TODO do this better *)
           Seq (List.concat guard_asserts @ [ SelectImm (guards, stmts) ])
-      | WhileLoop (_, expr, seq) ->
-          let expr, asserts = of_e expr in
+      | WhileLoop { m = _; g; n } ->
+          let g, asserts = of_e g in
           Seq
             [
               Seq asserts;
               SelectImm
-                ( [ Eq0 expr; expr ],
-                  [ Nop; DoWhile (Seq [ of_n seq; Seq asserts ], expr) ] );
+                ([ Eq0 g; g ], [ Nop; DoWhile (Seq [ of_n n; Seq asserts ], g) ]);
             ]
-      | ReadUGMem (_, mem, idx, (dst, _)) ->
+      | ReadMem { m = _; mem; idx; var = dst } ->
           let idx, asserts = of_e idx in
           let cmd_chan, _, read_chan, _, _ = chans_of_mem mem in
           let array_len = Array.length mem.init in
@@ -273,7 +271,7 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
                       (* assert_fits_cond dst.d.dtype (Var (of_v dst)) *) );
                 ];
             ]
-      | WriteUGMem (_, (mem, _), idx, value) ->
+      | WriteMem { m = _; mem; idx; expr = value } ->
           let cmd_chan, write_chan, _, _, _ = chans_of_mem mem in
           let idx, asserts1 = of_e idx in
           let value, asserts2 = of_e value in
@@ -294,11 +292,7 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
                   Send (write_chan, value);
                 ];
             ]
-      | WaitUntilReadReady (_, chan) ->
-          Nondeterm_select [ (Read (of_c chan), Nop) ]
-      | WaitUntilSendReady (_, chan) ->
-          Nondeterm_select [ (Send (of_c chan), Nop) ]
-      | Nondeterm_select (_, branches) ->
+      | Nondeterm_select { m = _; branches } ->
           let branches =
             List.map branches ~f:(fun (probe, stmt) ->
                 let probe =

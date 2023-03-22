@@ -1,7 +1,5 @@
 open! Core
 
-let dummy_loc = Code_pos.dummy_loc
-
 module Compiled_program = struct
   type t = Opt_program.t [@@deriving sexp_of]
 
@@ -100,27 +98,37 @@ let sim ?seed (t : Compiled_program.t) =
 
     let rec of_stmt chp =
       match chp with
-      | Flat_chp.Stmt.Nop -> Ir.Chp.Nop
-      | Assert e -> Assert (dummy_loc, of_bool_expr e)
+      | Flat_chp.Stmt.Nop -> Ir.Chp.nop ()
+      | Assert e -> Ir.Chp.assert_ (of_bool_expr e)
       | Assign (v, e) ->
           let v = of_v v in
-          Assign (dummy_loc, (v, Cint.sexp_of_t), of_expr e)
-      | Seq ns -> Seq (dummy_loc, List.map ns ~f:of_stmt)
-      | Par ns -> Par (dummy_loc, List.map ns ~f:of_stmt)
+          Ir.Chp.assign v (of_expr e)
+      | Seq ns -> Ir.Chp.seq (List.map ns ~f:of_stmt)
+      | Par ns -> Ir.Chp.par (List.map ns ~f:of_stmt)
       | ReadThenAssert (c, v, _) ->
           (* TODO for now just forget about the assert *)
-          Read (dummy_loc, of_c c, (of_v v, Cint.sexp_of_t))
+          Ir.Chp.read (of_c c) (of_v v)
       | Send (c, e) ->
           let c = of_c c in
-          Send (dummy_loc, (c, Cint.sexp_of_t), of_expr e)
-      | DoWhile (n, e) -> DoWhile (dummy_loc, of_stmt n, of_bool_expr e)
+          Ir.Chp.send c (of_expr e)
+      | DoWhile (n, e) -> Ir.Chp.do_while [ of_stmt n ] (of_bool_expr e)
       | SelectImm (gs, ns) ->
           let branches =
             List.zip_exn gs ns
             |> List.map ~f:(fun (g, n) -> (of_bool_expr g, of_stmt n))
           in
-          SelectImm (dummy_loc, branches, None)
-      | Nondeterm_select _ -> failwith "TODO"
+          Ir.Chp.select_imm branches ~else_:None
+      | Nondeterm_select branches ->
+          let branches =
+            List.map branches ~f:(fun (g, stmt) ->
+                let g =
+                  match g with
+                  | Read c -> Ir.Chp.Chan_end.Read (of_c c)
+                  | Send c -> Ir.Chp.Chan_end.Send (of_c c)
+                in
+                (g, of_stmt stmt))
+          in
+          Ir.Chp.nondeterm_select branches
     in
     of_stmt chp.stmt
   in
@@ -222,7 +230,7 @@ let sim ?seed (t : Compiled_program.t) =
           let tmp = new_var i.bitwidth in
           Ir.Chp.loop [ Ir.Chp.read (of_c i) tmp ]
     in
-    Ir.Chp.Par (Code_pos.dummy_loc, List.map dflow.stmt ~f:of_stmt)
+    Ir.Chp.par (List.map dflow.stmt ~f:of_stmt)
   in
 
   let of_mem (mem : Flat_mem.Proc.t) =
@@ -267,7 +275,7 @@ let sim ?seed (t : Compiled_program.t) =
         | Dflow dflow -> of_dflow dflow
         | Mem mem -> of_mem mem)
   in
-  let chp = Ir.Chp.Par (dummy_loc, chps) in
+  let chp = Ir.Chp.par chps in
   let iports = List.map t.top_iports ~f:snd |> Ir.Chan.Set.of_list in
   let oports = List.map t.top_oports ~f:snd |> Ir.Chan.Set.of_list in
 

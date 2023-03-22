@@ -574,82 +574,72 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
       merge
     in
     match stmt with
-    | Ir.Chp.Assign (loc, (id, id_sexper), expr) ->
-        push_instr ~sexper:id_sexper loc
-          (Assign (convert_id id, convert_expr expr))
-    | Nop -> push_instr Code_pos.dummy_loc Nop
-    | Log (loc, str) -> push_instr loc (Log0 str)
-    | Log1 (loc, expr, f) -> push_instr loc (Log1 (convert_expr expr, f))
-    | Assert (loc, expr) -> push_instr loc (Assert (convert_expr expr))
-    | Seq (loc, stmts) -> (
+    | Ir.Chp.Assign { m; var; expr } ->
+        push_instr ~sexper:m.var_sexper m.cp
+          (Assign (convert_id var, convert_expr expr))
+    | Nop m -> push_instr m.cp Nop
+    | Log1 { m; expr; f } -> push_instr m.cp (Log1 (convert_expr expr, f))
+    | Assert { m; expr } -> push_instr m.cp (Assert (convert_expr expr))
+    | Seq { m; ns = stmts } -> (
         match stmts with
-        | [] -> push_instr loc Nop
+        | [] -> push_instr m.cp Nop
         | stmts -> List.map stmts ~f:convert_stmt |> List.last_exn)
-    | Par (loc, stmts) -> (
+    | Par { m; ns = stmts } -> (
         match stmts with
-        | [] -> push_instr loc Nop
+        | [] -> push_instr m.cp Nop
         | stmts ->
-            let split, starts, merge = push_branches loc stmts in
-            edit_instr loc split (Par starts);
-            edit_instr loc merge
+            let split, starts, merge = push_branches m.cp stmts in
+            edit_instr m.cp split (Par starts);
+            edit_instr m.cp merge
               (ParJoin (Inner.Par_join.create ~max_ct:(List.length stmts)));
             merge)
-    | SelectImm (loc, branches, else_) -> (
+    | SelectImm { m; branches; else_ } -> (
         match else_ with
         | Some else_ ->
             let guards, stmts = List.unzip branches in
-            let split, starts, merge = push_branches loc (else_ :: stmts) in
+            let split, starts, merge = push_branches m.cp (else_ :: stmts) in
             let guards = List.map guards ~f:convert_expr in
             let guards = List.zip_exn guards (List.tl_exn starts) in
-            edit_instr loc split (SelectImmElse (guards, List.hd_exn starts));
+            edit_instr m.cp split (SelectImmElse (guards, List.hd_exn starts));
             merge
         | None ->
             let guards, stmts = List.unzip branches in
-            let split, starts, merge = push_branches loc stmts in
+            let split, starts, merge = push_branches m.cp stmts in
             let guards = List.map guards ~f:convert_expr in
             let guards = List.zip_exn guards starts in
-            edit_instr loc split (SelectImm guards);
+            edit_instr m.cp split (SelectImm guards);
             merge)
-    | Read (loc, chan, (var, var_sexper)) ->
+    | Read { m; chan; var } ->
         let chan_idx = get_chan chan in
-        push_instr ~sexper:var_sexper loc (Read (convert_id var, chan_idx))
-    | Send (loc, (chan, chan_sexper), expr) ->
+        push_instr ~sexper:m.var_sexper m.cp (Read (convert_id var, chan_idx))
+    | Send { m; chan; expr } ->
         let chan_idx = get_chan chan in
-        push_instr ~sexper:chan_sexper loc (Send (convert_expr expr, chan_idx))
-    | Loop (loc, seq) ->
-        let fst = Assem_builder.next_idx ab in
-        convert' seq;
-        push_instr loc (Jump fst)
-    | WhileLoop (loc, expr, seq) ->
+        push_instr ~sexper:m.chan_sexper m.cp
+          (Send (convert_expr expr, chan_idx))
+    | WhileLoop { m; g = expr; n = seq } ->
         let split =
-          push_instr loc
+          push_instr m.cp
             (JumpIfFalse (convert_expr expr, Inner.Instr_idx.dummy_val))
         in
         convert' seq;
-        let jmp = push_instr loc (Jump split) in
-        edit_instr loc split
+        let jmp = push_instr m.cp (Jump split) in
+        edit_instr m.cp split
           (JumpIfFalse (convert_expr expr, Inner.Instr_idx.next jmp));
         jmp
-    | DoWhile (loc, seq, expr) ->
-        let top = push_instr loc Nop in
+    | DoWhile { m; n = seq; g = expr } ->
+        let top = push_instr m.cp Nop in
         convert' seq;
         let not_expr = Ir.Expr.Eq (expr, Const Cint.zero) in
-        push_instr loc (JumpIfFalse (convert_expr' not_expr, top))
-    | ReadUGMem (loc, mem, idx, (dst, dst_sexper)) ->
+        push_instr m.cp (JumpIfFalse (convert_expr' not_expr, top))
+    | ReadMem { m; mem; idx; var = dst } ->
         let mem_idx_reg, mem_id = get_mem mem in
-        push_instr ~sexper:dst_sexper loc
+        push_instr ~sexper:m.var_sexper m.cp
           (ReadMem (convert_expr idx, convert_id dst, mem_idx_reg, mem_id))
-    | WriteUGMem (loc, (mem, mem_sexper), idx, value) ->
+    | WriteMem { m; mem; idx; expr = value } ->
         let mem_idx_reg, mem_id = get_mem mem in
-        push_instr ~sexper:mem_sexper loc
+        push_instr ~sexper:m.cell_sexper m.cp
           (WriteMem (convert_expr idx, convert_expr value, mem_idx_reg, mem_id))
-    | WaitUntilReadReady (loc, chan) ->
-        let chan_idx = get_chan chan in
-        push_select_probes loc [ (Read_ready chan_idx, Nop) ]
-    | WaitUntilSendReady (loc, chan) ->
-        let chan_idx = get_chan chan in
-        push_select_probes loc [ (Send_ready chan_idx, Nop) ]
-    | Nondeterm_select (loc, branches) ->
+    | Nondeterm_select { m; branches } ->
         let branches =
           List.map branches ~f:(fun (probe, stmt) ->
               let probe =
@@ -659,7 +649,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
               in
               (probe, stmt))
         in
-        push_select_probes loc branches
+        push_select_probes m.cp branches
   in
 
   (* Build the main program. An initial jump is required. *)
@@ -813,8 +803,7 @@ let simulate ?(seed = 0) (process : Ir.Process.t) =
       match proc.inner with
       | Chp chp -> chp
       | Dflow_iface_on_chp chp -> (* TODO add buffers and stuff? *) chp
-      | Subprocs subprocs ->
-          Ir.Chp.Par (Code_pos.dummy_loc, List.map subprocs ~f:extract)
+      | Subprocs subprocs -> Ir.Chp.par (List.map subprocs ~f:extract)
     in
     extract process
   in
