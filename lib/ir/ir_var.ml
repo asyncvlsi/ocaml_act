@@ -15,18 +15,12 @@ end = struct
     id
 end
 
-module D = struct
-  type t = {
-    dtype : Any.t Ir_dtype.t;
-    creation_code_pos : Code_pos.t;
-    init : Any.t option;
-  }
-end
-
 module T = struct
   type t = {
     id : Id.t;
-    d : (D.t[@hash.ignore] [@compare.ignore] [@equal.ignore] [@sexp.opaque]);
+    creation_code_pos : Code_pos.t;
+    init : Cint0.t option;
+    bitwidth : int;
   }
   [@@deriving hash, compare, equal, sexp]
 end
@@ -37,8 +31,8 @@ include Hashable.Make (T)
 
 let create dtype init creation_code_pos =
   let id = Id.create () in
-  let dtype = Ir_dtype.untype dtype in
-  let init = Any.Option.of_magic init in
-  { id; d = { dtype; creation_code_pos; init } }
+  let init = Option.map init ~f:dtype.Ir_dtype.cint_of in
+  let bitwidth = match dtype.layout with Bits_fixed bitwidth -> bitwidth in
+  { id; creation_code_pos; init; bitwidth }
 
 let create dtype creation_code_pos init = create dtype init creation_code_pos

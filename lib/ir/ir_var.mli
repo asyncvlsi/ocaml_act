@@ -1,17 +1,11 @@
 open! Core
 module Id : Identifiable
 
-module D : sig
-  type t = {
-    dtype : Any.t Ir_dtype.t;
-    creation_code_pos : Code_pos.t;
-    init : Any.t option;
-  }
-end
-
 type t = {
   id : Id.t;
-  d : (D.t[@hash.ignore] [@compare.ignore] [@equal.ignore]);
+  creation_code_pos : Code_pos.t;
+  init : Cint0.t option;
+  bitwidth : int;
 }
 [@@deriving sexp_of]
 

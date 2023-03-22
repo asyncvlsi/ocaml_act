@@ -11,3 +11,4 @@ val cint_of_value : 'a t -> 'a -> Cint0.t
 val value_of_cint : 'a t -> Cint0.t -> 'a option
 val cbool_expr_tag : Cbool0.t t
 val cint_expr_tag : Cint0.t t
+val untyped_tag : 'a t

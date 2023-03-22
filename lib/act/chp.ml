@@ -18,42 +18,47 @@ let fail_if_layout_does_not_fit_dtype err_msg layout dtype =
 
 let assign var_id expr =
   let loc = Code_pos.psite () in
+  let var_dtype = Var.Internal.dtype var_id in
   let var_id = Var.Internal.unwrap var_id in
   let expr = Expr.Internal.unwrap expr in
   fail_if_layout_does_not_fit_dtype
     "Assignment of expression with max_layout %s into variable with layout %s. \
      It might not fit. Try using a custom assignment statment (e.g. \
      Cint.N.assign)."
-    (Ir_expr.max_layout expr) var_id.d.dtype;
-  Ir_chp.Assign (loc, var_id, Ir_expr.untype expr)
+    (Ir_expr.max_layout expr) var_dtype;
+  Ir_chp.Assign (loc, (var_id, var_dtype.sexp_of_cint), Ir_expr.untype expr)
 
 let read chan_id var_id =
   let loc = Code_pos.psite () in
+  let chan_dtype = Chan.Internal.dtype_r chan_id in
   let chan_id = Chan.Internal.unwrap_r chan_id in
+  let var_dtype = Var.Internal.dtype var_id in
   let var_id = Var.Internal.unwrap var_id in
   fail_if_layout_does_not_fit_dtype
     "Read of channel with layout %s into variable with layout %s. It might not \
      fit in. This is currently unsupported, so you must use a variable with a \
      larger layout."
-    (Ir_dtype.layout chan_id.d.dtype)
-    var_id.d.dtype;
-  Ir_chp.Read (loc, chan_id, var_id)
+    (Ir_dtype.layout chan_dtype)
+    var_dtype;
+  Ir_chp.Read (loc, chan_id, (var_id, var_dtype.sexp_of_cint))
 
 let send chan_id expr =
   let loc = Code_pos.psite () in
-  let chan_id = Chan.Internal.unwrap_w chan_id in
+  let chan_dtype = Chan.Internal.dtype_w chan_id in
+  (* print_s [%sexp (chan_id: _ Chan.W.t)]; *)
   let expr = Expr.Internal.unwrap expr in
   fail_if_layout_does_not_fit_dtype
     "Send of expression with layout %s into channel with layout %s. It might \
      not fit in. Try using a custom send statment (e.g. Cint.N.send)."
-    (Ir_expr.max_layout expr) chan_id.d.dtype;
-  Ir_chp.Send (loc, chan_id, Ir_expr.untype expr)
+    (Ir_expr.max_layout expr) chan_dtype;
+  let chan_id = Chan.Internal.unwrap_w chan_id in
+  Ir_chp.Send (loc, (chan_id, chan_dtype.sexp_of_cint), Ir_expr.untype expr)
 
 let send_var chan_id var_id = send chan_id Expr.(var var_id)
 
 let wait_probe_r chan_id =
   let loc = Code_pos.psite () in
-  let chan = Chan.Internal.unwrap_r chan_id in
+  let chan = Chan.Internal.unwrap_r_inner chan_id in
   (match chan.d.wait_sendable_code_pos with
   | Some wait_sendable_code_pos ->
       failwith
@@ -65,11 +70,11 @@ let wait_probe_r chan_id =
   | None ->
       if Option.is_none chan.d.wait_readable_code_pos then
         chan.d.wait_readable_code_pos <- Some loc);
-  Ir_chp.WaitUntilSendReady (loc, chan)
+  Ir_chp.WaitUntilSendReady (loc, chan.c)
 
 let wait_probe_w chan_id =
   let loc = Code_pos.psite () in
-  let chan = Chan.Internal.unwrap_w chan_id in
+  let chan = Chan.Internal.unwrap_w_inner chan_id in
   (match chan.d.wait_readable_code_pos with
   | Some wait_readable_code_pos ->
       failwith
@@ -81,7 +86,7 @@ let wait_probe_w chan_id =
   | None ->
       if Option.is_none chan.d.wait_sendable_code_pos then
         chan.d.wait_sendable_code_pos <- Some loc);
-  Ir_chp.WaitUntilReadReady (loc, chan)
+  Ir_chp.WaitUntilReadReady (loc, chan.c)
 
 let select_probe_r _ = failwith "TODO"
 let select_probe_w _ = failwith "TODO"
@@ -89,41 +94,57 @@ let select_probe _ = failwith "TODO"
 
 (* interacting with memories *)
 let read_ug_mem (mem : 'a Mem.ug_mem) ~idx ~(dst : 'a Var.t) =
+  let mem_dtype = Mem.Internal.dtype mem in
   let mem = Mem.Internal.unwrap_ug_mem mem in
+  let dst_dtype = Var.Internal.dtype dst in
   let dst = Var.Internal.unwrap dst in
   fail_if_layout_does_not_fit_dtype
     "Read of memory with cell layout %s into variable with layout %s. It might \
      not fit in. This is currently unsupported, so you must use a ~dst \
      variable with a larger layout."
-    (Ir_dtype.layout mem.d.dtype)
-    dst.d.dtype;
-  Ir_chp.ReadUGMem (Code_pos.psite (), mem, Expr.Internal.unwrap idx, dst)
+    (Ir_dtype.layout mem_dtype)
+    dst_dtype;
+  Ir_chp.ReadUGMem
+    ( Code_pos.psite (),
+      mem,
+      Expr.Internal.unwrap idx,
+      (dst, dst_dtype.sexp_of_cint) )
 
 (* TODO treat idx like other expressions? *)
 let write_ug_mem (mem : 'a Mem.ug_mem) ~idx ~(value : 'a Expr.t) =
+  let mem_dtype = Mem.Internal.dtype mem in
   let mem = Mem.Internal.unwrap_ug_mem mem in
   let value = Expr.Internal.unwrap value in
   fail_if_layout_does_not_fit_dtype
     "Write of expression with layout %s into a memory with cell layout %s. It \
      might not fit in. Try using a custom write_ug_mem statment (e.g. \
      Cint.N.write_ug_mem)."
-    (Ir_expr.max_layout value) mem.d.dtype;
+    (Ir_expr.max_layout value) mem_dtype;
   Ir_chp.WriteUGMem
-    (Code_pos.psite (), mem, Expr.Internal.unwrap idx, Ir_expr.untype value)
+    ( Code_pos.psite (),
+      (mem, mem_dtype.sexp_of_cint),
+      Expr.Internal.unwrap idx,
+      Ir_expr.untype value )
 
 let write_ug_mem' (mem : 'a Mem.ug_mem) ~idx ~(value : 'a Var.t) =
   write_ug_mem mem ~idx ~value:Expr.(var value)
 
 let read_ug_rom (rom : 'a Mem.ug_rom) ~idx ~(dst : 'a Var.t) =
+  let rom_dtype = Mem.Internal.dtype rom in
   let rom = Mem.Internal.unwrap_ug_rom rom in
+  let dst_dtype = Var.Internal.dtype dst in
   let dst = Var.Internal.unwrap dst in
   fail_if_layout_does_not_fit_dtype
     "Read of rom with cell layout %s into variable with layout %s. It might \
      not fit in. This is currently unsupported, so you must use a ~dst \
      variable with a larger layout."
-    (Ir_dtype.layout rom.d.dtype)
-    dst.d.dtype;
-  Ir_chp.ReadUGMem (Code_pos.psite (), rom, Expr.Internal.unwrap idx, dst)
+    (Ir_dtype.layout rom_dtype)
+    dst_dtype;
+  Ir_chp.ReadUGMem
+    ( Code_pos.psite (),
+      rom,
+      Expr.Internal.unwrap idx,
+      (dst, dst_dtype.sexp_of_cint) )
 
 let log str = Ir_chp.Log (Code_pos.psite (), str)
 

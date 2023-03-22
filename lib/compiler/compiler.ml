@@ -117,18 +117,15 @@ let sim ?seed (t : Compiled_program.t) =
           let dtype = Cint.dtype ~bits:v.bitwidth in
           Var.create dtype |> Var.Internal.unwrap)
     in
-    let dtype_of_v v = v.Ir_var.d.dtype in
-    let dtype_of_cw c = c.Ir_chan.d.dtype in
 
-    let of_expr e ~dtype =
+    (* let dtype_of_cw c = c.Ir_chan.d.dtype in *)
+    let of_expr e =
       let k = expr_k_of_expr e ~of_v ~bits_of_var:(fun v -> v.bitwidth) in
-      let tag = Ir_dtype.expr_tag dtype in
-      let max_bits = match Ir_dtype.layout dtype with Bits_fixed b -> b in
+      let tag = Ir_expr_tag.untyped_tag in
+      let max_bits = F_expr.bitwidth e ~bits_of_var:(fun v -> v.bitwidth) in
       { Ir_expr.k; max_bits; tag }
     in
-    let of_bool_expr e =
-      of_expr e ~dtype:(Cbool.dtype |> Dtype.Internal.unwrap)
-    in
+    let of_bool_expr e = of_expr e in
 
     let rec of_stmt chp =
       match chp with
@@ -136,15 +133,15 @@ let sim ?seed (t : Compiled_program.t) =
       | Assert e -> Assert (dummy_loc, of_bool_expr e)
       | Assign (v, e) ->
           let v = of_v v in
-          Assign (dummy_loc, v, of_expr e ~dtype:(dtype_of_v v))
+          Assign (dummy_loc, (v, Cint.sexp_of_t), of_expr e)
       | Seq ns -> Seq (dummy_loc, List.map ns ~f:of_stmt)
       | Par ns -> Par (dummy_loc, List.map ns ~f:of_stmt)
       | ReadThenAssert (c, v, _) ->
           (* TODO for now just forget about the assert *)
-          Read (dummy_loc, of_c c, of_v v)
+          Read (dummy_loc, of_c c, (of_v v, Cint.sexp_of_t))
       | Send (c, e) ->
           let c = of_c c in
-          Send (dummy_loc, c, of_expr e ~dtype:(dtype_of_cw c))
+          Send (dummy_loc, (c, Cint.sexp_of_t), of_expr e)
       | DoWhile (n, e) -> DoWhile (dummy_loc, of_stmt n, of_bool_expr e)
       | SelectImm (gs, ns) ->
           let branches =

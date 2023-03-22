@@ -1,6 +1,6 @@
 open! Core
 
-type 'a t = Ir_var.t [@@deriving sexp_of]
+type 'a t = { dtype : 'a Ir_dtype.t; v : Ir_var.t } [@@deriving sexp_of]
 
 let create ?init (dtype : 'a Dtype.t) : 'a t =
   let loc = Code_pos.psite () in
@@ -17,8 +17,10 @@ let create ?init (dtype : 'a Dtype.t) : 'a t =
               "Trying to initialize a variable of dtype %{Ir_layout.sexp_of_t \
                (Ir_dtype.layout dtype)#Sexp} with a value of max_layout \
                %{Ir_layout.sexp_of_t init_layout#Sexp}."]));
-  Ir_var.create dtype loc init
+  let v = Ir_var.create dtype loc init in
+  { dtype; v }
 
 module Internal = struct
-  let unwrap t = t
+  let unwrap t = t.v
+  let dtype t = t.dtype
 end

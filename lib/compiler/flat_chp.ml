@@ -102,11 +102,7 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
     { Var.id; bitwidth }
   in
   let of_v v =
-    Hashtbl.find_or_add var_of_var v ~default:(fun () ->
-        let bitwidth =
-          match Ir_dtype.layout v.d.dtype with Bits_fixed bitwidth -> bitwidth
-        in
-        new_var bitwidth)
+    Hashtbl.find_or_add var_of_var v ~default:(fun () -> new_var v.bitwidth)
   in
 
   let next_c_id = ref 0 in
@@ -117,12 +113,7 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
     { Chan.id; bitwidth }
   in
   let of_c c =
-    Hashtbl.find_or_add chan_of_chan c ~default:(fun () ->
-        let bitwidth =
-          match Ir_dtype.layout c.d.dtype with Bits_fixed bitwidth -> bitwidth
-        in
-
-        new_chan bitwidth)
+    Hashtbl.find_or_add chan_of_chan c ~default:(fun () -> new_chan c.bitwidth)
   in
 
   let of_e0 e ~of_assert ~of_var =
@@ -184,11 +175,8 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
   let mems_table = Ir_mem.Table.create () in
   let chans_of_mem mem =
     Hashtbl.find_or_add mems_table mem ~default:(fun () ->
-        let idx_bits = mem.d.init |> Array.length |> Int.ceil_log2 in
-        let cell_bits =
-          match Ir_dtype.layout mem.d.dtype with
-          | Bits_fixed bitwidth -> bitwidth
-        in
+        let idx_bits = mem.init |> Array.length |> Int.ceil_log2 in
+        let cell_bits = mem.cell_bitwidth in
         (* TODO carry better error messages with these channels *)
         ( new_chan (1 + idx_bits),
           new_chan cell_bits,
@@ -197,12 +185,11 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
           cell_bits ))
   in
 
-  let assert_fits_cond dtype e =
-    (* TODO for now ignoring asserts here *)
-    let a = Ir_dtype.of_cint_assert_expr_fn dtype in
-    of_e0 a ~of_var:(fun () -> e) ~of_assert:(fun _ -> ())
-  in
-
+  (* let assert_fits_cond dtype e = *)
+  (* TODO for now ignoring asserts here *)
+  (* let a = Ir_dtype.of_cint_assert_expr_fn dtype in *)
+  (* of_e0 a ~of_var:(fun () -> e) ~of_assert:(fun _ -> ()) *)
+  (* in *)
   let of_chp n =
     let rec of_n n =
       match n with
@@ -218,25 +205,28 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
       | DoWhile (_, seq, expr) ->
           let expr, asserts = of_e expr in
           DoWhile (Seq [ of_n seq; Seq asserts ], expr)
-      | Assign (_, id, expr) ->
+      | Assign (_, (id, _), expr) ->
           let expr, asserts = of_e expr in
           Seq
             [
               Seq asserts;
-              Assert (assert_fits_cond id.d.dtype expr);
+              (* Assert (assert_fits_cond id.d.dtype expr); *)
               Assign (of_v id, expr);
             ]
-      | Send (_, chan, expr) ->
+      | Send (_, (chan, _), expr) ->
           let expr, asserts = of_e expr in
           Seq
             [
               Seq asserts;
-              Assert (assert_fits_cond chan.d.dtype expr);
+              (* Assert (assert_fits_cond chan.d.dtype expr); *)
               Send (of_c chan, expr);
             ]
-      | Read (_, chan, var) ->
+      | Read (_, chan, (var, _)) ->
           ReadThenAssert
-            (of_c chan, of_v var, assert_fits_cond var.d.dtype (Var (of_v var)))
+            ( of_c chan,
+              of_v var,
+              F_expr.Const Cint.one
+              (* assert_fits_cond var.d.dtype (Var (of_v var)) *) )
       | SelectImm (_, branches, else_) ->
           let guards = List.map branches ~f:(fun (guard, _) -> of_e guard) in
           let else_guard =
@@ -265,10 +255,10 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
                 ( [ Eq0 expr; expr ],
                   [ Nop; DoWhile (Seq [ of_n seq; Seq asserts ], expr) ] );
             ]
-      | ReadUGMem (_, mem, idx, dst) ->
+      | ReadUGMem (_, mem, idx, (dst, _)) ->
           let idx, asserts = of_e idx in
           let cmd_chan, _, read_chan, _, _ = chans_of_mem mem in
-          let array_len = Array.length mem.d.init in
+          let array_len = Array.length mem.init in
           Seq
             [
               Seq asserts;
@@ -279,20 +269,21 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
                   ReadThenAssert
                     ( read_chan,
                       of_v dst,
-                      assert_fits_cond dst.d.dtype (Var (of_v dst)) );
+                      F_expr.Const Cint.one
+                      (* assert_fits_cond dst.d.dtype (Var (of_v dst)) *) );
                 ];
             ]
-      | WriteUGMem (_, mem, idx, value) ->
+      | WriteUGMem (_, (mem, _), idx, value) ->
           let cmd_chan, write_chan, _, _, _ = chans_of_mem mem in
           let idx, asserts1 = of_e idx in
           let value, asserts2 = of_e value in
-          let array_len = Array.length mem.d.init in
+          let array_len = Array.length mem.init in
           Seq
             [
               Seq asserts1;
               Seq asserts2;
               Assert (Lt (idx, Const (Cint.of_int array_len)));
-              Assert (assert_fits_cond mem.d.dtype value);
+              (* Assert (assert_fits_cond mem.d.dtype value); *)
               Par
                 [
                   Send
@@ -326,11 +317,7 @@ let of_chp (proc : Ir_chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
       Hashtbl.to_alist var_of_var
       |> Ir_var.Map.of_alist_exn |> Map.to_alist
       |> List.map ~f:(fun (var, var_id) ->
-             let init =
-               Option.map var.d.init ~f:(fun init ->
-                   Ir_dtype.cint_of_value var.d.dtype init)
-               |> Option.value ~default:Cint.zero
-             in
+             let init = Option.value var.init ~default:Cint.zero in
              Stmt.Assign (var_id, Const init))
     in
     Stmt.Seq [ Seq inits; n ]

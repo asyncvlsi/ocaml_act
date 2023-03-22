@@ -1,5 +1,25 @@
 open! Core
 
+(**/**)
+
+module Inner : sig
+  module D : sig
+    type t = {
+      mutable wait_readable_code_pos : Code_pos.t option;
+      mutable wait_sendable_code_pos : Code_pos.t option;
+      dtype : Any.t Ir_dtype.t;
+    }
+  end
+
+  type t = {
+    c : Ir_chan.t;
+    d : (D.t[@hash.ignore] [@compare.ignore] [@equal.ignore]);
+  }
+  [@@deriving sexp_of]
+end
+
+(**/**)
+
 module R : sig
   module U : sig
     type t [@@deriving sexp_of, hash, equal, compare]
@@ -29,8 +49,12 @@ val create : 'a Dtype.t -> 'a t
 (**/**)
 
 module Internal : sig
+  val dtype_r : 'a R.t -> 'a Ir_dtype.t
+  val dtype_w : 'a W.t -> 'a Ir_dtype.t
   val wrap_any : Ir_chan.t -> Any.t t
   val wrap_'a : Ir_chan.t -> 'a t
+  val unwrap_r_inner : 'a R.t -> Inner.t
+  val unwrap_w_inner : 'a W.t -> Inner.t
   val unwrap_r : 'a R.t -> Ir_chan.t
   val unwrap_w : 'a W.t -> Ir_chan.t
   val unwrap_ru : R.U.t -> Ir_chan.t

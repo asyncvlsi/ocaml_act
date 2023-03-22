@@ -8,6 +8,7 @@ val create : ?init:'a -> 'a Dtype.t -> 'a t
 
 module Internal : sig
   val unwrap : 'a t -> Ir_var.t
+  val dtype : 'a t -> 'a Ir_dtype.t
 end
 
 (**/**)

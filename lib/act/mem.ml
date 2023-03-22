@@ -1,6 +1,8 @@
 open! Core
 
-type ('kind, 'a) t = Ir_mem.t [@@deriving sexp_of]
+type ('kind, 'a) t = { dtype : 'a Ir_dtype.t; m : Ir_mem.t }
+[@@deriving sexp_of]
+
 type 'a ug_mem = ([ `Mem ], 'a) t
 type 'a ug_rom = ([ `Rom ], 'a) t
 
@@ -17,7 +19,7 @@ let create dtype init creation_code_pos kind =
               "Trying to initialize cell %{i#Int} of memory of dtype \
                %{Ir_layout.sexp_of_t (Ir_dtype.layout dtype)#Sexp} with a \
                value of max_layout %{Ir_layout.sexp_of_t init_layout#Sexp}."]);
-  Ir_mem.create dtype creation_code_pos init kind
+  { dtype; m = Ir_mem.create dtype creation_code_pos init kind }
 
 let create_ug_mem dtype (arr : 'a array) : 'a ug_mem =
   let loc = Code_pos.psite () in
@@ -28,6 +30,7 @@ let create_ug_rom dtype (arr : 'a array) : 'a ug_rom =
   create dtype arr loc `Rom
 
 module Internal = struct
-  let unwrap_ug_mem t = t
-  let unwrap_ug_rom t = t
+  let unwrap_ug_mem t = t.m
+  let unwrap_ug_rom t = t.m
+  let dtype t = t.dtype
 end

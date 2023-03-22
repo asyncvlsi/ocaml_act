@@ -1,18 +1,12 @@
 open! Core
 module Id : Identifiable
 
-module D : sig
-  type t = {
-    dtype : Any.t Ir_dtype.t;
-    creation_code_pos : Code_pos.t;
-    init : Any.t array;
-    kind : [ `Mem | `Rom ];
-  }
-end
-
 type t = {
   id : Id.t;
-  d : (D.t[@hash.ignore] [@compare.ignore] [@equal.ignore]);
+  cell_bitwidth : int;
+  creation_code_pos : Code_pos.t;
+  init : (Cint0.t array[@hash.ignore] [@compare.ignore] [@equal.ignore]);
+  kind : [ `Mem | `Rom ];
 }
 
 include Comparable_and_hashable.S with type t := t

@@ -29,7 +29,7 @@ let%expect_test "test1" =
       int<32> v0;
       int<32> v1;
     chp {
-    (v0 := 0); (v1 := 0); ( [true] ); (v0 := 12345); (( *[ ( [true] ); (C0!((v0))) <- bool(1) ] ), (C0?v1))
+    (v0 := 0); (v1 := 0); (v0 := 12345); (( *[ C0!((v0)) <- bool(1) ] ), (C0?v1))
     }
     }
 
@@ -51,7 +51,7 @@ let%expect_test "test1" =
       int<32> v0;
       int<32> v1;
     chp {
-    (v0 := 0); (v1 := 0); ( [true] ); (v0 := 12345); (( *[ ( [true] ); (C0!((v0))) <- bool(1) ] ), (C0?v1))
+    (v0 := 0); (v1 := 0); (v0 := 12345); (( *[ C0!((v0)) <- bool(1) ] ), (C0?v1))
     }
     }
 
@@ -98,7 +98,7 @@ let%expect_test "test2" =
       int<32> v0;
       int<32> v1;
     chp {
-    (v0 := 123456); (v1 := 1); ( [true] ); ([bool(int(int((v0) != 1) = 0)) ->  [true]  [] bool(int((v0) != 1)) ->  *[ ( [true] ); (v1 := (1 + (v1))); ( [true] ); ([bool(int(0 = ((v0) % 2))) -> ( [true] ); (v0 := ((v0) / 2)) [] bool(int(int(0 = ((v0) % 2)) = 0)) -> ( [true] ); (v0 := (1 + (3 * (v0))))]); ( [true] ) <- bool(int((v0) != 1)) ] ])
+    (v0 := 123456); (v1 := 1); ( [true] ); ([bool(int(int((v0) != 1) = 0)) ->  [true]  [] bool(int((v0) != 1)) ->  *[ (v1 := (1 + (v1))); ( [true] ); ([bool(int(0 = ((v0) % 2))) -> v0 := ((v0) / 2) [] bool(int(int(0 = ((v0) % 2)) = 0)) -> v0 := (1 + (3 * (v0)))]); ( [true] ) <- bool(int((v0) != 1)) ] ])
     }
     }
 
@@ -172,7 +172,7 @@ let%expect_test "test3" =
 
       int<32> v0;
     chp {
-    (v0 := 0); (C0?v0); ( [true] ); (C1!((v0))); ( [true] ); ( [true] )
+    (v0 := 0); (C0?v0); (C1!((v0))); ( [true] ); ( [true] )
     }
     }
 
@@ -214,7 +214,7 @@ let%expect_test "test4" =
 
         int<32> v0;
       chp {
-      (v0 := 0); (C0?v0); ( [true] ); (C1!((v0))); ( [true] ); ( [true] )
+      (v0 := 0); (C0?v0); (C1!((v0))); ( [true] ); ( [true] )
       }
       }
 
@@ -244,7 +244,7 @@ let%expect_test "test5" =
 
       int<32> v0;
     chp {
-    (v0 := 0); ( *[ (C0?v0); ( [true] ); (C1!((v0))) <- bool(1) ] )
+    (v0 := 0); ( *[ (C0?v0); (C1!((v0))) <- bool(1) ] )
     }
     }
 
@@ -322,7 +322,7 @@ let%expect_test "test_buff 1" =
       int<1> v2;
       int<32> v3;
     chp {
-    (v3 := 0); (v2 := 0); (v0 := 0); (v1 := 0); (( *[ (C0?v0); ([bool((v1)) -> ( [true] ); (C1!((v0))) [] bool(int((v1) = 0)) -> ( [true] ); (C2!((v0)))]); ( [true] ); (v1 := int((v1) = 0)) <- bool(1) ] ), ( *[ ([bool((v2)) -> C1?v3 [] bool(int((v2) = 0)) -> C2?v3]); ( [true] ); (C3!((v3))); ( [true] ); (v2 := int((v2) = 0)) <- bool(1) ] ))
+    (v3 := 0); (v2 := 0); (v0 := 0); (v1 := 0); (( *[ (C0?v0); ([bool((v1)) -> C1!((v0)) [] bool(int((v1) = 0)) -> C2!((v0))]); (v1 := int((v1) = 0)) <- bool(1) ] ), ( *[ ([bool((v2)) -> C1?v3 [] bool(int((v2) = 0)) -> C2?v3]); (C3!((v3))); (v2 := int((v2) = 0)) <- bool(1) ] ))
     }
     }
 
@@ -372,7 +372,7 @@ let%expect_test "test_buff 2" =
       int<1> v10;
       int<32> v11;
     chp {
-    (v11 := 0); (v10 := 0); (v9 := 0); (v8 := 0); (v6 := 0); (v7 := 0); (v5 := 0); (v4 := 0); (v2 := 0); (v3 := 0); (v0 := 0); (v1 := 0); (( *[ (C0?v0); ([bool((v1)) -> ( [true] ); (C1!((v0))) [] bool(int((v1) = 0)) -> ( [true] ); (C2!((v0)))]); ( [true] ); (v1 := int((v1) = 0)) <- bool(1) ] ), ( *[ (C1?v2); ([bool((v3)) -> ( [true] ); (C3!((v2))) [] bool(int((v3) = 0)) -> ( [true] ); (C4!((v2)))]); ( [true] ); (v3 := int((v3) = 0)) <- bool(1) ] ), ( *[ ([bool((v4)) -> C3?v5 [] bool(int((v4) = 0)) -> C4?v5]); ( [true] ); (C5!((v5))); ( [true] ); (v4 := int((v4) = 0)) <- bool(1) ] ), ( *[ (C2?v6); ([bool((v7)) -> ( [true] ); (C6!((v6))) [] bool(int((v7) = 0)) -> ( [true] ); (C7!((v6)))]); ( [true] ); (v7 := int((v7) = 0)) <- bool(1) ] ), ( *[ ([bool((v8)) -> C6?v9 [] bool(int((v8) = 0)) -> C7?v9]); ( [true] ); (C8!((v9))); ( [true] ); (v8 := int((v8) = 0)) <- bool(1) ] ), ( *[ ([bool((v10)) -> C5?v11 [] bool(int((v10) = 0)) -> C8?v11]); ( [true] ); (C9!((v11))); ( [true] ); (v10 := int((v10) = 0)) <- bool(1) ] ))
+    (v11 := 0); (v10 := 0); (v9 := 0); (v8 := 0); (v6 := 0); (v7 := 0); (v5 := 0); (v4 := 0); (v2 := 0); (v3 := 0); (v0 := 0); (v1 := 0); (( *[ (C0?v0); ([bool((v1)) -> C1!((v0)) [] bool(int((v1) = 0)) -> C2!((v0))]); (v1 := int((v1) = 0)) <- bool(1) ] ), ( *[ (C1?v2); ([bool((v3)) -> C3!((v2)) [] bool(int((v3) = 0)) -> C4!((v2))]); (v3 := int((v3) = 0)) <- bool(1) ] ), ( *[ ([bool((v4)) -> C3?v5 [] bool(int((v4) = 0)) -> C4?v5]); (C5!((v5))); (v4 := int((v4) = 0)) <- bool(1) ] ), ( *[ (C2?v6); ([bool((v7)) -> C6!((v6)) [] bool(int((v7) = 0)) -> C7!((v6))]); (v7 := int((v7) = 0)) <- bool(1) ] ), ( *[ ([bool((v8)) -> C6?v9 [] bool(int((v8) = 0)) -> C7?v9]); (C8!((v9))); (v8 := int((v8) = 0)) <- bool(1) ] ), ( *[ ([bool((v10)) -> C5?v11 [] bool(int((v10) = 0)) -> C8?v11]); (C9!((v11))); (v10 := int((v10) = 0)) <- bool(1) ] ))
     }
     }
 
@@ -607,7 +607,7 @@ let%expect_test "test probes" =
       chan(int<32>) C0;
       int<32> v0;
     chp {
-    (v0 := 0); ((([| #C0 ->  [true]  |]); ( [true] ); (C0!(3))), (C0?v0))
+    (v0 := 0); ((([| #C0 ->  [true]  |]); (C0!(3))), (C0?v0))
     }
     }
 
@@ -695,7 +695,7 @@ let%expect_test "mini cpu" =
       int<8> v1;
       int<8> v2;
     chp {
-    (v0 := 0); (v1 := 0); (v2 := 0); ( *[ (C0?v0); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ([bool(int(0 = (v0))) -> ((C1?v1), (C2?v2)); ( [true] ); (C3!((((v1) + (v2)) & 255))) [] bool(int(1 = (v0))) -> ((C1?v1), (C2?v2)); ( [true] ); (C3!((((v1) * (v2)) & 255))) [] bool(int(2 = (v0))) -> ((C1?v1), (C2?v2)); ( [true] ); (C3!(((v1) & (v2)))) [] bool(int(3 = (v0))) -> ((C1?v1), (C2?v2)); ( [true] ); (C3!(((v1) | (v2))))]) <- bool(1) ] )
+    (v0 := 0); (v1 := 0); (v2 := 0); ( *[ (C0?v0); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ( [true] ); ([bool(int(0 = (v0))) -> ((C1?v1), (C2?v2)); (C3!((((v1) + (v2)) & 255))) [] bool(int(1 = (v0))) -> ((C1?v1), (C2?v2)); (C3!((((v1) * (v2)) & 255))) [] bool(int(2 = (v0))) -> ((C1?v1), (C2?v2)); (C3!(((v1) & (v2)))) [] bool(int(3 = (v0))) -> ((C1?v1), (C2?v2)); (C3!(((v1) | (v2))))]) <- bool(1) ] )
     }
     }
 

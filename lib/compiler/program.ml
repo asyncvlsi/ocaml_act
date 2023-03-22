@@ -30,12 +30,7 @@ let of_process (process : Ir_process.t) =
   in
   let interproc_chan_of_ir_chan ir_chan =
     Hashtbl.find_or_add interproc_chan_of_ir_chan_tbl ir_chan
-      ~default:(fun () ->
-        let bitwidth =
-          match Ir_dtype.layout ir_chan.d.dtype with
-          | Bits_fixed bitwidth -> bitwidth
-        in
-        new_interproc_chan bitwidth)
+      ~default:(fun () -> new_interproc_chan ir_chan.bitwidth)
   in
 
   let chp_procs, mem_maps =
@@ -90,13 +85,9 @@ let of_process (process : Ir_process.t) =
            let cmd_chan, write_chan, read_chan = chans in
            let idx_bits, cell_bits = bits in
 
-           let init =
-             Array.map mem.d.init ~f:(fun init_val ->
-                 Ir_dtype.cint_of_value mem.d.dtype init_val)
-           in
            let mem_proc =
              {
-               Flat_mem.Proc.init;
+               Flat_mem.Proc.init = mem.init;
                idx_bits;
                cell_bits;
                cmd_chan;

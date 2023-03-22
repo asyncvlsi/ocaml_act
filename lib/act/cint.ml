@@ -95,11 +95,13 @@ module Chp = struct
 
   let assign var expr ~overflow =
     let loc = Code_pos.psite () in
+    let var_dtype = Var.Internal.dtype var in
     let var = Var.Internal.unwrap var in
     let expr =
-      apply_overflow var.d.dtype expr ~overflow |> Expr.Internal.unwrap
+      apply_overflow var_dtype expr ~overflow |> Expr.Internal.unwrap
     in
-    Ir_chp.Assign (loc, var, Ir_expr.untype expr) |> Chp.Internal.wrap
+    Ir_chp.Assign (loc, (var, var_dtype.sexp_of_cint), Ir_expr.untype expr)
+    |> Chp.Internal.wrap
 
   let incr var_id ~overflow =
     let expr = E.(var var_id |> add one) in
@@ -111,11 +113,13 @@ module Chp = struct
 
   let send chan_id expr ~overflow =
     let loc = Code_pos.psite () in
+    let chan_dtype = Chan.Internal.dtype_w chan_id in
     let chan_id = Chan.Internal.unwrap_w chan_id in
     let expr =
-      apply_overflow chan_id.d.dtype expr ~overflow |> Expr.Internal.unwrap
+      apply_overflow chan_dtype expr ~overflow |> Expr.Internal.unwrap
     in
-    Ir_chp.Send (loc, chan_id, Ir_expr.untype expr) |> Chp.Internal.wrap
+    Ir_chp.Send (loc, (chan_id, chan_dtype.sexp_of_cint), Ir_expr.untype expr)
+    |> Chp.Internal.wrap
 
   let send_var chan_id var_id ~overflow =
     send chan_id Expr.(var var_id) ~overflow
@@ -124,15 +128,11 @@ end
 module Chan = struct
   let bw_le chan bw =
     let chan = Chan.Internal.unwrap_r chan in
-    let chan_bw =
-      match Ir_dtype.layout chan.d.dtype with Bits_fixed bits -> bits
-    in
+    let chan_bw = chan.bitwidth in
     Int.(chan_bw <= bw)
 
   let bw_ge chan bw =
     let chan = Chan.Internal.unwrap_w chan in
-    let chan_bw =
-      match Ir_dtype.layout chan.d.dtype with Bits_fixed bits -> bits
-    in
+    let chan_bw = chan.bitwidth in
     Int.(chan_bw >= bw)
 end

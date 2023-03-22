@@ -7,12 +7,27 @@ module With_origin = struct
 end
 
 module Var_id_src = struct
-  type t = Var of Ir_var.t | Mem_idx_reg | Read_deq_reg | Send_enq_reg
+  type t =
+    | Var of Ir_var.t
+    | Mem_idx_reg of int
+    | Read_deq_reg of int
+    | Send_enq_reg of int
   [@@deriving sexp_of]
+
+  let bitwidth t =
+    match t with
+    | Var v -> v.bitwidth
+    | Mem_idx_reg bitwidth | Read_deq_reg bitwidth | Send_enq_reg bitwidth ->
+        bitwidth
+
+  let init_value t =
+    match t with
+    | Var v -> v.init
+    | Mem_idx_reg _ | Read_deq_reg _ | Send_enq_reg _ -> None
 end
 
 module Var_buff_info = struct
-  type t = { src : Var_id_src.t; dtype : Any.t Ir_dtype.t } [@@deriving sexp_of]
+  type t = { src : Var_id_src.t } [@@deriving sexp_of]
 end
 
 module Chan_buff_info = struct
@@ -28,7 +43,8 @@ module Enqueuer_info = struct
 end
 
 module Dequeuer_info = struct
-  type t = { chan : Inner.Chan_id.t } [@@deriving sexp_of]
+  type t = { chan : Inner.Chan_id.t; sexper : Cint.t -> Sexp.t }
+  [@@deriving sexp_of]
 end
 
 module Queued_user_op = struct
@@ -45,6 +61,7 @@ type t = {
   i : Inner.t;
   mutable is_done : bool;
   (* error message helpers *)
+  sexper_table : (Cint.t -> Sexp.t) array;
   loc_of_assem_idx : Code_pos.t array;
   var_table_info : Var_buff_info.t array;
   chan_table_info : Chan_buff_info.t array;
@@ -77,7 +94,7 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
   | User_read_did_not_complete (deq_idx, read_idx) ->
       let chan_idx = t.dequeuer_table_info.(deq_idx).chan in
       let chan_creation_pos =
-        t.chan_table_info.(chan_idx).src.d.creation_code_pos
+        t.chan_table_info.(chan_idx).src.creation_code_pos
       in
       let read = (Map.find_exn to_read deq_idx).(read_idx) in
       Error
@@ -88,7 +105,7 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
   | User_send_did_not_complete (enq_idx, send_idx) ->
       let chan_idx = t.enqueuer_table_info.(enq_idx).chan in
       let chan_creation_pos =
-        t.chan_table_info.(chan_idx).src.d.creation_code_pos
+        t.chan_table_info.(chan_idx).src.creation_code_pos
       in
       let send = (Map.find_exn to_send enq_idx).(send_idx - 1) in
       Error
@@ -99,10 +116,9 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
   | Uninit_id (var_id, pc) ->
       let var_code_pos =
         match t.var_table_info.(var_id).src with
-        | Var var ->
-            (* str_l var.d.creation_code_pos *)
-            Ir_var.Id.to_string var.id
-        | Mem_idx_reg | Read_deq_reg | Send_enq_reg -> failwith "unreachable"
+        | Var var -> str_l var.creation_code_pos
+        | Mem_idx_reg _ | Read_deq_reg _ | Send_enq_reg _ ->
+            failwith "unreachable"
       in
       Error
         [%string
@@ -122,10 +138,10 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
       let var =
         match t.var_table_info.(var_id).src with
         | Var var -> var
-        | Mem_idx_reg | Read_deq_reg | Send_enq_reg ->
+        | Mem_idx_reg _ | Read_deq_reg _ | Send_enq_reg _ ->
             failwith "should be unreachable"
       in
-      let var_decl = var.d.creation_code_pos in
+      let var_decl = var.creation_code_pos in
       Error
         [%string
           "Simultanious read and write of variable: read %{str_i read_pc}, \
@@ -140,13 +156,13 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
             [%string
               "Simulatnious writes of variable: statement 1 %{str_i pc1}, \
                statement 2 %{str_i pc2}, create %{str_l \
-               var.d.creation_code_pos}."]
-      | Mem_idx_reg ->
+               var.creation_code_pos}."]
+      | Mem_idx_reg _ ->
           Error
             [%string
               "Simulatnious accesses of a memory/rom: statement 1 %{str_i \
                pc1}, statement 2 %{str_i pc2}."]
-      | Read_deq_reg | Send_enq_reg -> failwith "unreachable")
+      | Read_deq_reg _ | Send_enq_reg _ -> failwith "unreachable")
   | Select_no_guards_true pc ->
       Error [%string "Select statement has no true guards: %{str_i pc}."]
   | Select_multiple_guards_true (pc, branch_idxs) ->
@@ -157,18 +173,13 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
            indices as %{branch_idxs}."]
   | Read_dequeuer_wrong_value (deq_idx, actual, expected_idx) ->
       let chan_idx = t.dequeuer_table_info.(deq_idx).chan in
-      let chan_dtype = t.chan_table_info.(chan_idx).src.d.dtype in
-      let actual =
-        Ir_dtype.value_of_cint_exn chan_dtype actual
-        |> Ir_dtype.sexp_of_t_ chan_dtype
-      in
+      let deq_sexper = t.dequeuer_table_info.(deq_idx).sexper in
+      let actual = deq_sexper actual in
       let expected = (Map.find_exn to_read deq_idx).(expected_idx) in
       let expected =
-        With_origin.map expected ~f:(fun expected ->
-            Ir_dtype.value_of_cint_exn chan_dtype expected
-            |> Ir_dtype.sexp_of_t_ chan_dtype)
+        With_origin.map expected ~f:(fun expected -> deq_sexper expected)
       in
-      let chan_decl = t.chan_table_info.(chan_idx).src.d.creation_code_pos in
+      let chan_decl = t.chan_table_info.(chan_idx).src.creation_code_pos in
       Error
         [%string
           "User read has wrong value: got %{actual#Sexp}, but expected \
@@ -179,66 +190,55 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
         [%string
           "Mem access out of bounds: %{str_i pc}, idx is %{idx#Cint}, size of \
            mem is %{len#Int}."]
-  | Assigned_value_doesnt_fit_in_var (assign_instr, var_id, value) ->
-      let var_dtype = t.var_table_info.(var_id).dtype in
-      let var_layout = Ir_dtype.layout var_dtype in
-      let value =
-        Ir_dtype.value_of_cint_exn var_dtype value
-        |> Ir_dtype.sexp_of_t_ var_dtype
-      in
+  | Assigned_value_doesnt_fit_in_var (assign_instr, _, value) ->
+      let value = t.sexper_table.(assign_instr) value in
       Error
         [%string
           "Assigned value doesnt fit in var: got %{value#Sexp} but variable \
-           has layout %{Ir_layout.sexp_of_t var_layout#Sexp} at %{str_i \
-           assign_instr}."]
-  | Read_chan_value_doesnt_fit_in_var (read_instr, read_dst_var_id, value) ->
-      let var_dtype = t.var_table_info.(read_dst_var_id).dtype in
-      let var_layout = Ir_dtype.layout var_dtype in
-      let value =
-        Ir_dtype.value_of_cint_exn var_dtype value
-        |> Ir_dtype.sexp_of_t_ var_dtype
-      in
+           has layout TODO at %{str_i assign_instr}."]
+  | Read_chan_value_doesnt_fit_in_var (read_instr, _, value) ->
+      let value = t.sexper_table.(read_instr) value in
+      (* let var_layout = Ir_dtype.layout var_dtype in *)
       Error
         [%string
           "Read value doesnt fit in var: got %{value#Sexp} but variable has \
-           layout %{Ir_layout.sexp_of_t var_layout#Sexp} at %{str_i \
-           read_instr}."]
-  | Read_mem_value_doesnt_fit_in_var (read_instr, dst_id, value) ->
-      let var_dtype = t.var_table_info.(dst_id).dtype in
-      let var_layout = Ir_dtype.layout var_dtype in
-      let value =
-        Ir_dtype.value_of_cint_exn var_dtype value
-        |> Ir_dtype.sexp_of_t_ var_dtype
-      in
+           layout TODO at %{str_i read_instr}."]
+  | Read_mem_value_doesnt_fit_in_var (read_instr, _, value) ->
+      let value = t.sexper_table.(read_instr) value in
+      (* let var_dtype = t.var_table_info.(dst_id).dtype in *)
+      (* let var_layout = Ir_dtype.layout var_dtype in *)
+      (* let value = *)
+      (* Ir_dtype.value_of_cint_exn var_dtype value *)
+      (* |> Ir_dtype.sexp_of_t_ var_dtype *)
+      (* in *)
       Error
         [%string
           "Read value doesnt fit in var: got %{value#Sexp} but variable has \
-           layout %{Ir_layout.sexp_of_t var_layout#Sexp} at %{str_i \
-           read_instr}."]
-  | Sent_value_doesnt_fit_in_chan (send_instr, chan_idx, value) ->
-      let chan = t.chan_table_info.(chan_idx).src in
-      let chan_layout = Ir_dtype.layout chan.d.dtype in
-      let value =
-        Ir_dtype.value_of_cint_exn chan.d.dtype value
-        |> Ir_dtype.sexp_of_t_ chan.d.dtype
-      in
+           layout TODO at %{str_i read_instr}."]
+  | Sent_value_doesnt_fit_in_chan (send_instr, _, value) ->
+      let value = t.sexper_table.(send_instr) value in
+      (* let chan = t.chan_table_info.(chan_idx).src in *)
+      (* let chan_layout = Ir_dtype.layout chan.d.dtype in *)
+      (* let value = *)
+      (* Ir_dtype.value_of_cint_exn chan.d.dtype value *)
+      (* |> Ir_dtype.sexp_of_t_ chan.d.dtype *)
+      (* in *)
       Error
         [%string
           "Sent value doesnt fit in chan: got %{value#Sexp} but channel has \
-           layout %{Ir_layout.sexp_of_t chan_layout#Sexp} at %{str_i \
-           send_instr}."]
-  | Written_mem_value_doesnt_fit_in_cell (write_instr, mem_idx, value) ->
-      let mem = t.mem_table_info.(mem_idx).src in
-      let mem_cell_layout = Ir_dtype.layout mem.d.dtype in
-      let value =
-        Ir_dtype.value_of_cint_exn mem.d.dtype value
-        |> Ir_dtype.sexp_of_t_ mem.d.dtype
-      in
+           layout TODO at %{str_i send_instr}."]
+  | Written_mem_value_doesnt_fit_in_cell (write_instr, _, value) ->
+      (* let mem = t.mem_table_info.(mem_idx).src in *)
+      (* let mem_cell_layout = Ir_dtype.layout mem.d.dtype in *)
+      let value = t.sexper_table.(write_instr) value in
+      (* let value = *)
+      (* Ir_dtype.value_of_cint_exn mem.d.dtype value *)
+      (* |> Ir_dtype.sexp_of_t_ mem.d.dtype *)
+      (* in *)
       Error
         [%string
           "Written value doesnt fit in memory cell: got %{value#Sexp} but \
-           memory cell has layout %{Ir_layout.sexp_of_t mem_cell_layout#Sexp} \
-           at %{str_i write_instr}."]
+           memory cell has layout TODO at %{str_i write_instr}."]
   | Eval_expr_failed (expr_kind, expr_err_id, cint0, cint1, pc) ->
       let expr_kind =
         match expr_kind with
@@ -263,7 +263,7 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
       match probe with
       | Inner.Probe.Read_ready chan_idx ->
           let chan_creation_pos =
-            t.chan_table_info.(chan_idx).src.d.creation_code_pos
+            t.chan_table_info.(chan_idx).src.creation_code_pos
           in
           Error
             [%string
@@ -271,7 +271,7 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
                %{str_l chan_creation_pos}."]
       | Send_ready chan_idx ->
           let chan_creation_pos =
-            t.chan_table_info.(chan_idx).src.d.creation_code_pos
+            t.chan_table_info.(chan_idx).src.creation_code_pos
           in
           Error
             [%string
@@ -344,16 +344,23 @@ let wait' t ?max_steps () =
   print_s [%sexp (wait t ?max_steps () : unit Or_error.t)]
 
 module Assem_builder = struct
-  type t = { assem : (Inner.N.t * Code_pos.t) Vec.t }
+  type t = {
+    assem : (Inner.N.t * (Code_pos.t * (Cint.t -> Sexp.t) option)) Vec.t;
+  }
 
   let create () =
-    { assem = Vec.create ~cap:10 ~default:(Inner.N.End, Code_pos.dummy_loc) }
+    {
+      assem =
+        Vec.create ~cap:10 ~default:(Inner.N.End, (Code_pos.dummy_loc, None));
+    }
 
-  let push t loc (instr : Inner.N.t) =
-    Vec.push t.assem (instr, loc);
+  let push t ?sexper loc (instr : Inner.N.t) =
+    Vec.push t.assem (instr, (loc, sexper));
     Vec.length t.assem - 1
 
-  let edit t loc idx (instr : Inner.N.t) = Vec.set t.assem idx (instr, loc)
+  let edit t ?sexper loc idx (instr : Inner.N.t) =
+    Vec.set t.assem idx (instr, (loc, sexper))
+
   let next_idx t = Vec.length t.assem
   let assem_array t = Vec.to_array t.assem
 end
@@ -362,7 +369,7 @@ module Var_id_pool = struct
   type t = {
     mutable next_id : int;
     id_of_var : Inner.Var_id.t Ir_var.Table.t;
-    src_of_id : (Any.t Ir_dtype.t option * Var_id_src.t) Inner.Var_id.Table.t;
+    src_of_id : Var_id_src.t Inner.Var_id.Table.t;
   }
 
   let create () =
@@ -372,15 +379,15 @@ module Var_id_pool = struct
       src_of_id = Inner.Var_id.Table.create ();
     }
 
-  let new_id t src dtype =
+  let new_id t src =
     let id = t.next_id in
     t.next_id <- t.next_id + 1;
-    Hashtbl.set t.src_of_id ~key:id ~data:(dtype, src);
+    Hashtbl.set t.src_of_id ~key:id ~data:src;
     id
 
   let to_assem_id t var =
     Hashtbl.find_or_add t.id_of_var var ~default:(fun () ->
-        new_id t (Var_id_src.Var var) (Some var.d.dtype))
+        new_id t (Var_id_src.Var var))
 end
 
 module Chan_id_pool = struct
@@ -415,14 +422,14 @@ module Mem_id_pool = struct
     Hashtbl.find_or_add t.id_of_mem mem ~default:(fun () ->
         let mem_idx = new_id t in
         let helper_reg_var_idx =
-          Var_id_pool.new_id var_id_pool Mem_idx_reg None
+          Var_id_pool.new_id var_id_pool (Mem_idx_reg 1)
         in
         (helper_reg_var_idx, mem_idx))
 end
 
 let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
   let ab = Assem_builder.create () in
-  let push_instr loc instr = Assem_builder.push ab loc instr in
+  let push_instr loc ?sexper instr = Assem_builder.push ab loc ?sexper instr in
   let edit_instr loc idx instr = Assem_builder.edit ab loc idx instr in
 
   let expr_assert_error_decoders =
@@ -437,7 +444,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
   let convert_id id = Var_id_pool.to_assem_id var_id_pool id in
   (* Turns an Ir_expr into a Inner.Expr. Inner.Expr is a flat array. This code
      dedupicates repeated nodes. *)
-  let convert_expr expr =
+  let convert_expr' expr =
     let ns = Vec.create ~cap:10 ~default:(Inner.Expr.N.Const Cint.zero) in
     let ni_of_n = Inner.Expr.N.Table.create () in
     let push n =
@@ -509,10 +516,12 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
           push_assert assert_expr err_id log_input c0;
           convert val_expr
     in
-    let e = convert (Ir_expr.untype expr).k in
+    let e = convert expr in
     push' (Return e);
     { Inner.Expr.ns = Vec.to_array ns; asserts = Vec.to_array asserts }
   in
+  let convert_expr expr = convert_expr' (Ir_expr.untype expr).k in
+
   let chan_id_pool = Chan_id_pool.create () in
   let get_chan chan_id = Chan_id_pool.get_id chan_id_pool chan_id in
 
@@ -565,8 +574,9 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
       merge
     in
     match stmt with
-    | Ir_chp.Assign (loc, id, expr) ->
-        push_instr loc (Assign (convert_id id, convert_expr expr))
+    | Ir_chp.Assign (loc, (id, id_sexper), expr) ->
+        push_instr ~sexper:id_sexper loc
+          (Assign (convert_id id, convert_expr expr))
     | Nop -> push_instr Code_pos.dummy_loc Nop
     | Log (loc, str) -> push_instr loc (Log0 str)
     | Log1 (loc, expr, f) ->
@@ -606,12 +616,12 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
             let guards = List.zip_exn guards starts in
             edit_instr loc split (SelectImm guards);
             merge)
-    | Read (loc, chan, var) ->
+    | Read (loc, chan, (var, var_sexper)) ->
         let chan_idx = get_chan chan in
-        push_instr loc (Read (convert_id var, chan_idx))
-    | Send (loc, chan, expr) ->
+        push_instr ~sexper:var_sexper loc (Read (convert_id var, chan_idx))
+    | Send (loc, (chan, chan_sexper), expr) ->
         let chan_idx = get_chan chan in
-        push_instr loc (Send (convert_expr expr, chan_idx))
+        push_instr ~sexper:chan_sexper loc (Send (convert_expr expr, chan_idx))
     | Loop (loc, seq) ->
         let fst = Assem_builder.next_idx ab in
         convert' seq;
@@ -629,17 +639,15 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     | DoWhile (loc, seq, expr) ->
         let top = push_instr loc Nop in
         convert' seq;
-        let not_expr =
-          Expr.Internal.wrap expr |> Cbool.E.not_ |> Expr.Internal.unwrap
-        in
-        push_instr loc (JumpIfFalse (convert_expr not_expr, top))
-    | ReadUGMem (loc, mem, idx, dst) ->
+        let not_expr = Ir_expr0.Eq ((Ir_expr.untype expr).k, Const Cint.zero) in
+        push_instr loc (JumpIfFalse (convert_expr' not_expr, top))
+    | ReadUGMem (loc, mem, idx, (dst, dst_sexper)) ->
         let mem_idx_reg, mem_id = get_mem mem in
-        push_instr loc
+        push_instr ~sexper:dst_sexper loc
           (ReadMem (convert_expr idx, convert_id dst, mem_idx_reg, mem_id))
-    | WriteUGMem (loc, mem, idx, value) ->
+    | WriteUGMem (loc, (mem, mem_sexper), idx, value) ->
         let mem_idx_reg, mem_id = get_mem mem in
-        push_instr loc
+        push_instr ~sexper:mem_sexper loc
           (WriteMem (convert_expr idx, convert_expr value, mem_idx_reg, mem_id))
     | WaitUntilReadReady (loc, chan) ->
         let chan_idx = get_chan chan in
@@ -676,21 +684,23 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     Set.to_list user_readable_ports
     |> List.mapi ~f:(fun dequeuer_idx chan ->
            let chan_idx = Chan_id_pool.get_id chan_id_pool chan in
+           let bitwidth = chan.bitwidth in
            let var_id =
-             Var_id_pool.new_id var_id_pool Read_deq_reg (Some chan.d.dtype)
+             Var_id_pool.new_id var_id_pool (Read_deq_reg bitwidth)
            in
            let read_instr =
              push_instr Code_pos.dummy_loc (Read (var_id, chan_idx))
            in
            let _ = push_instr Code_pos.dummy_loc (Read_dequeuer dequeuer_idx) in
+           let sexper = Cint.sexp_of_t in
            (* let dequeuer = Dequeuer_buff.create ~var_id chan_idx in *)
-           ((chan, (read_instr, dequeuer_idx)), (var_id, chan_idx)))
+           ((chan, (read_instr, dequeuer_idx)), (sexper, var_id, chan_idx)))
     |> List.unzip
   in
   let all_dequeuers = Ir_chan.Map.of_alist_exn all_dequeuers in
   let dequeuers, dequeuer_table_info =
-    List.map dequeuer_table ~f:(fun (var_id, chan) ->
-        ({ Inner.Dequeuer_spec.var_id }, { Dequeuer_info.chan }))
+    List.map dequeuer_table ~f:(fun (sexper, var_id, chan) ->
+        ({ Inner.Dequeuer_spec.var_id }, { Dequeuer_info.chan; sexper }))
     |> Array.of_list |> Array.unzip
   in
 
@@ -699,8 +709,9 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     Set.to_list user_sendable_ports
     |> List.mapi ~f:(fun enqueuer_idx chan ->
            let chan_idx = Chan_id_pool.get_id chan_id_pool chan in
+           let bitwidth = chan.bitwidth in
            let var_id =
-             Var_id_pool.new_id var_id_pool Send_enq_reg (Some chan.d.dtype)
+             Var_id_pool.new_id var_id_pool (Send_enq_reg bitwidth)
            in
            let send_expr =
              { Inner.Expr.ns = [| Var var_id; Return 0 |]; asserts = [||] }
@@ -721,7 +732,8 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
   in
 
   let assem = Assem_builder.assem_array ab in
-  let assem, loc_of_assem_idx = Array.unzip assem in
+  let assem, l = Array.unzip assem in
+  let loc_of_assem_idx, sexper_of_assem_idx = Array.unzip l in
   let assem_guard_read_ids =
     Array.map assem ~f:(fun n -> Inner.N.get_read_ids n)
   in
@@ -734,23 +746,11 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
       |> List.sort ~compare:(fun (id1, _) (id2, _) -> Int.compare id1 id2)
     in
     List.iteri var_srcs ~f:(fun i (id, _) -> assert (Int.equal i id));
-    List.map var_srcs ~f:(fun (_, (dtype, src)) ->
-        let bitwidth =
-          Option.map dtype ~f:(fun dtype ->
-              match Ir_dtype.layout dtype with Bits_fixed bitwidth -> bitwidth)
-          |> Option.value ~default:0
-        in
-        let dtype = Option.value dtype ~default:Ir_dtype.dummy_val in
-        let init =
-          match src with
-          | Var_id_src.Mem_idx_reg | Read_deq_reg | Send_enq_reg -> None
-          | Var var ->
-              var.Ir_var.d.init
-              |> Option.map ~f:(fun init ->
-                     Ir_dtype.cint_of_value var.d.dtype init)
-        in
+    List.map var_srcs ~f:(fun (_, src) ->
+        let bitwidth = Var_id_src.bitwidth src in
+        let init = Var_id_src.init_value src in
         let spec = { Inner.Var_spec.bitwidth; init } in
-        let info = { Var_buff_info.src; dtype } in
+        let info = { Var_buff_info.src } in
         (spec, info))
     |> Array.of_list |> Array.unzip
   in
@@ -763,10 +763,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     in
     List.iteri tbl ~f:(fun i (chan_id, _) -> assert (Int.equal i chan_id));
     List.map tbl ~f:(fun (_, chan) ->
-        let bitwidth =
-          match Ir_dtype.layout chan.d.dtype with
-          | Bits_fixed bitwidth -> bitwidth
-        in
+        let bitwidth = chan.bitwidth in
         let spec = { Inner.Chan_spec.bitwidth } in
         let info = { Chan_buff_info.src = chan } in
         (spec, info))
@@ -780,14 +777,8 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     in
     List.iteri tbl ~f:(fun i (mem_id, _) -> assert (Int.equal i mem_id));
     List.map tbl ~f:(fun (_, (idx_helper_reg, mem)) ->
-        let init =
-          Array.map mem.d.init ~f:(fun v ->
-              Ir_dtype.cint_of_value mem.d.dtype v)
-        in
-        let cell_bitwidth =
-          match Ir_dtype.layout mem.d.dtype with
-          | Bits_fixed bitwidth -> bitwidth
-        in
+        let init = mem.init in
+        let cell_bitwidth = mem.cell_bitwidth in
         let spec = { Inner.Mem_spec.cell_bitwidth; idx_helper_reg; init } in
         let info = { Mem_buff_info.src = mem } in
         (spec, info))
@@ -797,10 +788,15 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     Inner.create ~assem ~assem_guard_read_ids ~assem_guard_write_ids ~vars
       ~chans ~enqueuers ~dequeuers ~mems ~seed
   in
+  let sexper_table =
+    Array.map sexper_of_assem_idx
+      ~f:(Option.value ~default:(fun _ -> Option.sexp_of_t Int.sexp_of_t None))
+  in
   {
     i;
     is_done = false;
     loc_of_assem_idx;
+    sexper_table;
     var_table_info;
     chan_table_info;
     enqueuer_table_info;
@@ -844,7 +840,7 @@ let simulate_chp ?(seed = 0) chp ~user_sendable_ports ~user_readable_ports =
 
 let queue_user_io_op t call_site chan value chan_instr queuer =
   let value = Any.of_magic value in
-  let ivalue = Ir_dtype.cint_of_value chan.Ir_chan.d.dtype value in
+  let ivalue = Ir_dtype.cint_of_value chan.Chan.Inner.d.dtype value in
   let chan_bitwidth =
     match Ir_dtype.layout chan.d.dtype with Bits_fixed bitwidth -> bitwidth
   in
@@ -860,9 +856,9 @@ let queue_user_io_op t call_site chan value chan_instr queuer =
          layout %{layout#Sexp}."]
 
 let send t chan value =
-  let chan = Chan.Internal.unwrap_w chan in
+  let chan = Chan.Internal.unwrap_w_inner chan in
   let call_site = Code_pos.psite () in
-  match Map.find t.all_enqueuers chan with
+  match Map.find t.all_enqueuers chan.c with
   | None ->
       failwith
         "the provided chan_id was not regestered as a user-sendable chan in \
@@ -871,9 +867,9 @@ let send t chan value =
       queue_user_io_op t call_site chan value send_instr (`Send enqueuer)
 
 let read t chan value =
-  let chan = Chan.Internal.unwrap_r chan in
+  let chan = Chan.Internal.unwrap_r_inner chan in
   let call_site = Code_pos.psite () in
-  match Map.find t.all_dequeuers chan with
+  match Map.find t.all_dequeuers chan.c with
   | None ->
       failwith
         "the provided chan_id was not regestered as a user-readable chan in \

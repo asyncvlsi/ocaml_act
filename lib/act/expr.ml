@@ -10,8 +10,8 @@ module U = struct
 end
 
 let var (v : 'a Var.t) =
+  let dtype = Var.Internal.dtype v |> Ir_dtype.untype in
   let v = Var.Internal.unwrap v in
-  let dtype = v.d.dtype in
   let tag : 'a Ir_expr_tag.t =
     let tag = Ir_dtype.expr_tag dtype in
     Obj.magic (tag : Any.t Ir_expr_tag.t)

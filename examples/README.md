@@ -436,7 +436,7 @@ let%expect_test "colatz - chp - export" =
       int<32> v0;
       int<32> v1;
     chp {
-    (v1 := 123456); (v0 := 1); ( *[ ( [true] ); (v0 := 0); (C0?v1); ( [true] ); ([bool(int(int((v1) != 1) = 0)) ->  [true]  [] bool(int((v1) != 1)) ->  *[ ( [true] ); (v0 := (1 + (v0))); ( [true] ); ([bool(int(0 = ((v1) % 2))) -> ( [true] ); (v1 := ((v1) / 2)) [] bool(int(int(0 = ((v1) % 2)) = 0)) -> ( [true] ); (v1 := (1 + (3 * (v1))))]); ( [true] ) <- bool(int((v1) != 1)) ] ]); ( [true] ); (C1!((v0))) <- bool(1) ] )
+    (v1 := 123456); (v0 := 1); ( *[ (v0 := 0); (C0?v1); ( [true] ); ([bool(int(int((v1) != 1) = 0)) ->  [true]  [] bool(int((v1) != 1)) ->  *[ (v0 := (1 + (v0))); ( [true] ); ([bool(int(0 = ((v1) % 2))) -> v1 := ((v1) / 2) [] bool(int(int(0 = ((v1) % 2)) = 0)) -> v1 := (1 + (3 * (v1)))]); ( [true] ) <- bool(int((v1) != 1)) ] ]); (C1!((v0))) <- bool(1) ] )
     }
     }
 
@@ -461,7 +461,7 @@ let%expect_test "colatz - dataflow - export" =
       int<32> v0;
       int<32> v1;
     chp {
-    (v1 := 123456); (v0 := 1); ( *[ ( [true] ); (v0 := 0); (C0?v1); ( [true] ); ([bool(int(int((v1) != 1) = 0)) ->  [true]  [] bool(int((v1) != 1)) ->  *[ ( [true] ); (v0 := (1 + (v0))); ( [true] ); ([bool(int(0 = ((v1) % 2))) -> ( [true] ); (v1 := ((v1) / 2)) [] bool(int(int(0 = ((v1) % 2)) = 0)) -> ( [true] ); (v1 := (1 + (3 * (v1))))]); ( [true] ) <- bool(int((v1) != 1)) ] ]); ( [true] ); (C1!((v0))) <- bool(1) ] )
+    (v1 := 123456); (v0 := 1); ( *[ (v0 := 0); (C0?v1); ( [true] ); ([bool(int(int((v1) != 1) = 0)) ->  [true]  [] bool(int((v1) != 1)) ->  *[ (v0 := (1 + (v0))); ( [true] ); ([bool(int(0 = ((v1) % 2))) -> v1 := ((v1) / 2) [] bool(int(int(0 = ((v1) % 2)) = 0)) -> v1 := (1 + (3 * (v1)))]); ( [true] ) <- bool(int((v1) != 1)) ] ]); (C1!((v0))) <- bool(1) ] )
     }
     }
 

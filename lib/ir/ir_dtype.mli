@@ -6,6 +6,7 @@ type 'a t = {
   max_layout_of : 'a -> Ir_layout.t;
   cint_of : 'a -> Cint0.t;
   of_cint : Cint0.t -> 'a option;
+  sexp_of_cint : Cint0.t -> Sexp.t;
   of_cint_assert_expr_fn : unit Ir_expr0.t;
   layout : Ir_layout.t;
   expr_tag : 'a Ir_expr_tag.t;

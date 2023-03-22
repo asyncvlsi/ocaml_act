@@ -6,6 +6,7 @@ type 'a t = {
   max_layout_of : 'a -> Ir_layout.t;
   cint_of : 'a -> Cint0.t;
   of_cint : Cint0.t -> 'a option;
+  sexp_of_cint : Cint0.t -> Sexp.t;
   of_cint_assert_expr_fn : unit Ir_expr0.t;
   layout : Ir_layout.t;
   expr_tag : 'a Ir_expr_tag.t;
@@ -23,12 +24,14 @@ let create ~equal ~sexp_of_t ~max_layout_of ~cint_of ~of_cint
     of_cint_assert_expr_fn;
     layout;
     expr_tag;
+    sexp_of_cint = (fun i -> Option.sexp_of_t sexp_of_t (of_cint i));
   }
 
 let dummy_val =
   {
     equal = (fun _ _ -> failwith "Cant call functions on Dtype.dummy_val");
     sexp_of_t = (fun _ -> failwith "Cant call functions on Dtype.dummy_val");
+    sexp_of_cint = (fun _ -> failwith "Cant call functions on Dtype.dummy_val");
     max_layout_of = (fun _ -> failwith "Cant call functions on Dtype.dummy_val");
     cint_of = (fun _ -> failwith "Cant call functions on Dtype.dummy_val");
     of_cint = (fun _ -> failwith "Cant call functions on Dtype.dummy_val");
