@@ -213,8 +213,22 @@ let with_assert_log ?new_max_bits ~assert_e ~val_e ~log_e log_fn =
 let var v = var v
 
 module Internal = struct
-  let unwrap t = t.k
+  module Assert = struct
+    type t = {
+      guards : Act_ir.Ir.Var.t Act_ir.Ir.Expr.t list;
+      cond : Act_ir.Ir.Var.t Act_ir.Ir.Expr.t;
+      log_e : Act_ir.Ir.Var.t Act_ir.Ir.Expr.t;
+      f : Act_ir.CInt.t -> string;
+    }
+    [@@deriving sexp_of]
+  end
+
+  let unwrap t = ([], t.k)
   let tag t = t.tag
   let max_bits t = t.max_bits
   let wrap k tag max_bits = { k; tag; max_bits }
+
+  let with_set_tag_and_max_bits { k; tag = _; max_bits = old_max_bits } tag
+      max_bits =
+    { k; tag; max_bits = Int.min old_max_bits max_bits }
 end

@@ -118,8 +118,12 @@ let log ?m str = log1 ?m (Const Cint.zero) ~f:(fun _ -> str)
 let assert_ ?(m = M.none) expr = Assert { m; expr }
 
 (* control flow *)
-let seq ?(m = M.none) ns = Seq { m; ns }
-let par ?(m = M.none) ns = Par { m; ns }
+let seq ?(m = M.none) ns =
+  match ns with [] -> Nop m | [ n ] -> n | ns -> Seq { m; ns }
+
+let par ?(m = M.none) ns =
+  match ns with [] -> Nop m | [ n ] -> n | ns -> Par { m; ns }
+
 let while_loop' ?(m = M.none) g n = WhileLoop { m; g; n }
 let do_while' ?(m = M.none) n g = DoWhile { m; n; g }
 let select_imm ?(m = M.none) branches ~else_ = SelectImm { m; branches; else_ }

@@ -2,7 +2,27 @@ open! Core
 
 type t = Act_ir.Ir.Chp.t [@@deriving sexp_of]
 
+let unpack_expr_asserts loc (asserts : Expr.Internal.Assert.t list) =
+  let m = Act_ir.Ir.Chp.M.create loc in
+  List.map asserts ~f:(fun { guards; cond; log_e; f } ->
+      let assert_ =
+        Act_ir.Ir.Chp.seq ~m
+          [
+            Act_ir.Ir.Chp.if_else ~m cond [] [ Act_ir.Ir.Chp.log1 ~m log_e ~f ];
+            Act_ir.Ir.Chp.assert_ cond;
+          ]
+      in
+      match guards with
+      | [] -> assert_
+      | gaurds ->
+          let guard =
+            List.reduce_exn gaurds ~f:(fun g1 g2 ->
+                Act_ir.Ir.Expr.BitAnd (g1, g2))
+          in
+          Act_ir.Ir.Chp.if_else ~m guard [ assert_ ] [])
+
 module Internal = struct
+  let unpack_expr_asserts = unpack_expr_asserts
   let unwrap t = t
   let wrap t = t
 end
@@ -26,9 +46,10 @@ let assign var_id expr =
     (Bits_fixed (Expr.Internal.max_bits expr))
     var_dtype;
   let var_id = Var.Internal.unwrap var_id in
-  let expr = Expr.Internal.unwrap expr in
+  let asserts, expr = Expr.Internal.unwrap expr in
   let m = Act_ir.Ir.Chp.M.create ~var_sexper:var_dtype.sexp_of_cint loc in
-  Act_ir.Ir.Chp.assign ~m var_id expr
+  let assign = Act_ir.Ir.Chp.assign ~m var_id expr in
+  Act_ir.Ir.Chp.seq (unpack_expr_asserts loc asserts @ [ assign ])
 
 let read chan_id var_id =
   let loc = Act_ir.Utils.Code_pos.psite () in
@@ -54,10 +75,11 @@ let send chan_id expr =
      not fit in. Try using a custom send statment (e.g. Cint.N.send)."
     (Bits_fixed (Expr.Internal.max_bits expr))
     chan_dtype;
-  let expr = Expr.Internal.unwrap expr in
+  let asserts, expr = Expr.Internal.unwrap expr in
   let chan_id = Chan.Internal.unwrap_w chan_id in
   let m = Act_ir.Ir.Chp.M.create ~chan_sexper:chan_dtype.sexp_of_cint loc in
-  Act_ir.Ir.Chp.send ~m chan_id expr
+  let send = Act_ir.Ir.Chp.send ~m chan_id expr in
+  Act_ir.Ir.Chp.seq (unpack_expr_asserts loc asserts @ [ send ])
 
 let send_var chan_id var_id = send chan_id Expr.(var var_id)
 
@@ -113,7 +135,9 @@ let read_ug_mem (mem : 'a Mem.ug_mem) ~idx ~(dst : 'a Var.t) =
     dst_dtype;
   let loc = Act_ir.Utils.Code_pos.psite () in
   let m = Act_ir.Ir.Chp.M.create loc ~var_sexper:dst_dtype.sexp_of_cint in
-  Act_ir.Ir.Chp.read_mem ~m mem ~idx:(Expr.Internal.unwrap idx) ~dst
+  let asserts, idx = Expr.Internal.unwrap idx in
+  let read_mem = Act_ir.Ir.Chp.read_mem ~m mem ~idx ~dst in
+  Act_ir.Ir.Chp.seq (unpack_expr_asserts loc asserts @ [ read_mem ])
 
 (* TODO treat idx like other expressions? *)
 let write_ug_mem (mem : 'a Mem.ug_mem) ~idx ~(value : 'a Expr.t) =
@@ -125,10 +149,15 @@ let write_ug_mem (mem : 'a Mem.ug_mem) ~idx ~(value : 'a Expr.t) =
      Cint.N.write_ug_mem)."
     (Bits_fixed (Expr.Internal.max_bits value))
     mem_dtype;
-  let value = Expr.Internal.unwrap value in
+  let value_asserts, value = Expr.Internal.unwrap value in
   let loc = Act_ir.Utils.Code_pos.psite () in
   let m = Act_ir.Ir.Chp.M.create loc ~cell_sexper:mem_dtype.sexp_of_cint in
-  Act_ir.Ir.Chp.write_mem ~m mem ~idx:(Expr.Internal.unwrap idx) ~value
+  let idx_asserts, idx = Expr.Internal.unwrap idx in
+  let write_mem = Act_ir.Ir.Chp.write_mem ~m mem ~idx ~value in
+  Act_ir.Ir.Chp.seq
+    (unpack_expr_asserts loc value_asserts
+    @ unpack_expr_asserts loc idx_asserts
+    @ [ write_mem ])
 
 let write_ug_mem' (mem : 'a Mem.ug_mem) ~idx ~(value : 'a Var.t) =
   write_ug_mem mem ~idx ~value:Expr.(var value)
@@ -146,7 +175,9 @@ let read_ug_rom (rom : 'a Mem.ug_rom) ~idx ~(dst : 'a Var.t) =
     dst_dtype;
   let loc = Act_ir.Utils.Code_pos.psite () in
   let m = Act_ir.Ir.Chp.M.create loc ~var_sexper:dst_dtype.sexp_of_cint in
-  Act_ir.Ir.Chp.read_mem ~m rom ~idx:(Expr.Internal.unwrap idx) ~dst
+  let asserts, idx = Expr.Internal.unwrap idx in
+  let read_rom = Act_ir.Ir.Chp.read_mem ~m rom ~idx ~dst in
+  Act_ir.Ir.Chp.seq (unpack_expr_asserts loc asserts @ [ read_rom ])
 
 let log str =
   let loc = Act_ir.Utils.Code_pos.psite () in
@@ -158,17 +189,20 @@ let log1' (expr : 'a Expr.t) ~(f : 'a -> string) =
     Expr_tag.value_of_cint (Expr.Internal.tag expr) v
     |> Option.map ~f |> Option.value ~default:""
   in
-  let expr = Expr.Internal.unwrap expr in
+  let asserts, expr = Expr.Internal.unwrap expr in
   let loc = Act_ir.Utils.Code_pos.psite () in
   let m = Act_ir.Ir.Chp.M.create loc in
-  Act_ir.Ir.Chp.log1 ~m expr ~f
+  let log1 = Act_ir.Ir.Chp.log1 ~m expr ~f in
+  Act_ir.Ir.Chp.seq (unpack_expr_asserts loc asserts @ [ log1 ])
 
 let log1 var ~f = log1' (Expr.var var) ~f
 
 let assert_ expr =
   let loc = Act_ir.Utils.Code_pos.psite () in
   let m = Act_ir.Ir.Chp.M.create loc in
-  Act_ir.Ir.Chp.assert_ ~m (Expr.Internal.unwrap expr)
+  let asserts, expr = Expr.Internal.unwrap expr in
+  let assert_ = Act_ir.Ir.Chp.assert_ ~m expr in
+  Act_ir.Ir.Chp.seq (unpack_expr_asserts loc asserts @ [ assert_ ])
 
 let seq l =
   let loc = Act_ir.Utils.Code_pos.psite () in
@@ -183,7 +217,9 @@ let par l =
 let if_else expr t_br f_br =
   let loc = Act_ir.Utils.Code_pos.psite () in
   let m = Act_ir.Ir.Chp.M.create loc in
-  Act_ir.Ir.Chp.if_else ~m (Expr.Internal.unwrap expr) t_br f_br
+  let asserts, expr = Expr.Internal.unwrap expr in
+  let if_else = Act_ir.Ir.Chp.if_else ~m expr t_br f_br in
+  Act_ir.Ir.Chp.seq (unpack_expr_asserts loc asserts @ [ if_else ])
 
 let loop t =
   let loc = Act_ir.Utils.Code_pos.psite () in
@@ -193,13 +229,19 @@ let loop t =
 let while_loop expr t =
   let loc = Act_ir.Utils.Code_pos.psite () in
   let m = Act_ir.Ir.Chp.M.create loc in
-  Act_ir.Ir.Chp.while_loop ~m (Expr.Internal.unwrap expr) t
+  let asserts, expr = Expr.Internal.unwrap expr in
+  let while_loop = Act_ir.Ir.Chp.while_loop ~m expr t in
+  Act_ir.Ir.Chp.seq (unpack_expr_asserts loc asserts @ [ while_loop ])
 
 let select_imm branches ~else_ =
   let loc = Act_ir.Utils.Code_pos.psite () in
   let m = Act_ir.Ir.Chp.M.create loc in
-  let branches =
+  let asserts, branches =
     List.map branches ~f:(fun (guard, stmt) ->
-        (Expr.Internal.unwrap guard, stmt))
+        let asserts, guard = Expr.Internal.unwrap guard in
+        (asserts, (guard, stmt)))
+    |> List.unzip
   in
-  Act_ir.Ir.Chp.select_imm ~m branches ~else_
+  let asserts = List.concat asserts in
+  let select_imm = Act_ir.Ir.Chp.select_imm ~m branches ~else_ in
+  Act_ir.Ir.Chp.seq (unpack_expr_asserts loc asserts @ [ select_imm ])

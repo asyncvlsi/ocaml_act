@@ -97,11 +97,13 @@ module Chp = struct
     let loc = Act_ir.Utils.Code_pos.psite () in
     let var_dtype = Var.Internal.dtype var in
     let var = Var.Internal.unwrap var in
-    let expr =
+    let asserts, expr =
       apply_overflow var_dtype expr ~overflow |> Expr.Internal.unwrap
     in
     let m = Act_ir.Ir.Chp.M.create loc ~var_sexper:var_dtype.sexp_of_cint in
-    Act_ir.Ir.Chp.assign ~m var expr |> Chp.Internal.wrap
+    let assign = Act_ir.Ir.Chp.assign ~m var expr in
+    Act_ir.Ir.Chp.seq (Chp.Internal.unpack_expr_asserts loc asserts @ [ assign ])
+    |> Chp.Internal.wrap
 
   let incr var_id ~overflow =
     let expr = E.(var var_id |> add one) in
@@ -115,11 +117,13 @@ module Chp = struct
     let loc = Act_ir.Utils.Code_pos.psite () in
     let chan_dtype = Chan.Internal.dtype_w chan_id in
     let chan_id = Chan.Internal.unwrap_w chan_id in
-    let expr =
+    let asserts, expr =
       apply_overflow chan_dtype expr ~overflow |> Expr.Internal.unwrap
     in
     let m = Act_ir.Ir.Chp.M.create loc ~chan_sexper:chan_dtype.sexp_of_cint in
-    Act_ir.Ir.Chp.send ~m chan_id expr |> Chp.Internal.wrap
+    let send = Act_ir.Ir.Chp.send ~m chan_id expr in
+    Act_ir.Ir.Chp.seq (Chp.Internal.unpack_expr_asserts loc asserts @ [ send ])
+    |> Chp.Internal.wrap
 
   let send_var chan_id var_id ~overflow =
     send chan_id Expr.(var var_id) ~overflow

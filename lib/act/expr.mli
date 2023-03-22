@@ -58,10 +58,21 @@ val false_ : Cbool0.t t
 (**/**)
 
 module Internal : sig
-  val unwrap : 'a t -> Act_ir.Ir.Var.t Act_ir.Ir.Expr.t
+  module Assert : sig
+    type t = {
+      guards : Act_ir.Ir.Var.t Act_ir.Ir.Expr.t list;
+      cond : Act_ir.Ir.Var.t Act_ir.Ir.Expr.t;
+      log_e : Act_ir.Ir.Var.t Act_ir.Ir.Expr.t;
+      f : Act_ir.CInt.t -> string;
+    }
+    [@@deriving sexp_of]
+  end
+
+  val unwrap : 'a t -> Assert.t list * Act_ir.Ir.Var.t Act_ir.Ir.Expr.t
   val max_bits : 'a t -> int
   val tag : 'a t -> 'a Expr_tag.t
   val wrap : Act_ir.Ir.Var.t Act_ir.Ir.Expr.t -> 'a Expr_tag.t -> int -> 'a t
+  val with_set_tag_and_max_bits : 'a t -> 'b Expr_tag.t -> int -> 'b t
 end
 
 (**/**)

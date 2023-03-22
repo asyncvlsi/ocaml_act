@@ -42,6 +42,11 @@ val select_imm : (Cbool0.t Expr.t * t) list -> else_:t option -> t
 (**/**)
 
 module Internal : sig
+  val unpack_expr_asserts :
+    Act_ir.Utils.Code_pos.t ->
+    Expr.Internal.Assert.t list ->
+    Act_ir.Ir.Chp.t list
+
   val unwrap : t -> Act_ir.Ir.Chp.t
   val wrap : Act_ir.Ir.Chp.t -> t
 end
