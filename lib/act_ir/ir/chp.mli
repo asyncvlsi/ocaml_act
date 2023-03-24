@@ -92,7 +92,6 @@ module Nondeterm_select : sig
   [@@deriving sexp_of]
 end
 
-(** @canonical Act_ir.Ir.Chp.t *)
 type t =
   | Nop of M.t
   | Log1 of Log1.t

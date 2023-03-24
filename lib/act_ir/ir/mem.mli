@@ -10,7 +10,6 @@ type t = {
   kind : [ `Mem | `Rom ];
 }
 [@@deriving sexp_of]
-(** @canonical Act_ir.Ir.Mem.t *)
 
 include Comparable with type t := t
 include Hashable with type t := t
