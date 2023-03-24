@@ -63,8 +63,9 @@ $ opam install bignum core dune expect_test_helpers_core mdx merlin ocamlformat 
 ```
 
 3. Clone this repository (e.g. if you have ssh keys installed, `$ git clone git@git.yale.edu:avlsi/ocaml_act.git`)
-4. For now, I have not made this library installable. Therefore, you should just create a directory. So, to create a new project, _create a new folder in the cloned directory_ and build your code there.
-5. Read the tutorials/examples in the `examples` directory. Start with `examples/README.md`.
+4. Run `opam install .` from the root directory of this project.
+6. Then create a new dune project (see https://dune.readthedocs.io/en/stable/quick-start.html) and add `act` to the list of library dependencies in the dune folder.
+7. Read the tutorials/examples in the `examples` directory. Start with `examples/README.md`.
 
 ## Building documentation
 Run the command `dune build @doc` to generate the documentation for the act library. You can view the documentation by opening the file `_build/default/_doc/_html/index.html`.
