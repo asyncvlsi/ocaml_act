@@ -1,8 +1,9 @@
 open! Core
+open Utils
 
 type 'v t =
   | Var of 'v
-  | Const of Cint.t
+  | Const of CInt.t
   | Add of 'v t * 'v t
   | Sub_no_wrap of 'v t * 'v t
   | Mul of 'v t * 'v t

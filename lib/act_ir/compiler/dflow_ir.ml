@@ -1,4 +1,5 @@
 open! Core
+open Utils
 
 module Var = struct
   module T = struct
@@ -45,7 +46,7 @@ module Stmt = struct
     | MultiAssign of FBlock.t
     | Split of Guard.t * Var.t * Var.t option list
     | Merge of Guard.t * Var.t list * Var.t
-    | Buff1 of (*dst *) Var.t * (*src*) Var.t * Cint.t option
+    | Buff1 of (*dst *) Var.t * (*src*) Var.t * CInt.t option
   [@@deriving sexp_of]
 end
 
@@ -342,15 +343,15 @@ module Rui = struct
     let s_ = new_chan 1 in
     let dflow =
       [
-        Buff1 (ctrl, s_, Some Cint.zero);
-        assign s_ (BitXor (Const Cint.one, Var ctrl));
+        Buff1 (ctrl, s_, Some CInt.zero);
+        assign s_ (BitXor (Const CInt.one, Var ctrl));
       ]
     in
     ({ Alias_with_ctrl.alias; ctrl }, dflow)
 
   let synth_opt_guarded_op_seq guarded_aliases ~new_chan ~dir =
     let ct = List.length guarded_aliases in
-    let ct_const = F_expr.Const (Cint.of_int ct) in
+    let ct_const = F_expr.Const (CInt.of_int ct) in
     let n_width = Int.ceil_log2 (ct + 1) in
 
     let a_chan = new_chan (List.hd_exn guarded_aliases |> snd).Var.bitwidth in
@@ -367,11 +368,11 @@ module Rui = struct
             | Some g_chan -> ([], g_chan)
             | None ->
                 let gi = new_chan 1 in
-                ([ assign gi F_expr.(Const Cint.one) ], gi))
+                ([ assign gi F_expr.(Const CInt.one) ], gi))
         |> List.unzip
       in
       let gL = new_chan 1 in
-      let assign_L = assign gL (Const Cint.zero) in
+      let assign_L = assign gL (Const CInt.zero) in
       let gis = gis @ [ gL ] in
       assert (List.length gis |> Int.equal (ct + 1));
       [ Merge (Idx n, gis, g); assign_L ] @ List.concat dflows
@@ -420,14 +421,14 @@ module Rui = struct
       let n_expr =
         F_expr.(
           BitOr
-            ( Mul (Eq (Var n, ct_const), Const Cint.zero),
-              Mul (Ne (Var n, ct_const), Add (Var n, Const Cint.one)) ))
+            ( Mul (Eq (Var n, ct_const), Const CInt.zero),
+              Mul (Ne (Var n, ct_const), Add (Var n, Const CInt.one)) ))
       in
       [ MultiAssign (FBlock.create1 n' n_expr) ]
     in
 
     (* finally, we must wrap `n` back around to the top *)
-    let dflow_wrap = [ Buff1 (n, n', Some Cint.zero) ] in
+    let dflow_wrap = [ Buff1 (n, n', Some CInt.zero) ] in
     ( { Alias_with_ctrl.alias = a_chan; ctrl = b_chan },
       dflow1 @ dflow2 @ dflow3 @ dflow4 @ dflow_wrap )
 
@@ -463,14 +464,14 @@ module Rui = struct
       in
       [
         split_bool_guard v s (Some s0, Some s1);
-        [ assign s0' (F_expr.BitXor (Var s0, Const Cint.one)) ];
+        [ assign s0' (F_expr.BitXor (Var s0, Const CInt.one)) ];
         merge_bool_guard v (s0', s1) s';
         op_procs;
       ]
       |> List.concat
     in
     (* finally, we must wrap `s` back around to the top *)
-    let dflow_wrap = [ Buff1 (s, s', Some Cint.zero) ] in
+    let dflow_wrap = [ Buff1 (s, s', Some CInt.zero) ] in
     ( { Alias_with_ctrl.alias = a; ctrl = b_chan },
       dflow1 @ dflow2 @ dflow3 @ dflow_wrap )
 
@@ -511,7 +512,7 @@ module Rui = struct
             let vi' = new_chan 1 in
             let dflow =
               match o with
-              | None -> assign vi' (Const Cint.zero)
+              | None -> assign vi' (Const CInt.zero)
               | Some rui_i -> assign vi' (Var rui_i.ctrl)
             in
             (dflow, vi'))
@@ -533,7 +534,7 @@ module Rui = struct
                   let vi' = new_chan 1 in
                   let dflow =
                     match o with
-                    | None -> assign vi' (Const Cint.zero)
+                    | None -> assign vi' (Const CInt.zero)
                     | Some rui_i -> assign vi' (Var rui_i.alias)
                   in
                   (dflow, vi'))
@@ -551,7 +552,7 @@ module Rui = struct
 
     (* finally, we must wrap `v` and `g` back around to the top *)
     let dflow_wrap =
-      [ Buff1 (v, v', Some Cint.zero); Buff1 (g, g', Some Cint.one) ]
+      [ Buff1 (v, v', Some CInt.zero); Buff1 (g, g', Some CInt.one) ]
     in
     let dflow = dflow1 @ dflow2 @ dflow3 @ dflow_wrap in
     ({ Alias_with_ctrl.alias = a_chan; ctrl = b_chan }, dflow)
@@ -579,14 +580,14 @@ module Rui = struct
     in
 
     (* finally, we must wrap `g` back around to the top *)
-    let dflow_wrap = [ Buff1 (g, g', Some Cint.zero) ] in
+    let dflow_wrap = [ Buff1 (g, g', Some CInt.zero) ] in
     let dflows = dflow1 @ dflow2 @ dflow_wrap in
     ({ Alias_with_ctrl.alias = rui.alias; ctrl = b_chan }, dflows)
 
   let synth_loop rui ~new_chan ~dir:_ =
     let b_chan = new_chan 1 in
     ( { Alias_with_ctrl.alias = rui.Alias_with_ctrl.alias; ctrl = b_chan },
-      [ assign b_chan (Const Cint.one) ] )
+      [ assign b_chan (Const CInt.one) ] )
 
   let rec synth rui ~dir ~new_chan =
     let synth rui = synth rui ~dir ~new_chan in
@@ -763,12 +764,12 @@ let dflow_of_stf proc =
         (dflows, ctrl_proc_map)
     | DoWhile (phis, stmt, guard) ->
         let is_infinite =
-          match guard with Const c -> Cint.equal c Cint.one | _ -> false
+          match guard with Const c -> CInt.equal c CInt.one | _ -> false
         in
         (* TODO add special case for infinite loop *)
         let guard_proc, guard = of_e' guard in
         let prev_guard = new_alias guard in
-        let copy_init = Buff1 (prev_guard, guard, Some Cint.zero) in
+        let copy_init = Buff1 (prev_guard, guard, Some CInt.zero) in
         let phis =
           List.concat_map phis ~f:(fun phi ->
               let bitwidth =
@@ -834,7 +835,7 @@ let dflow_of_stf proc =
           | None ->
               let tmp = new_chan chan.bitwidth in
               ( tmp,
-                [ MultiAssign (FBlock.create1 tmp (F_expr.Const Cint.zero)) ] )
+                [ MultiAssign (FBlock.create1 tmp (F_expr.Const CInt.zero)) ] )
         in
         ((interproc, alias), dflows))
     |> List.unzip
@@ -1224,9 +1225,9 @@ let propogate_consts { Proc.stmt = dflows; iports; oports } =
    ~f:(Map.mem const_vars) with | false -> [ Split (g, i, os) ] | true -> ( (*
    first remove null branches *) let not_dead = List.zip_exn gs os |>
    List.filter ~f:(fun (g, _) -> let is_dead = Map.find const_vars g |>
-   Option.map ~f:(Cint.eq Cint.zero) |> Option.value ~default:false in not
+   Option.map ~f:(CInt.eq CInt.zero) |> Option.value ~default:false in not
    is_dead) in let guarded_by_one = List.filter not_dead ~f:(fun (g, _) ->
-   Map.find const_vars g |> Option.map ~f:(Cint.eq Cint.one) |> Option.value
+   Map.find const_vars g |> Option.map ~f:(CInt.eq CInt.one) |> Option.value
    ~default:false) in let guarded_by_one = match guarded_by_one with | [] ->
    None | [ (_, o) ] -> Some o | _ -> failwith "More than one true guard" in
    match guarded_by_one with | Some o -> ( match o with | None -> [] | Some o ->
@@ -1553,7 +1554,7 @@ let zip_repeated_merge_consts { Proc.stmt = dflows; iports; oports } =
                 in
 
                 let const, ctrl_procs =
-                  Cint.Map.of_alist_multi const
+                  CInt.Map.of_alist_multi const
                   |> Map.map ~f:(fun l ->
                          let gs, in_vs = List.unzip l in
                          let g, ctrl_proc =

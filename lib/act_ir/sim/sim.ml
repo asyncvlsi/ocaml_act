@@ -1,4 +1,5 @@
 open! Core
+open Utils
 
 module With_origin = struct
   type 'a t = { value : 'a; origin : Code_pos.t } [@@deriving sexp_of, fields]
@@ -43,7 +44,7 @@ module Enqueuer_info = struct
 end
 
 module Dequeuer_info = struct
-  type t = { chan : Inner.Chan_id.t; sexper : Cint.t -> Sexp.t }
+  type t = { chan : Inner.Chan_id.t; sexper : CInt.t -> Sexp.t }
   [@@deriving sexp_of]
 end
 
@@ -51,7 +52,7 @@ module Queued_user_op = struct
   type t = {
     queuer : [ `Send of Inner.Enqueuer_idx.t | `Read of Inner.Dequeuer_idx.t ];
     chan_instr : Inner.Instr_idx.t;
-    value : Cint.t;
+    value : CInt.t;
     call_site : Code_pos.t;
   }
   [@@deriving sexp_of]
@@ -61,7 +62,7 @@ type t = {
   i : Inner.t;
   mutable is_done : bool;
   (* error message helpers *)
-  sexper_table : (Cint.t -> Sexp.t) array;
+  sexper_table : (CInt.t -> Sexp.t) array;
   loc_of_assem_idx : Code_pos.t array;
   var_table_info : Var_buff_info.t array;
   chan_table_info : Chan_buff_info.t array;
@@ -77,7 +78,7 @@ type t = {
 [@@deriving sexp_of]
 
 let resolve_step_err t e ~line_numbers ~to_send ~to_read =
-  (* Now this is a map of form Enquere_idx.t -> Cint.t With_origin.t *)
+  (* Now this is a map of form Enquere_idx.t -> CInt.t With_origin.t *)
   let to_send = Map.data to_send |> Int.Map.of_alist_exn in
   let to_read = Map.data to_read |> Int.Map.of_alist_exn in
   let loc_of_instr var_id = t.loc_of_assem_idx.(var_id) in
@@ -188,7 +189,7 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
   | Mem_out_of_bounds (pc, idx, len) ->
       Error
         [%string
-          "Mem access out of bounds: %{str_i pc}, idx is %{idx#Cint}, size of \
+          "Mem access out of bounds: %{str_i pc}, idx is %{idx#CInt}, size of \
            mem is %{len#Int}."]
   | Assigned_value_doesnt_fit_in_var (assign_instr, _, value) ->
       let value = t.sexper_table.(assign_instr) value in
@@ -325,7 +326,7 @@ let wait' t ?max_steps () =
 
 module Assem_builder = struct
   type t = {
-    assem : (Inner.N.t * (Code_pos.t * (Cint.t -> Sexp.t) option)) Vec.t;
+    assem : (Inner.N.t * (Code_pos.t * (CInt.t -> Sexp.t) option)) Vec.t;
   }
 
   let create () =
@@ -417,7 +418,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
   (* Turns an Ir_expr into a Inner.Expr. Inner.Expr is a flat array. This code
      dedupicates repeated nodes. *)
   let convert_expr' expr =
-    let ns = Vec.create ~cap:10 ~default:(Inner.Expr.N.Const Cint.zero) in
+    let ns = Vec.create ~cap:10 ~default:(Inner.Expr.N.Const CInt.zero) in
     let ni_of_n = Inner.Expr.N.Table.create () in
     let push n =
       Hashtbl.find_or_add ni_of_n n ~default:(fun () ->
@@ -435,7 +436,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
           push (Sub_no_underflow (a, b))
       | Sub_wrap (a, b, bits) ->
           let a, b = (convert a, convert b) in
-          let p2bits = push (Const Cint.(left_shift one ~amt:(of_int bits))) in
+          let p2bits = push (Const CInt.(left_shift one ~amt:(of_int bits))) in
           let a = push (Clip (a, bits)) in
           let a = push (BitOr (a, p2bits)) in
           let b = push (Clip (b, bits)) in
@@ -573,7 +574,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
     | DoWhile { m; n = seq; g = expr } ->
         let top = push_instr m.cp Nop in
         convert' seq;
-        let not_expr = Ir.Expr.Eq (expr, Const Cint.zero) in
+        let not_expr = Ir.Expr.Eq (expr, Const CInt.zero) in
         push_instr m.cp (JumpIfFalse (convert_expr' not_expr, top))
     | ReadMem { m; mem; idx; var = dst } ->
         let mem_idx_reg, mem_id = get_mem mem in
@@ -620,7 +621,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
              push_instr Code_pos.dummy_loc (Read (var_id, chan_idx))
            in
            let _ = push_instr Code_pos.dummy_loc (Read_dequeuer dequeuer_idx) in
-           let sexper = Cint.sexp_of_t in
+           let sexper = CInt.sexp_of_t in
            (* let dequeuer = Dequeuer_buff.create ~var_id chan_idx in *)
            ((chan, (read_instr, dequeuer_idx)), (sexper, var_id, chan_idx)))
     |> List.unzip
@@ -758,11 +759,11 @@ let simulate ?(seed = 0) (process : Ir.Process.t) =
 let queue_user_io_op t call_site chan value chan_instr queuer =
   let ivalue = value in
   let chan_bitwidth = chan.Ir.Chan.bitwidth in
-  if chan_bitwidth >= Cint.bitwidth ivalue then
+  if chan_bitwidth >= CInt.bitwidth ivalue then
     Queue.enqueue t.queued_user_ops
       { Queued_user_op.queuer; chan_instr; value = ivalue; call_site }
   else
-    let value = Cint.sexp_of_t value in
+    let value = CInt.sexp_of_t value in
     failwith
       [%string
         "Value doesnt fit in chan: got value %{value#Sexp} but channel has \

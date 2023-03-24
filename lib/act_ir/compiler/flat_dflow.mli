@@ -1,4 +1,5 @@
 open! Core
+open Utils
 
 module Var : sig
   type t = { id : int; bitwidth : int } [@@deriving sexp, hash, equal, compare]
@@ -16,7 +17,7 @@ module Stmt : sig
     | MultiAssign of FBlock.t
     | Split of Var.t * Var.t * Var.t option list
     | Merge of Var.t * Var.t list * Var.t
-    | Buff1 of (*dst *) Var.t * (*src*) Var.t * Cint.t option
+    | Buff1 of (*dst *) Var.t * (*src*) Var.t * CInt.t option
     | Clone of Var.t * Var.t list
     | Sink of Var.t
   [@@deriving sexp_of]

@@ -7,7 +7,7 @@ authors: ["Henry Heffan"]
 license: "GPL-3.0-or-later"
 depends: [
   "ocaml"
-  "dune" {>= "3.6"}
+  "dune" {>= "3.7"}
   "act_ir"
   "core"
   "odoc" {with-doc}

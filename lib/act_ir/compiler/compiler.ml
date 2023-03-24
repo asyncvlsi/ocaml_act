@@ -1,4 +1,5 @@
 open! Core
+open Utils
 
 module Compiled_program = struct
   type t = Opt_program.t [@@deriving sexp_of]
@@ -43,7 +44,7 @@ let sim ?seed (t : Compiled_program.t) =
       | Ge (a, b) -> Ge (f a, f b)
       | Lt (a, b) -> Lt (f a, f b)
       | Le (a, b) -> Le (f a, f b)
-      | Eq0 a -> Eq (f a, Const Cint.zero)
+      | Eq0 a -> Eq (f a, Const CInt.zero)
       | BitXor (a, b) -> BitXor (f a, f b)
       | BitOr (a, b) -> BitOr (f a, f b)
       | BitAnd (a, b) -> BitAnd (f a, f b)
@@ -53,7 +54,7 @@ let sim ?seed (t : Compiled_program.t) =
       | Concat l ->
           List.folding_map l ~init:0 ~f:(fun acc (e, bits) ->
               ( acc + bits,
-                Ir.Expr.LShift (Clip (f e, bits), Const (Cint.of_int acc)) ))
+                Ir.Expr.LShift (Clip (f e, bits), Const (CInt.of_int acc)) ))
           |> List.reduce_exn ~f:(fun a b -> BitOr (a, b))
       | Log2OneHot e ->
           let w = F_expr.bitwidth e ~bits_of_var in
@@ -61,8 +62,8 @@ let sim ?seed (t : Compiled_program.t) =
           List.init w ~f:(fun idx ->
               Ir.Expr.(
                 Mul
-                  ( BitAnd (RShift (e, Const (Cint.of_int idx)), Const Cint.one),
-                    Const (Cint.of_int idx) )))
+                  ( BitAnd (RShift (e, Const (CInt.of_int idx)), Const CInt.one),
+                    Const (CInt.of_int idx) )))
           |> List.reduce_exn ~f:(fun a b -> BitOr (a, b))
     in
 
@@ -232,7 +233,7 @@ let sim ?seed (t : Compiled_program.t) =
   in
 
   let of_mem (mem : Flat_mem.Proc.t) =
-    (* init : Cint.t array; idx_bits : int; cell_bits : int; cmd_chan :
+    (* init : CInt.t array; idx_bits : int; cell_bits : int; cmd_chan :
        Interproc_chan.t; read_chan : Interproc_chan.t; write_chan :
        Interproc_chan.t option; *)
     let cp = Code_pos.dummy_loc in
@@ -246,9 +247,9 @@ let sim ?seed (t : Compiled_program.t) =
       [
         Ir.Chp.read cmd_chan cmd;
         Ir.Chp.if_else
-          (Eq (Const Cint.zero, BitAnd (Const Cint.one, Var cmd)))
+          (Eq (Const CInt.zero, BitAnd (Const CInt.one, Var cmd)))
           [
-            Ir.Chp.read_mem mem ~idx:(RShift (Var cmd, Const Cint.one)) ~dst:tmp;
+            Ir.Chp.read_mem mem ~idx:(RShift (Var cmd, Const CInt.one)) ~dst:tmp;
             Ir.Chp.send_var read_chan tmp;
           ]
           (match write_chan with
@@ -256,10 +257,10 @@ let sim ?seed (t : Compiled_program.t) =
               [
                 Ir.Chp.read write_chan tmp;
                 Ir.Chp.write_mem mem
-                  ~idx:(RShift (Var cmd, Const Cint.one))
+                  ~idx:(RShift (Var cmd, Const CInt.one))
                   ~value:(Var tmp);
               ]
-          | None -> [ Ir.Chp.assert_ (Const Cint.zero) ]);
+          | None -> [ Ir.Chp.assert_ (Const CInt.zero) ]);
       ]
   in
 

@@ -1,8 +1,9 @@
 open! Core
+open Utils
 
 type 'v t =
   | Var of 'v
-  | Const of Cint.t
+  | Const of CInt.t
   | Add of 'v t * 'v t
   | Sub_no_wrap of 'v t * 'v t
   | Sub_wrap of 'v t * 'v t * int
@@ -23,7 +24,7 @@ type 'v t =
   | Clip of 'v t * int
 [@@deriving sexp_of]
 
-let of_int i = Const (Cint.of_int i)
+let of_int i = Const (CInt.of_int i)
 let of_cint i = Const i
 let zero = of_int 0
 let one = of_int 1

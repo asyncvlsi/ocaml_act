@@ -1,23 +1,24 @@
 open! Core
+open Utils
 
 module M = struct
   type t = {
     cp : Utils.Code_pos.t;
-    var_sexper : Cint.t -> Sexp.t;
-    chan_sexper : Cint.t -> Sexp.t;
-    cell_sexper : Cint.t -> Sexp.t;
+    var_sexper : CInt.t -> Sexp.t;
+    chan_sexper : CInt.t -> Sexp.t;
+    cell_sexper : CInt.t -> Sexp.t;
   }
   [@@deriving sexp_of]
 
-  let create ?(var_sexper = Cint.sexp_of_t) ?(chan_sexper = Cint.sexp_of_t)
-      ?(cell_sexper = Cint.sexp_of_t) cp =
+  let create ?(var_sexper = CInt.sexp_of_t) ?(chan_sexper = CInt.sexp_of_t)
+      ?(cell_sexper = CInt.sexp_of_t) cp =
     { cp; var_sexper; chan_sexper; cell_sexper }
 
   let none = create Utils.Code_pos.dummy_loc
 end
 
 module Log1 = struct
-  type t = { m : M.t; f : Cint.t -> string; expr : Var.t Expr.t }
+  type t = { m : M.t; f : CInt.t -> string; expr : Var.t Expr.t }
   [@@deriving sexp_of]
 end
 
@@ -26,7 +27,7 @@ module Assert = struct
     m : M.t;
     expr : Var.t Expr.t;
     log_e : Var.t Expr.t;
-    msg_fn : Cint.t -> string;
+    msg_fn : CInt.t -> string;
   }
   [@@deriving sexp_of]
 end
@@ -115,9 +116,9 @@ let write_mem ?(m = M.none) mem ~idx ~value =
   WriteMem { m; mem; idx; expr = value }
 
 let log1 ?(m = M.none) expr ~f = Log1 { m; expr; f }
-let log ?m str = log1 ?m (Const Cint.zero) ~f:(fun _ -> str)
+let log ?m str = log1 ?m (Const CInt.zero) ~f:(fun _ -> str)
 let assert1 ?(m = M.none) expr log_e ~f = Assert { m; expr; log_e; msg_fn = f }
-let assert0 ?m expr str = assert1 ?m expr (Const Cint.zero) ~f:(fun _ -> str)
+let assert0 ?m expr str = assert1 ?m expr (Const CInt.zero) ~f:(fun _ -> str)
 let assert_ ?m expr = assert0 ?m expr ""
 
 (* control flow *)
@@ -133,7 +134,7 @@ let select_imm ?(m = M.none) branches ~else_ = SelectImm { m; branches; else_ }
 let nondeterm_select ?(m = M.none) branches = Nondeterm_select { m; branches }
 let while_loop ?m g ns = while_loop' ?m g (seq ?m ns)
 let do_while ?m ns g = do_while' ?m (seq ?m ns) g
-let loop ?m ns = do_while ?m ns (Const Cint.one)
+let loop ?m ns = do_while ?m ns (Const CInt.one)
 
 let if_else ?m e ns_true ns_false =
   select_imm ?m [ (e, seq ?m ns_true) ] ~else_:(Some (seq ?m ns_false))

@@ -1,8 +1,9 @@
 open! Core
+open Utils
 
 module Proc = struct
   type t = {
-    init : Cint.t array;
+    init : CInt.t array;
     idx_bits : int;
     cell_bits : int;
     cmd_chan : Interproc_chan.t;

@@ -1,12 +1,10 @@
 open! Core
-
-(* This module is unsafe, and is only meant for compiler use. It is needed to
-   break a dependency cycle from Var -> Dtype -> Expr -> Var *)
+open Utils
 
 (** @canonical Act_ir.Ir.Expr.t *)
 type 'v t =
   | Var of 'v
-  | Const of Cint.t
+  | Const of CInt.t
   | Add of 'v t * 'v t
   | Sub_no_wrap of 'v t * 'v t
   | Sub_wrap of 'v t * 'v t * int
@@ -30,7 +28,7 @@ type 'v t =
 (* ops *)
 val var : 'v -> 'v t
 val of_int : int -> 'v t
-val of_cint : Cint.t -> 'v t
+val of_cint : CInt.t -> 'v t
 val add : 'v t -> 'v t -> 'v t
 val sub : 'v t -> 'v t -> 'v t
 val mul : 'v t -> 'v t -> 'v t

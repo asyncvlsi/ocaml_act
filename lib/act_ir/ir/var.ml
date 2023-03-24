@@ -1,4 +1,5 @@
 open! Core
+open Utils
 
 module Id : sig
   include Identifiable
@@ -19,7 +20,7 @@ module T = struct
   type t = {
     id : Id.t;
     creation_code_pos : Code_pos.t;
-    init : Cint.t option;
+    init : CInt.t option;
     bitwidth : int;
   }
   [@@deriving hash, compare, equal, sexp]

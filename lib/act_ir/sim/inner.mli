@@ -1,4 +1,5 @@
 open! Core
+open Utils
 
 (* This module doesnt know about dtypes. Everything is just a Cint. Moreover, it
    includes no recursive data types. So, this should be fairly easy to port into
@@ -28,7 +29,7 @@ module Expr : sig
   module N : sig
     type t =
       | Var of Var_id.t
-      | Const of Cint.t
+      | Const of CInt.t
       | Add of NI.t * NI.t
       | Sub_no_underflow of NI.t * NI.t
       | Mul of NI.t * NI.t
@@ -69,8 +70,8 @@ module N : sig
     | Nop
     | Assign of Var_id.t * Expr.t
     | Log0 of string
-    | Log1 of Expr.t * (Cint.t -> string)
-    | Assert of Expr.t * Expr.t * (Cint.t -> string)
+    | Log1 of Expr.t * (CInt.t -> string)
+    | Assert of Expr.t * Expr.t * (CInt.t -> string)
     | Par of Instr_idx.t list
     | ParJoin of Par_join.t
     | Jump of Instr_idx.t
@@ -104,20 +105,20 @@ module E : sig
     | Uninit_id of Var_id.t * Instr_idx.t
     | Simul_read_write_var of Instr_idx.t * Instr_idx.t * Var_id.t
     | Simul_write_write_var of Instr_idx.t * Instr_idx.t * Var_id.t
-    | Sent_value_doesnt_fit_in_chan of Instr_idx.t * Chan_id.t * Cint.t
-    | Read_chan_value_doesnt_fit_in_var of Instr_idx.t * Chan_id.t * Cint.t
+    | Sent_value_doesnt_fit_in_chan of Instr_idx.t * Chan_id.t * CInt.t
+    | Read_chan_value_doesnt_fit_in_var of Instr_idx.t * Chan_id.t * CInt.t
     | Select_no_guards_true of Instr_idx.t
     | Select_multiple_guards_true of Instr_idx.t * int list
-    | Assigned_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * Cint.t
+    | Assigned_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * CInt.t
     | Assert_failure of Instr_idx.t * string
     | Simul_chan_readers of Instr_idx.t * Instr_idx.t
     | Simul_chan_senders of Instr_idx.t * Instr_idx.t
     | Select_multiple_true_probes of Instr_idx.t * (int * (Probe.t * int)) list
     | Unstable_probe of Instr_idx.t * Probe.t
-    | Read_dequeuer_wrong_value of Dequeuer_idx.t * Cint.t * int
-    | Mem_out_of_bounds of Instr_idx.t * Cint.t * int
-    | Read_mem_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * Cint.t
-    | Written_mem_value_doesnt_fit_in_cell of Instr_idx.t * Mem_id.t * Cint.t
+    | Read_dequeuer_wrong_value of Dequeuer_idx.t * CInt.t * int
+    | Mem_out_of_bounds of Instr_idx.t * CInt.t * int
+    | Read_mem_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * CInt.t
+    | Written_mem_value_doesnt_fit_in_cell of Instr_idx.t * Mem_id.t * CInt.t
     | User_read_did_not_complete of Dequeuer_idx.t * int
     | User_send_did_not_complete of Enqueuer_idx.t * int
     | Stuck
@@ -126,7 +127,7 @@ module E : sig
 end
 
 module Var_spec : sig
-  type t = { bitwidth : int; init : Cint.t option }
+  type t = { bitwidth : int; init : CInt.t option }
 end
 
 module Chan_spec : sig
@@ -137,7 +138,7 @@ module Mem_spec : sig
   type t = {
     cell_bitwidth : int;
     idx_helper_reg : Var_id.t;
-    init : Cint.t array;
+    init : CInt.t array;
   }
 end
 
@@ -168,7 +169,7 @@ val set_enqueuer :
   enqueuer_idx:Enqueuer_idx.t ->
   is_done:bool ->
   idx:int ->
-  to_send:Cint.t array ->
+  to_send:CInt.t array ->
   push_pc:Instr_idx.t ->
   unit
 
@@ -176,7 +177,7 @@ val set_dequeuer :
   t ->
   dequeuer_idx:Dequeuer_idx.t ->
   idx:int ->
-  expected_reads:Cint.t array ->
+  expected_reads:CInt.t array ->
   push_pc:Instr_idx.t ->
   unit
 

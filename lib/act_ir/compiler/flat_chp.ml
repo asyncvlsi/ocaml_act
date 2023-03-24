@@ -1,4 +1,5 @@
 open! Core
+open Utils
 
 module Var = struct
   module Id = Int
@@ -129,7 +130,7 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
           Sub_no_wrap (a, b)
       | Sub_wrap (a, b, bits) ->
           let p2bits =
-            F_expr.Const (Cint.left_shift Cint.one ~amt:(Cint.of_int bits))
+            F_expr.Const (CInt.left_shift CInt.one ~amt:(CInt.of_int bits))
           in
           let a = F_expr.BitOr (Clip (f a, bits), p2bits) in
           let b = F_expr.Clip (f b, bits) in
@@ -200,7 +201,7 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
       | Assert { m = _; expr; log_e = _; msg_fn = _ } ->
           let expr, asserts = of_e expr in
           Seq [ Seq asserts; Assert expr ]
-      (* | Loop (_, n) -> DoWhile (of_n n, F_expr.Const Cint.one) *)
+      (* | Loop (_, n) -> DoWhile (of_n n, F_expr.Const CInt.one) *)
       | DoWhile { m = _; n; g } ->
           let g, asserts = of_e g in
           DoWhile (Seq [ of_n n; Seq asserts ], g)
@@ -224,7 +225,7 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
           ReadThenAssert
             ( of_c chan,
               of_v var,
-              F_expr.Const Cint.one
+              F_expr.Const CInt.one
               (* assert_fits_cond var.d.dtype (Var (of_v var)) *) )
       | SelectImm { m = _; branches; else_ } ->
           let guards = List.map branches ~f:(fun (guard, _) -> of_e guard) in
@@ -234,7 +235,7 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
                 let any_guard_true =
                   List.map guards ~f:fst
                   |> List.reduce ~f:(fun a b -> F_expr.BitOr (a, b))
-                  |> Option.value ~default:(F_expr.Const Cint.zero)
+                  |> Option.value ~default:(F_expr.Const CInt.zero)
                 in
                 [ (F_expr.Eq0 any_guard_true, []) ]
             | None -> []
@@ -260,14 +261,14 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
           Seq
             [
               Seq asserts;
-              Assert (Lt (idx, Const (Cint.of_int array_len)));
+              Assert (Lt (idx, Const (CInt.of_int array_len)));
               Par
                 [
-                  Send (cmd_chan, LShift (idx, Const Cint.one));
+                  Send (cmd_chan, LShift (idx, Const CInt.one));
                   ReadThenAssert
                     ( read_chan,
                       of_v dst,
-                      F_expr.Const Cint.one
+                      F_expr.Const CInt.one
                       (* assert_fits_cond dst.d.dtype (Var (of_v dst)) *) );
                 ];
             ]
@@ -280,14 +281,14 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
             [
               Seq asserts1;
               Seq asserts2;
-              Assert (Lt (idx, Const (Cint.of_int array_len)));
+              Assert (Lt (idx, Const (CInt.of_int array_len)));
               (* Assert (assert_fits_cond mem.d.dtype value); *)
               Par
                 [
                   Send
                     ( cmd_chan,
                       Concat
-                        [ (Const Cint.one, 1); (idx, Int.ceil_log2 array_len) ]
+                        [ (Const CInt.one, 1); (idx, Int.ceil_log2 array_len) ]
                     );
                   Send (write_chan, value);
                 ];
@@ -311,7 +312,7 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
       Hashtbl.to_alist var_of_var
       |> Ir.Var.Map.of_alist_exn |> Map.to_alist
       |> List.map ~f:(fun (var, var_id) ->
-             let init = Option.value var.init ~default:Cint.zero in
+             let init = Option.value var.init ~default:CInt.zero in
              Stmt.Assign (var_id, Const init))
     in
     Stmt.Seq [ Seq inits; n ]
@@ -387,7 +388,7 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
 
    let dummy_chan_of_mem_table = Ir.Mem.Table.create () in let dummy_chan_of_mem
    mem = Hashtbl.find_or_add dummy_chan_of_mem_table mem ~default:(fun () ->
-   Chan.W.create (Cint.dtype ~bits:1) |> Ir.Chan.unwrap_w) in
+   Chan.W.create (CInt.dtype ~bits:1) |> Ir.Chan.unwrap_w) in
 
    (* check that par branches dont both use the same side of the same channel *)
    let rec chans n ~r ~w = let f n = chans n ~r ~w in match n with | Ir.Chp.Par

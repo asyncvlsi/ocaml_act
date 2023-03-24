@@ -1,146 +1,147 @@
 open! Core
+open Utils
 
-let max_cint_of_width bits = Cint.(sub (pow two (of_int bits)) one)
+let max_cint_of_width bits = CInt.(sub (pow two (of_int bits)) one)
 
 module MM = struct
-  type t = { (* incl *) min : Cint.t; (* incl *) max : Cint.t }
+  type t = { (* incl *) min : CInt.t; (* incl *) max : CInt.t }
   [@@deriving sexp, equal]
 
   let create ~min ~max =
-    assert (Cint.le min max);
+    assert (CInt.le min max);
     { min; max }
 
   let create_const v = create ~min:v ~max:v
-  let create_bitwidth bits = create ~min:Cint.zero ~max:(max_cint_of_width bits)
-  let get_const_val { min; max } = if Cint.eq min max then Some min else None
+  let create_bitwidth bits = create ~min:CInt.zero ~max:(max_cint_of_width bits)
+  let get_const_val { min; max } = if CInt.eq min max then Some min else None
 
   let union c1 c2 =
-    let min = Cint.min c1.min c2.min in
-    let max = Cint.max c1.max c2.max in
+    let min = CInt.min c1.min c2.min in
+    let max = CInt.max c1.max c2.max in
     create ~min ~max
 
   let inter_exn c1 c2 =
-    let min = Cint.max c1.min c2.min in
-    let max = Cint.min c1.max c2.max in
+    let min = CInt.max c1.min c2.min in
+    let max = CInt.min c1.max c2.max in
     create ~min ~max
 
   (* math *)
-  let zero = create_const Cint.zero
-  let one = create_const Cint.one
+  let zero = create_const CInt.zero
+  let one = create_const CInt.one
 
   let add al bl =
-    let min = Cint.add al.min bl.min in
-    let max = Cint.add al.max bl.max in
+    let min = CInt.add al.min bl.min in
+    let max = CInt.add al.max bl.max in
     create ~min ~max
 
   let sub_no_wrap al bl =
     let sub_clamped_at_0 x y =
-      if Cint.(y >= x) then Cint.zero else Cint.sub x y
+      if CInt.(y >= x) then CInt.zero else CInt.sub x y
     in
     let min = sub_clamped_at_0 al.min bl.max in
     let max = sub_clamped_at_0 al.max bl.min in
     create ~min ~max
 
   let mul al bl =
-    let min = Cint.mul al.min bl.min in
-    let max = Cint.mul al.max bl.max in
+    let min = CInt.mul al.min bl.min in
+    let max = CInt.mul al.max bl.max in
     create ~min ~max
 
   let div al bl =
-    let min = Cint.div al.min (Cint.max Cint.one bl.max) in
-    let max = Cint.div al.max (Cint.max Cint.one bl.min) in
+    let min = CInt.div al.min (CInt.max CInt.one bl.max) in
+    let max = CInt.div al.max (CInt.max CInt.one bl.min) in
     create ~min ~max
 
   let mod_ al bl =
-    let min = Cint.zero in
-    let max = Cint.min al.max bl.max in
+    let min = CInt.zero in
+    let max = CInt.min al.max bl.max in
     create ~min ~max
 
   let lshift al bl =
-    let min = Cint.left_shift al.min ~amt:bl.min in
-    let max = Cint.left_shift al.max ~amt:bl.max in
+    let min = CInt.left_shift al.min ~amt:bl.min in
+    let max = CInt.left_shift al.max ~amt:bl.max in
     create ~min ~max
 
   let rshift al bl =
-    let min = Cint.right_shift al.min ~amt:bl.max in
-    let max = Cint.right_shift al.max ~amt:bl.min in
+    let min = CInt.right_shift al.min ~amt:bl.max in
+    let max = CInt.right_shift al.max ~amt:bl.min in
     create ~min ~max
 
   let bit_and al bl =
-    let min = Cint.zero in
-    let max = Cint.min al.max bl.max in
+    let min = CInt.zero in
+    let max = CInt.min al.max bl.max in
     create ~min ~max
 
   let bit_or al bl =
-    let min = Cint.min al.min bl.min in
+    let min = CInt.min al.min bl.min in
     let max =
-      let bitwidth = Int.max (Cint.bitwidth al.max) (Cint.bitwidth bl.max) in
-      Cint.min (Cint.add al.max bl.max) (max_cint_of_width bitwidth)
+      let bitwidth = Int.max (CInt.bitwidth al.max) (CInt.bitwidth bl.max) in
+      CInt.min (CInt.add al.max bl.max) (max_cint_of_width bitwidth)
     in
     create ~min ~max
 
   let bit_xor al bl =
-    let min = Cint.min al.min bl.min in
+    let min = CInt.min al.min bl.min in
     let max =
-      let bitwidth = Int.max (Cint.bitwidth al.max) (Cint.bitwidth bl.max) in
-      Cint.min (Cint.add al.max bl.max) (max_cint_of_width bitwidth)
+      let bitwidth = Int.max (CInt.bitwidth al.max) (CInt.bitwidth bl.max) in
+      CInt.min (CInt.add al.max bl.max) (max_cint_of_width bitwidth)
     in
     create ~min ~max
 
   let clip el ~bits =
-    let min = Cint.zero in
-    let max = Cint.min el.max (max_cint_of_width bits) in
+    let min = CInt.zero in
+    let max = CInt.min el.max (max_cint_of_width bits) in
     create ~min ~max
 
   let concat els =
-    List.fold els ~init:(0, Cint.zero, Cint.zero)
+    List.fold els ~init:(0, CInt.zero, CInt.zero)
       ~f:(fun (acc, min_tot, max_tot) (lat, bits) ->
         let lat = clip lat ~bits in
         ( acc + bits,
-          Cint.add min_tot (Cint.left_shift lat.min ~amt:(Cint.of_int acc)),
-          Cint.add max_tot (Cint.left_shift lat.max ~amt:(Cint.of_int acc)) ))
+          CInt.add min_tot (CInt.left_shift lat.min ~amt:(CInt.of_int acc)),
+          CInt.add max_tot (CInt.left_shift lat.max ~amt:(CInt.of_int acc)) ))
     |> fun (_, min, max) -> create ~min ~max
 
   let log2_one_hot el =
-    let min = Cint.div el.min Cint.two |> Cint.bitwidth |> Cint.of_int in
-    let max = Cint.bitwidth el.max |> Cint.of_int in
+    let min = CInt.div el.min CInt.two |> CInt.bitwidth |> CInt.of_int in
+    let max = CInt.bitwidth el.max |> CInt.of_int in
     create ~min ~max
 
   let eq al bl =
-    if Cint.eq al.min al.max && Cint.eq bl.min bl.max && Cint.eq al.min bl.min
+    if CInt.eq al.min al.max && CInt.eq bl.min bl.max && CInt.eq al.min bl.min
     then one
-    else if Cint.lt al.max bl.min && Cint.gt al.min bl.max then zero
+    else if CInt.lt al.max bl.min && CInt.gt al.min bl.max then zero
     else create_bitwidth 1
 
   let ne al bl =
-    if Cint.eq al.min al.max && Cint.eq bl.min bl.max && Cint.eq al.min bl.min
+    if CInt.eq al.min al.max && CInt.eq bl.min bl.max && CInt.eq al.min bl.min
     then zero
-    else if Cint.lt al.max bl.min && Cint.gt al.min bl.max then one
+    else if CInt.lt al.max bl.min && CInt.gt al.min bl.max then one
     else create_bitwidth 1
 
   let lt al bl =
-    if Cint.lt al.max bl.min then one
-    else if Cint.ge al.min bl.max then zero
+    if CInt.lt al.max bl.min then one
+    else if CInt.ge al.min bl.max then zero
     else create_bitwidth 1
 
   let le al bl =
-    if Cint.le al.max bl.min then one
-    else if Cint.gt al.min bl.max then zero
+    if CInt.le al.max bl.min then one
+    else if CInt.gt al.min bl.max then zero
     else create_bitwidth 1
 
   let gt al bl =
-    if Cint.gt al.min bl.max then one
-    else if Cint.le al.max bl.min then zero
+    if CInt.gt al.min bl.max then one
+    else if CInt.le al.max bl.min then zero
     else create_bitwidth 1
 
   let ge al bl =
-    if Cint.ge al.min bl.max then one
-    else if Cint.lt al.max bl.min then zero
+    if CInt.ge al.min bl.max then one
+    else if CInt.lt al.max bl.min then zero
     else create_bitwidth 1
 
   let eq0 al =
-    if Cint.le al.max Cint.zero then one
-    else if Cint.gt al.min Cint.zero then zero
+    if CInt.le al.max CInt.zero then one
+    else if CInt.gt al.min CInt.zero then zero
     else create_bitwidth 1
 end
 
@@ -156,9 +157,9 @@ module Bit_arr : sig
   (* val get : t -> int -> Bit.t *)
   val length : t -> int
   val to_array : ?len:int -> t -> Bit.t array
-  val max_val : t -> Cint.t
-  val min_val : t -> Cint.t
-  val pos_vals : t -> Cint.t list
+  val max_val : t -> CInt.t
+  val min_val : t -> CInt.t
+  val pos_vals : t -> CInt.t list
 end = struct
   (* higher bits are implicitly zero *)
   type t = Bit.t array [@@deriving sexp, equal]
@@ -188,25 +189,25 @@ end = struct
   let max_val t =
     Array.mapi t ~f:(fun i b ->
         match b with
-        | Bit.Zero -> Cint.zero
-        | Unknown | One -> Cint.(pow two (of_int i)))
-    |> Array.fold ~init:Cint.zero ~f:Cint.add
+        | Bit.Zero -> CInt.zero
+        | Unknown | One -> CInt.(pow two (of_int i)))
+    |> Array.fold ~init:CInt.zero ~f:CInt.add
 
   let min_val t =
     Array.mapi t ~f:(fun i b ->
         match b with
-        | Bit.Zero | Unknown -> Cint.zero
-        | One -> Cint.(pow two (of_int i)))
-    |> Array.fold ~init:Cint.zero ~f:Cint.add
+        | Bit.Zero | Unknown -> CInt.zero
+        | One -> CInt.(pow two (of_int i)))
+    |> Array.fold ~init:CInt.zero ~f:CInt.add
 
   let pos_vals t =
     let rec h bits =
       match bits with
-      | [] -> [ Cint.zero ]
+      | [] -> [ CInt.zero ]
       | bit :: bits -> (
           let l = h bits in
-          let on_l = List.map l ~f:(fun x -> Cint.(mul two x |> add one)) in
-          let off_l = List.map l ~f:(fun x -> Cint.(mul two x)) in
+          let on_l = List.map l ~f:(fun x -> CInt.(mul two x |> add one)) in
+          let off_l = List.map l ~f:(fun x -> CInt.(mul two x)) in
           match bit with
           | Bit.One -> on_l
           | Zero -> off_l
@@ -219,10 +220,10 @@ module BB = struct
   type t = Bit_arr.t [@@deriving sexp, equal]
 
   let create_const v =
-    Array.init (Cint.bitwidth v) ~f:(fun i ->
+    Array.init (CInt.bitwidth v) ~f:(fun i ->
         if
-          Cint.right_shift v ~amt:(Cint.of_int i)
-          |> Cint.bit_and Cint.one |> Cint.eq Cint.one
+          CInt.right_shift v ~amt:(CInt.of_int i)
+          |> CInt.bit_and CInt.one |> CInt.eq CInt.one
         then Bit.One
         else Zero)
     |> Bit_arr.of_array
@@ -231,13 +232,13 @@ module BB = struct
     Array.init bits ~f:(fun _ -> Bit.Unknown) |> Bit_arr.of_array
 
   let create_min_max ~min ~max =
-    assert (Cint.le min max);
-    if Cint.equal min max then create_const min
-    else Cint.bitwidth max |> create_bitwidth
+    assert (CInt.le min max);
+    if CInt.equal min max then create_const min
+    else CInt.bitwidth max |> create_bitwidth
 
   let get_const_val t =
     let min, max = (Bit_arr.min_val t, Bit_arr.max_val t) in
-    if Cint.eq min max then Some min else None
+    if CInt.eq min max then Some min else None
 
   let union c1 c2 =
     let len = Int.max (Bit_arr.length c1) (Bit_arr.length c2) in
@@ -272,7 +273,7 @@ module BB = struct
     zeros @ c1 |> Array.of_list |> Bit_arr.of_array
 
   let rshift' c1 ~amt =
-    if amt > Bit_arr.length c1 then create_const Cint.zero
+    if amt > Bit_arr.length c1 then create_const CInt.zero
     else
       Bit_arr.to_array c1
       |> Array.sub ~pos:amt ~len:(Bit_arr.length c1 - amt)
@@ -358,9 +359,9 @@ module BB = struct
     (* This protects us from allocating super large arrays. It is probably a bug
        if this ever happens *)
     assert (Bit_arr.length c2 < 16);
-    if Cint.lt (Bit_arr.max_val c2) (Cint.of_int 1024) then
+    if CInt.lt (Bit_arr.max_val c2) (CInt.of_int 1024) then
       Bit_arr.pos_vals c2
-      |> List.map ~f:Cint.to_int_exn
+      |> List.map ~f:CInt.to_int_exn
       |> List.map ~f:(fun amt -> lshift' c1 ~amt)
       |> List.reduce_exn ~f:union
     else
@@ -369,7 +370,7 @@ module BB = struct
 
   let rshift c1 c2 =
     Bit_arr.pos_vals c2
-    |> List.map ~f:Cint.to_int_exn
+    |> List.map ~f:CInt.to_int_exn
     |> List.map ~f:(fun amt -> rshift' c1 ~amt)
     |> List.reduce_exn ~f:union
 

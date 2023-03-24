@@ -1,4 +1,5 @@
 open! Core
+open Utils
 
 type ('v, 'vc) t
 type ('v, 'vc) outer = ('v, 'vc) t
@@ -18,7 +19,7 @@ module type S = sig
   val dup_ids : t -> var list list
   val merge_same_reads : t -> t -> t
   val append : t -> t -> t
-  val get_consts_if_const : t -> (var * Cint.t) list option
+  val get_consts_if_const : t -> (var * CInt.t) list option
 
   val map_ins_and_outs :
     ('v, 'vc) outer -> map_in:('v -> var) -> map_out:('v -> var) -> t

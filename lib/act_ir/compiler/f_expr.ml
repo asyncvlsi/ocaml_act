@@ -1,8 +1,9 @@
 open! Core
+open Utils
 
 type 'v t =
   | Var of 'v
-  | Const of Cint.t
+  | Const of CInt.t
   | Add of 'v t * 'v t
   | Sub_no_wrap of 'v t * 'v t
   | Mul of 'v t * 'v t
@@ -87,7 +88,7 @@ let bitwidth e ~bits_of_var =
   let rec h e =
     match e with
     | Var v -> bits_of_var v
-    | Const c -> Cint.bitwidth c
+    | Const c -> CInt.bitwidth c
     | Add (a, b) -> 1 + Int.max (h a) (h b)
     | Sub_no_wrap (a, _) -> h a
     | Mul (a, b) -> h a + h b

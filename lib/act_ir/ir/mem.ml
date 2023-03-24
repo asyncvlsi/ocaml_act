@@ -1,4 +1,5 @@
 open! Core
+open Utils
 
 module Id : sig
   include Identifiable
@@ -20,7 +21,7 @@ module T = struct
     id : Id.t;
     cell_bitwidth : int;
     creation_code_pos : Code_pos.t;
-    init : (Cint.t array[@hash.ignore] [@compare.ignore] [@equal.ignore]);
+    init : (CInt.t array[@hash.ignore] [@compare.ignore] [@equal.ignore]);
     kind : [ `Mem | `Rom ];
   }
   [@@deriving hash, compare, equal, sexp]

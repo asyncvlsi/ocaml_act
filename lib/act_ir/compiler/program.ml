@@ -134,7 +134,7 @@ let of_process (process : Ir.Process.t) =
 
    let dummy_chan_of_mem_table = Ir.Mem.Table.create () in let dummy_chan_of_mem
    mem = Hashtbl.find_or_add dummy_chan_of_mem_table mem ~default:(fun () ->
-   Chan.W.create (Cint.dtype ~bits:1) |> Ir.Chan.unwrap_w) in
+   Chan.W.create (CInt.dtype ~bits:1) |> Ir.Chan.unwrap_w) in
 
    (* check that par branches dont both use the same side of the same channel *)
    let rec chans n ~r ~w = let f n = chans n ~r ~w in match n with | Ir.Chp.Par

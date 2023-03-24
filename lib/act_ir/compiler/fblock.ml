@@ -1,4 +1,6 @@
 open! Core
+open Utils
+
 module Ins_idx = Int
 
 module U = struct
@@ -28,7 +30,7 @@ module type S = sig
   val dup_ids : t -> var list list
   val merge_same_reads : t -> t -> t
   val append : t -> t -> t
-  val get_consts_if_const : t -> (var * Cint.t) list option
+  val get_consts_if_const : t -> (var * CInt.t) list option
 
   val map_ins_and_outs :
     ('v, 'vc) outer -> map_in:('v -> var) -> map_out:('v -> var) -> t
@@ -39,32 +41,32 @@ let eval_const_expr e =
     match e with
     | F_expr.Var _ -> failwith "Expr is not const"
     | Const c -> c
-    | Add (a, b) -> Cint.add (f a) (f b)
-    | Sub_no_wrap (a, b) -> Cint.sub (f a) (f b)
-    | Mul (a, b) -> Cint.mul (f a) (f b)
-    | Div (a, b) -> Cint.div (f a) (f b)
-    | Mod (a, b) -> Cint.mod_ (f a) (f b)
-    | LShift (a, b) -> Cint.left_shift (f a) ~amt:(f b)
-    | RShift (a, b) -> Cint.right_shift (f a) ~amt:(f b)
-    | BitAnd (a, b) -> Cint.bit_and (f a) (f b)
-    | BitOr (a, b) -> Cint.bit_or (f a) (f b)
-    | BitXor (a, b) -> Cint.bit_xor (f a) (f b)
-    | Clip (e, bits) -> Cint.clip (f e) ~bits
+    | Add (a, b) -> CInt.add (f a) (f b)
+    | Sub_no_wrap (a, b) -> CInt.sub (f a) (f b)
+    | Mul (a, b) -> CInt.mul (f a) (f b)
+    | Div (a, b) -> CInt.div (f a) (f b)
+    | Mod (a, b) -> CInt.mod_ (f a) (f b)
+    | LShift (a, b) -> CInt.left_shift (f a) ~amt:(f b)
+    | RShift (a, b) -> CInt.right_shift (f a) ~amt:(f b)
+    | BitAnd (a, b) -> CInt.bit_and (f a) (f b)
+    | BitOr (a, b) -> CInt.bit_or (f a) (f b)
+    | BitXor (a, b) -> CInt.bit_xor (f a) (f b)
+    | Clip (e, bits) -> CInt.clip (f e) ~bits
     | Concat es ->
         let _, c =
-          List.fold es ~init:(0, Cint.zero) ~f:(fun (acc, tot) (e, bits) ->
+          List.fold es ~init:(0, CInt.zero) ~f:(fun (acc, tot) (e, bits) ->
               ( acc + bits,
-                Cint.add tot (Cint.left_shift (f e) ~amt:(Cint.of_int acc)) ))
+                CInt.add tot (CInt.left_shift (f e) ~amt:(CInt.of_int acc)) ))
         in
         c
     | Log2OneHot _ -> failwith "TODO"
-    | Eq (a, b) -> Cint.eq (f a) (f b) |> Bool.to_int |> Cint.of_int
-    | Ne (a, b) -> Cint.ne (f a) (f b) |> Bool.to_int |> Cint.of_int
-    | Lt (a, b) -> Cint.lt (f a) (f b) |> Bool.to_int |> Cint.of_int
-    | Le (a, b) -> Cint.le (f a) (f b) |> Bool.to_int |> Cint.of_int
-    | Gt (a, b) -> Cint.gt (f a) (f b) |> Bool.to_int |> Cint.of_int
-    | Ge (a, b) -> Cint.ge (f a) (f b) |> Bool.to_int |> Cint.of_int
-    | Eq0 a -> Cint.eq (f a) Cint.zero |> Bool.to_int |> Cint.of_int
+    | Eq (a, b) -> CInt.eq (f a) (f b) |> Bool.to_int |> CInt.of_int
+    | Ne (a, b) -> CInt.ne (f a) (f b) |> Bool.to_int |> CInt.of_int
+    | Lt (a, b) -> CInt.lt (f a) (f b) |> Bool.to_int |> CInt.of_int
+    | Le (a, b) -> CInt.le (f a) (f b) |> Bool.to_int |> CInt.of_int
+    | Gt (a, b) -> CInt.gt (f a) (f b) |> Bool.to_int |> CInt.of_int
+    | Ge (a, b) -> CInt.ge (f a) (f b) |> Bool.to_int |> CInt.of_int
+    | Eq0 a -> CInt.eq (f a) CInt.zero |> Bool.to_int |> CInt.of_int
   in
   f e
 
