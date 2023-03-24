@@ -1,5 +1,4 @@
 open! Core
-
 module Id : Identifiable
 
 type t = { id : Id.t; bitwidth : int; creation_code_pos : Utils.Code_pos.t }
