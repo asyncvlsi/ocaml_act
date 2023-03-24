@@ -9,9 +9,9 @@
 (source
  (github username/reponame))
 
-(authors "Author Name")
+(authors "Henry Heffan")
 
-(maintainers "Maintainer Name")
+(maintainers "Henry Heffan")
 
 (license LICENSE)
 

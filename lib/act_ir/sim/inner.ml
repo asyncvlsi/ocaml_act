@@ -31,8 +31,6 @@ module Probe = struct
   [@@deriving sexp_of, equal]
 end
 
-module Expr_assert_err_idx = Int
-
 module Expr = struct
   module NI = Int
 

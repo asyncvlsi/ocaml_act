@@ -16,7 +16,6 @@ module Chan_id = Int
 module Mem_id = Int
 module Enqueuer_idx = Int
 module Dequeuer_idx = Int
-module Expr_assert_err_idx = Int
 
 module Probe : sig
   type t = Read_ready of Chan_id.t | Send_ready of Chan_id.t
