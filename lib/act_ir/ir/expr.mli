@@ -16,6 +16,7 @@ type 'v t =
   | BitAnd of 'v t * 'v t
   | BitOr of 'v t * 'v t
   | BitXor of 'v t * 'v t
+  | Eq0 of 'v t
   | Eq of 'v t * 'v t
   | Ne of 'v t * 'v t
   | Lt of 'v t * 'v t
@@ -23,6 +24,8 @@ type 'v t =
   | Gt of 'v t * 'v t
   | Ge of 'v t * 'v t
   | Clip of 'v t * int
+  | Concat of ('v t * int) list
+  | Log2OneHot of 'v t
 [@@deriving sexp_of]
 
 (* ops *)

@@ -15,6 +15,7 @@ type 'v t =
   | BitAnd of 'v t * 'v t
   | BitOr of 'v t * 'v t
   | BitXor of 'v t * 'v t
+  | Eq0 of 'v t
   | Eq of 'v t * 'v t
   | Ne of 'v t * 'v t
   | Lt of 'v t * 'v t
@@ -22,6 +23,8 @@ type 'v t =
   | Gt of 'v t * 'v t
   | Ge of 'v t * 'v t
   | Clip of 'v t * int
+  | Concat of ('v t * int) list
+  | Log2OneHot of 'v t
 [@@deriving sexp_of]
 
 let of_int i = Const (CInt.of_int i)
@@ -78,12 +81,15 @@ let bind_vars e ~f =
     | Ge (a, b) -> Ge (h a, h b)
     | Lt (a, b) -> Lt (h a, h b)
     | Le (a, b) -> Le (h a, h b)
+    | Eq0 a -> Eq0 (h a)
     | BitXor (a, b) -> BitXor (h a, h b)
     | BitOr (a, b) -> BitOr (h a, h b)
     | BitAnd (a, b) -> BitAnd (h a, h b)
     | LShift (a, b) -> LShift (h a, h b)
     | RShift (a, b) -> RShift (h a, h b)
     | Clip (a, bits) -> Clip (h a, bits)
+    | Concat es -> Concat (List.map es ~f:(fun (e, bits) -> (h e, bits)))
+    | Log2OneHot e -> Log2OneHot (h e)
   in
   h e
 
@@ -106,12 +112,15 @@ let var_ids e =
     | Ge (a, b) -> f a @ f b
     | Lt (a, b) -> f a @ f b
     | Le (a, b) -> f a @ f b
+    | Eq0 a -> f a
     | BitXor (a, b) -> f a @ f b
     | BitOr (a, b) -> f a @ f b
     | BitAnd (a, b) -> f a @ f b
     | LShift (a, b) -> f a @ f b
     | RShift (a, b) -> f a @ f b
     | Clip (a, _) -> f a
+    | Concat es -> List.concat_map es ~f:(fun (e, _) -> f e)
+    | Log2OneHot e -> f e
   in
   f e
 
@@ -132,11 +141,14 @@ let bitwidth e ~bits_of_var =
     | Ge (_, _) -> 1
     | Lt (_, _) -> 1
     | Le (_, _) -> 1
+    | Eq0 _ -> 1
     | BitXor (a, b) -> Int.max (h a) (h b)
     | BitOr (a, b) -> Int.max (h a) (h b)
     | BitAnd (a, b) -> Int.min (h a) (h b)
     | LShift (a, b) -> h a + Int.pow 2 (h b) - 1
     | RShift (a, _) -> h a
     | Clip (a, bits) -> Int.min (h a) bits
+    | Concat es -> List.sum (module Int) es ~f:snd
+    | Log2OneHot e -> Int.ceil_log2 (h e)
   in
   h e

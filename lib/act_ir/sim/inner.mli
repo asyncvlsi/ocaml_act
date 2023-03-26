@@ -40,6 +40,7 @@ module Expr : sig
       | BitAnd of NI.t * NI.t
       | BitOr of NI.t * NI.t
       | BitXor of NI.t * NI.t
+      | Eq0 of NI.t
       | Eq of NI.t * NI.t
       | Ne of NI.t * NI.t
       | Lt of NI.t * NI.t
@@ -47,6 +48,8 @@ module Expr : sig
       | Gt of NI.t * NI.t
       | Ge of NI.t * NI.t
       | Clip of NI.t * int
+      | Concat of (NI.t * int) list
+      | Log2OneHot of NI.t
       | Return of NI.t
     [@@deriving sexp, hash, equal, compare]
 

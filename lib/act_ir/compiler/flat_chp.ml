@@ -143,6 +143,7 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
       | BitAnd (a, b) -> BitAnd (f a, f b)
       | BitOr (a, b) -> BitOr (f a, f b)
       | BitXor (a, b) -> BitXor (f a, f b)
+      | Eq0 a -> Eq0 (f a)
       | Eq (a, b) -> Eq (f a, f b)
       | Ne (a, b) -> Ne (f a, f b)
       | Lt (a, b) -> Lt (f a, f b)
@@ -152,8 +153,10 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
       | Var v -> of_var v
       | Clip (e, bits) -> Clip (f e, bits)
       | Const c -> Const c
-      (* | With_assert_log (a, v, _, _) -> let a = f a in of_assert a; f v *)
+      | Concat l -> Concat (List.map l ~f:(fun (e, bits) -> (f e, bits)))
+      | Log2OneHot a -> Log2OneHot (f a)
     in
+
     f e
   in
 

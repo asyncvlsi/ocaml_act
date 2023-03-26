@@ -69,7 +69,8 @@ module Stmt = struct
   [@@deriving sexp_of]
 end
 
-(* a few simle optimizations on the Stmt datatype to generate better byte code *)
+(* a few simle optimizations on the Stmt datatype to generate better byte
+   code *)
 let rec flatten stmt =
   let flatten_brs branches =
     List.map branches ~f:(fun (g, stmt) -> (g, flatten stmt))
@@ -412,6 +413,7 @@ let create_t ~seed (ir : Stmt.t) ~user_sendable_ports ~user_readable_ports =
       | BitAnd (a, b) -> push (BitAnd (convert a, convert b))
       | BitOr (a, b) -> push (BitOr (convert a, convert b))
       | BitXor (a, b) -> push (BitXor (convert a, convert b))
+      | Eq0 a -> push (Eq0 (convert a))
       | Eq (a, b) -> push (Eq (convert a, convert b))
       | Ne (a, b) -> push (Ne (convert a, convert b))
       | Lt (a, b) -> push (Lt (convert a, convert b))
@@ -419,6 +421,10 @@ let create_t ~seed (ir : Stmt.t) ~user_sendable_ports ~user_readable_ports =
       | Gt (a, b) -> push (Gt (convert a, convert b))
       | Ge (a, b) -> push (Ge (convert a, convert b))
       | Clip (a, bits) -> push (Clip (convert a, bits))
+      | Concat l ->
+          let l = List.map l ~f:(fun (e, bits) -> (convert e, bits)) in
+          push (Concat l)
+      | Log2OneHot a -> push (Log2OneHot (convert a))
     in
     let e = convert expr in
     push' (Return e);

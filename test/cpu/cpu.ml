@@ -501,6 +501,7 @@ let%expect_test "fibonacci - compiled dataflow" =
           ~to_:`Dataflow
         |> Compiler.sim)
   in
+  (* print_s [%sexp (sim: Sim.t)]; *)
   (* Printf.printf "Setup time: %fs\n" (Caml.Sys.time () -. t); *)
   Sim.send sim i (CInt.of_int 0);
   Sim.read sim o (CInt.of_int 0);
@@ -528,8 +529,8 @@ let%expect_test "fibonacci - compiled dataflow" =
     (Ok ())
     (Ok ())
     (Ok ()) |}]
-
-(* Printf.printf "Total time: %fs\n" (Caml.Sys.time () -. t); [%expect {| |}] *)
+(* ;Printf.printf "Total time: %fs\n" (Caml.Sys.time () -. t); [%expect {|
+   |}] *)
 
 (* let t = Caml.Sys.time () in *)
 (* let sim, i, o = test instrs ~create:(fun ir ~user_sendable_ports

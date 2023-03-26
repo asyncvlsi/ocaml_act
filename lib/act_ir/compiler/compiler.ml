@@ -28,7 +28,7 @@ let sim ?seed (t : Compiled_program.t) =
         Ir.Chan.create interproc_chan.bitwidth Code_pos.dummy_loc)
   in
 
-  let expr_k_of_expr e ~of_v ~bits_of_var =
+  let expr_k_of_expr e ~of_v =
     let rec f e =
       match e with
       | F_expr.Var v -> Ir.Expr.Var (of_v v)
@@ -44,27 +44,15 @@ let sim ?seed (t : Compiled_program.t) =
       | Ge (a, b) -> Ge (f a, f b)
       | Lt (a, b) -> Lt (f a, f b)
       | Le (a, b) -> Le (f a, f b)
-      | Eq0 a -> Eq (f a, Const CInt.zero)
+      | Eq0 a -> Eq0 (f a)
       | BitXor (a, b) -> BitXor (f a, f b)
       | BitOr (a, b) -> BitOr (f a, f b)
       | BitAnd (a, b) -> BitAnd (f a, f b)
       | LShift (a, b) -> LShift (f a, f b)
       | RShift (a, b) -> RShift (f a, f b)
       | Clip (a, bits) -> Clip (f a, bits)
-      | Concat l ->
-          List.folding_map l ~init:0 ~f:(fun acc (e, bits) ->
-              ( acc + bits,
-                Ir.Expr.LShift (Clip (f e, bits), Const (CInt.of_int acc)) ))
-          |> List.reduce_exn ~f:(fun a b -> BitOr (a, b))
-      | Log2OneHot e ->
-          let w = F_expr.bitwidth e ~bits_of_var in
-          let e = f e in
-          List.init w ~f:(fun idx ->
-              Ir.Expr.(
-                Mul
-                  ( BitAnd (RShift (e, Const (CInt.of_int idx)), Const CInt.one),
-                    Const (CInt.of_int idx) )))
-          |> List.reduce_exn ~f:(fun a b -> BitOr (a, b))
+      | Concat l -> Concat (List.map l ~f:(fun (x, bits) -> (f x, bits)))
+      | Log2OneHot e -> Log2OneHot (f e)
     in
 
     f e
@@ -91,8 +79,7 @@ let sim ?seed (t : Compiled_program.t) =
           Ir.Var.create v.bitwidth Code_pos.dummy_loc None)
     in
 
-    (* let dtype_of_cw c = c.Ir.Chan.d.dtype in *)
-    let of_expr e = expr_k_of_expr e ~of_v ~bits_of_var:(fun v -> v.bitwidth) in
+    let of_expr e = expr_k_of_expr e ~of_v in
     let of_bool_expr e = of_expr e in
 
     let rec of_stmt chp =
@@ -167,9 +154,7 @@ let sim ?seed (t : Compiled_program.t) =
           let do_sends =
             List.map exprs ~f:(fun (dst, expr) ->
                 let expr =
-                  expr_k_of_expr expr
-                    ~of_v:(fun v -> Map.find_exn var_of_in v)
-                    ~bits_of_var:(fun v -> v.bitwidth)
+                  expr_k_of_expr expr ~of_v:(fun v -> Map.find_exn var_of_in v)
                 in
                 Ir.Chp.send (of_c dst) expr)
             |> Ir.Chp.par

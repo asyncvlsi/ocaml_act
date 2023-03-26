@@ -50,6 +50,7 @@ module Expr = struct
         | BitAnd of NI.t * NI.t
         | BitOr of NI.t * NI.t
         | BitXor of NI.t * NI.t
+        | Eq0 of NI.t
         | Eq of NI.t * NI.t
         | Ne of NI.t * NI.t
         | Lt of NI.t * NI.t
@@ -57,6 +58,8 @@ module Expr = struct
         | Gt of NI.t * NI.t
         | Ge of NI.t * NI.t
         | Clip of NI.t * int
+        | Concat of (NI.t * int) list
+        | Log2OneHot of NI.t
         | Return of NI.t
       [@@deriving sexp, hash, equal, compare]
     end
@@ -291,6 +294,7 @@ let step' t ~pc_idx ~logs =
       | BitAnd (a, b) -> reg.(!i) <- CInt.bit_and reg.(a) reg.(b)
       | BitOr (a, b) -> reg.(!i) <- CInt.bit_or reg.(a) reg.(b)
       | BitXor (a, b) -> reg.(!i) <- CInt.bit_xor reg.(a) reg.(b)
+      | Eq0 a -> reg.(!i) <- CInt.eq reg.(a) CInt.zero |> of_bool
       | Eq (a, b) -> reg.(!i) <- CInt.eq reg.(a) reg.(b) |> of_bool
       | Ne (a, b) -> reg.(!i) <- CInt.ne reg.(a) reg.(b) |> of_bool
       | Lt (a, b) -> reg.(!i) <- CInt.lt reg.(a) reg.(b) |> of_bool
@@ -298,6 +302,19 @@ let step' t ~pc_idx ~logs =
       | Gt (a, b) -> reg.(!i) <- CInt.gt reg.(a) reg.(b) |> of_bool
       | Ge (a, b) -> reg.(!i) <- CInt.ge reg.(a) reg.(b) |> of_bool
       | Clip (a, bits) -> reg.(!i) <- CInt.clip reg.(a) ~bits
+      | Concat l ->
+          let _, v =
+            List.fold ~init:(0, CInt.zero) l ~f:(fun (offset, v) (x, bits) ->
+                ( offset + bits,
+                  CInt.clip reg.(x) ~bits
+                  |> CInt.left_shift' ~amt:offset
+                  |> CInt.add v ))
+          in
+          reg.(!i) <- v
+      | Log2OneHot a ->
+          let b = CInt.bitwidth reg.(a) in
+          assert (CInt.(eq zero (sub reg.(a) (left_shift' one ~amt:(b - 1)))));
+          reg.(!i) <- CInt.of_int (b - 1)
       | Return a -> res := Some reg.(a));
       incr i
     done;

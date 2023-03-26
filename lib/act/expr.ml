@@ -164,6 +164,7 @@ module K = struct
       | Gt (a, b) -> Gt (f a, f b)
       | Ge (a, b) -> Ge (f a, f b)
       | Clip (a, bits) -> Clip (f a, bits)
+      | Log2OneHot _ | Concat _ | Eq0 _ -> failwith "TODO"
     in
     f e
 end
