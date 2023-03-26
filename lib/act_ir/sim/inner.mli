@@ -78,7 +78,6 @@ module N : sig
     | ParJoin of Par_join.t
     | Jump of Instr_idx.t
     | JumpIfFalse of Expr.t * Instr_idx.t
-    | SelectImm of (Expr.t * Instr_idx.t) list
     | SelectImmElse of (Expr.t * Instr_idx.t) list * Instr_idx.t
     | Read of Var_id.t * Chan_id.t
     | Send of Expr.t * Chan_id.t

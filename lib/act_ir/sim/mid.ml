@@ -69,43 +69,152 @@ module Stmt = struct
   [@@deriving sexp_of]
 end
 
+module IStmt = struct
+  type n =
+    | Nop
+    | Assign of Var.t * Var.t Expr.t
+    | Log1 of Var.t Expr.t
+    | Assert of Var.t Expr.t * Var.t Expr.t
+    | Seq of t list
+    | Par of t list
+    | SelectImm of (Var.t Expr.t * t) list * t
+    | Read of Chan.t * Var.t
+    | Send of Chan.t * Var.t Expr.t
+    | WhileLoop of Var.t Expr.t * t
+    | DoWhile of t * Var.t Expr.t
+    | ReadMem of Mem.t * Var.t Expr.t * Var.t
+    | WriteMem of Mem.t * Var.t Expr.t * Var.t Expr.t
+    | Nondeterm_select of (Probe.t * t) list
+
+  and t = {
+    n : n;
+    tag : Tag.t;
+    writes : [ `Var of Var.t | `Mem of Mem.t ] list;
+    reads : Var.t list;
+  }
+  [@@deriving sexp_of]
+
+  let rec of_stmt stmt =
+    match stmt with
+    | Stmt.Nop tag -> { n = Nop; tag; writes = []; reads = [] }
+    | Assign (tag, var, expr) ->
+        {
+          n = Assign (var, expr);
+          tag;
+          writes = [ `Var var ];
+          reads = Expr.var_ids expr;
+        }
+    | Log1 (tag, expr) ->
+        { n = Log1 expr; tag; writes = []; reads = Expr.var_ids expr }
+    | Assert (tag, e1, e2) ->
+        {
+          n = Assert (e1, e2);
+          tag;
+          writes = [];
+          reads = Expr.var_ids e1 @ Expr.var_ids e2;
+        }
+    | Seq (tag, ns) ->
+        { n = Seq (List.map ~f:of_stmt ns); tag; writes = []; reads = [] }
+    | Par (tag, ns) ->
+        { n = Par (List.map ~f:of_stmt ns); tag; writes = []; reads = [] }
+    | Read (tag, chan, var) ->
+        { n = Read (chan, var); tag; writes = [ `Var var ]; reads = [] }
+    | Send (tag, chan, expr) ->
+        { n = Send (chan, expr); tag; writes = []; reads = Expr.var_ids expr }
+    | ReadMem (tag, mem, expr, dst) ->
+        {
+          n = ReadMem (mem, expr, dst);
+          tag;
+          writes = [ `Var dst; `Mem mem ];
+          reads = Expr.var_ids expr;
+        }
+    | WriteMem (tag, mem, expr, value) ->
+        {
+          n = WriteMem (mem, expr, value);
+          tag;
+          writes = [ `Mem mem ];
+          reads = Expr.var_ids expr @ Expr.var_ids value;
+        }
+    | SelectImm (tag, branches, else_) ->
+        {
+          n =
+            SelectImm
+              ( List.map branches ~f:(fun (g, stmt) -> (g, of_stmt stmt)),
+                of_stmt else_ );
+          tag;
+          writes = [];
+          reads = List.concat_map branches ~f:(fun (g, _) -> Expr.var_ids g);
+        }
+    | WhileLoop (tag, g, stmt) ->
+        {
+          n = WhileLoop (g, of_stmt stmt);
+          tag;
+          writes = [];
+          reads = Expr.var_ids g;
+        }
+    | DoWhile (tag, stmt, g) ->
+        {
+          n = DoWhile (of_stmt stmt, g);
+          tag;
+          writes = [];
+          reads = Expr.var_ids g;
+        }
+    | Nondeterm_select (tag, branches) ->
+        {
+          n =
+            Nondeterm_select
+              (List.map branches ~f:(fun (g, stmt) -> (g, of_stmt stmt)));
+          tag;
+          writes = [];
+          reads = [];
+        }
+end
+
 (* a few simle optimizations on the Stmt datatype to generate better byte
    code *)
 let rec flatten stmt =
   let flatten_brs branches =
     List.map branches ~f:(fun (g, stmt) -> (g, flatten stmt))
   in
-  match stmt with
-  | Stmt.Nop tag -> Stmt.Nop tag
-  | Assign (tag, var, expr) -> Assign (tag, var, expr)
-  | Log1 (tag, expr) -> Log1 (tag, expr)
-  | Assert (tag, e1, e2) -> Assert (tag, e1, e2)
-  | Seq (tag, ns) -> (
-      let ns =
-        List.map ns ~f:flatten
-        |> List.filter ~f:(fun n -> match n with Nop _ -> false | _ -> true)
-        |> List.concat_map ~f:(fun n ->
-               match n with Seq (_, ns) -> ns | _ -> [ n ])
-      in
-      match ns with [] -> Nop tag | [ n ] -> n | ls -> Seq (tag, ls))
-  | Par (tag, ns) -> (
-      let ns =
-        List.map ns ~f:flatten
-        |> List.filter ~f:(fun n -> match n with Nop _ -> false | _ -> true)
-        |> List.concat_map ~f:(fun n ->
-               match n with Par (_, ns) -> ns | _ -> [ n ])
-      in
-      match ns with [] -> Nop tag | [ n ] -> n | ls -> Par (tag, ls))
-  | Read (tag, chan, var) -> Read (tag, chan, var)
-  | Send (tag, chan, var) -> Send (tag, chan, var)
-  | ReadMem (tag, mem, expr, dst) -> ReadMem (tag, mem, expr, dst)
-  | WriteMem (tag, mem, expr, value) -> WriteMem (tag, mem, expr, value)
-  | SelectImm (tag, branches, else_) ->
-      SelectImm (tag, flatten_brs branches, flatten else_)
-  | WhileLoop (tag, g, stmt) -> WhileLoop (tag, g, flatten stmt)
-  | DoWhile (tag, stmt, g) -> DoWhile (tag, flatten stmt, g)
-  | Nondeterm_select (tag, branches) ->
-      Nondeterm_select (tag, flatten_brs branches)
+  let n =
+    match stmt.IStmt.n with
+    | Nop | Assign _ | Log1 _ | Assert _ | Read _ | Send _ | ReadMem _
+    | WriteMem _ ->
+        `Stmt stmt
+    | Seq ns -> (
+        let ns =
+          List.map ns ~f:flatten
+          |> List.filter ~f:(fun n ->
+                 match n.IStmt.n with Nop -> false | _ -> true)
+          |> List.concat_map ~f:(fun n ->
+                 match n.n with Seq ns -> ns | _ -> [ n ])
+        in
+        match ns with
+        | [] -> `N IStmt.Nop
+        | [ n ] -> `Stmt n
+        | ls -> `N (Seq ls))
+    | Par ns -> (
+        let ns =
+          List.map ns ~f:flatten
+          |> List.filter ~f:(fun n ->
+                 match n.IStmt.n with Nop -> false | _ -> true)
+          |> List.concat_map ~f:(fun n ->
+                 match n.n with Par ns -> ns | _ -> [ n ])
+        in
+        match ns with
+        | [] -> `N IStmt.Nop
+        | [ n ] -> `Stmt n
+        | ls -> `N (Par ls))
+    | SelectImm (branches, else_) ->
+        `N (SelectImm (flatten_brs branches, flatten else_))
+    | WhileLoop (g, stmt) -> `N (WhileLoop (g, flatten stmt))
+    | DoWhile (stmt, g) -> `N (DoWhile (flatten stmt, g))
+    | Nondeterm_select branches -> `N (Nondeterm_select (flatten_brs branches))
+  in
+  match n with
+  | `Stmt stmt -> stmt
+  | `N n ->
+      { IStmt.n; tag = stmt.tag; reads = stmt.reads; writes = stmt.writes }
 
 module Var_id_src = struct
   type t =
@@ -263,16 +372,21 @@ let wait t ~max_steps ~to_send ~to_read =
   (logs, step_err)
 
 module Assem_builder = struct
-  type t = { assem : (Inner.N.t * Tag.t) Vec.t }
+  type t = {
+    assem :
+      (Inner.N.t * (Tag.t * Inner.Var_id.t list * Inner.Var_id.t list)) Vec.t;
+  }
 
   let create () =
-    { assem = Vec.create ~cap:10 ~default:(Inner.N.End, Tag.dummy) }
+    { assem = Vec.create ~cap:10 ~default:(Inner.N.End, (Tag.dummy, [], [])) }
 
-  let push t ~tag (instr : Inner.N.t) =
-    Vec.push t.assem (instr, tag);
+  let push t ~tag ~reads ~writes (instr : Inner.N.t) =
+    Vec.push t.assem (instr, (tag, reads, writes));
     Vec.length t.assem - 1
 
-  let edit t ~tag idx (instr : Inner.N.t) = Vec.set t.assem idx (instr, tag)
+  let edit t ~tag ~reads ~writes idx (instr : Inner.N.t) =
+    Vec.set t.assem idx (instr, (tag, reads, writes))
+
   let next_idx t = Vec.length t.assem
   let assem_array t = Vec.to_array t.assem
 end
@@ -336,45 +450,14 @@ module Mem_id_pool = struct
         (helper_reg_var_idx, mem_idx))
 end
 
-let inner_n_get_read_ids t =
-  (match t with
-  | Inner.N.End | Nop | Par _ | ParJoin _ -> []
-  | Read (_, _) | Jump _ -> []
-  | Log1 expr -> Inner.Expr.var_ids expr
-  | Assign (_, expr) -> Inner.Expr.var_ids expr
-  | Assert (expr, log_e) -> Inner.Expr.var_ids expr @ Inner.Expr.var_ids log_e
-  | JumpIfFalse (expr, _) -> Inner.Expr.var_ids expr
-  | SelectImm l | SelectImmElse (l, _) ->
-      List.concat_map l ~f:(fun (expr, _) -> Inner.Expr.var_ids expr)
-  | Send (expr, _) -> Inner.Expr.var_ids expr
-  | Send_enqueuer _ -> []
-  | Read_dequeuer _ ->
-      (* intentionally none, since this shouldnt be threaded *) []
-  | ReadMem (idx_expr, _, _, _) -> Inner.Expr.var_ids idx_expr
-  | WriteMem (idx_expr, src_expr, _, _) ->
-      Inner.Expr.var_ids idx_expr @ Inner.Expr.var_ids src_expr
-  | SelectProbes _ | SelectProbes_AssertStable _ -> [])
-  |> Inner.Var_id.Set.of_list
-
-let inner_n_get_write_ids t =
-  (match t with
-  | Inner.N.End | Nop | Par _ | ParJoin _ -> []
-  | Log1 _ | Assert _ | JumpIfFalse (_, _) | Jump _ -> []
-  | SelectImm _ | SelectImmElse _ | Send (_, _) -> []
-  | Assign (id, _) -> [ id ]
-  | Read (var_id, _) -> [ var_id ]
-  | Send_enqueuer _ ->
-      (* intentionally none, since this shouldnt be threaded *) []
-  | Read_dequeuer _ -> []
-  | ReadMem (_, dst, mem_idx_reg, _) -> [ dst; mem_idx_reg ]
-  | WriteMem (_, _, mem_idx_reg, _) -> [ mem_idx_reg ]
-  | SelectProbes _ | SelectProbes_AssertStable _ -> [])
-  |> Inner.Var_id.Set.of_list
-
-let create_t ~seed (ir : Stmt.t) ~user_sendable_ports ~user_readable_ports =
+let create_t ~seed (ir : IStmt.t) ~user_sendable_ports ~user_readable_ports =
   let ab = Assem_builder.create () in
-  let push_instr ~tag instr = Assem_builder.push ab ~tag instr in
-  let edit_instr ~tag idx instr = Assem_builder.edit ab ~tag idx instr in
+  let push_instr ~tag ~reads ~writes instr =
+    Assem_builder.push ab ~tag ~reads ~writes instr
+  in
+  let edit_instr ~tag ~reads ~writes idx instr =
+    Assem_builder.edit ab ~tag ~reads ~writes idx instr
+  in
 
   let var_id_pool = Var_id_pool.create () in
   let convert_id id = Var_id_pool.to_assem_id var_id_pool id in
@@ -438,111 +521,97 @@ let create_t ~seed (ir : Stmt.t) ~user_sendable_ports ~user_readable_ports =
   let mem_id_pool = Mem_id_pool.create () in
   let get_mem mem = Mem_id_pool.get_id mem_id_pool var_id_pool mem in
 
-  let rec convert_stmt stmt =
+  let rec convert_stmt (stmt : IStmt.t) =
     let convert' stmt = ignore (convert_stmt stmt : Inner.Instr_idx.t) in
     let push_branches ~tag stmts =
-      let split = push_instr ~tag Nop in
+      let split = push_instr ~tag ~reads:[] ~writes:[] Nop in
       let ends =
         List.map stmts ~f:(fun stmt ->
             convert' stmt;
-            push_instr ~tag (Jump Inner.Instr_idx.dummy_val))
+            push_instr ~tag ~reads:[] ~writes:[]
+              (Jump Inner.Instr_idx.dummy_val))
       in
       let starts =
         List.take (split :: ends) (List.length stmts)
         |> List.map ~f:Inner.Instr_idx.next
       in
-      let merge = push_instr ~tag Nop in
-      List.iter ends ~f:(fun end_ -> edit_instr ~tag end_ (Jump merge));
+      let merge = push_instr ~tag ~reads:[] ~writes:[] Nop in
+      List.iter ends ~f:(fun end_ ->
+          edit_instr ~tag ~reads:[] ~writes:[] end_ (Jump merge));
       (split, starts, merge)
     in
-    let push_select_probes ~tag branches =
-      let split, starts, merge =
-        let split = push_instr ~tag Nop in
-        let starts, ends =
-          List.map branches ~f:(fun (probe, stmt) ->
-              let other_probes =
-                List.map branches ~f:fst
-                |> List.filter ~f:(fun o -> not (Inner.Probe.equal o probe))
-              in
-              let start =
-                push_instr ~tag
-                  (SelectProbes_AssertStable (probe, other_probes))
-              in
-              convert' stmt;
-              let end_ = push_instr ~tag (Jump Inner.Instr_idx.dummy_val) in
-              (start, end_))
-          |> List.unzip
-        in
-        let merge = push_instr ~tag Nop in
-        List.iter ends ~f:(fun end_ -> edit_instr ~tag end_ (Jump merge));
-        (split, starts, merge)
-      in
-      let guards =
-        List.zip_exn branches starts
-        |> List.map ~f:(fun ((probe, _), start) -> (probe, start))
-      in
-      edit_instr ~tag split (SelectProbes guards);
-      merge
+    let { IStmt.tag; n; reads; writes } = stmt in
+    let reads = List.map reads ~f:convert_id in
+    let writes =
+      List.map writes ~f:(fun id ->
+          match id with
+          | `Var var -> convert_id var
+          | `Mem mem ->
+              let mem_idx_reg, _mem_id = get_mem mem in
+              mem_idx_reg)
     in
-    match stmt with
-    | Stmt.Assign (tag, var, expr) ->
-        push_instr ~tag (Assign (convert_id var, convert_expr expr))
-    | Nop tag -> push_instr ~tag Nop
-    | Log1 (tag, expr) -> push_instr ~tag (Log1 (convert_expr expr))
-    | Assert (tag, expr, log_e) ->
+    match n with
+    | IStmt.Assign (var, expr) ->
+        push_instr ~tag ~reads ~writes
+          (Assign (convert_id var, convert_expr expr))
+    | Nop -> push_instr ~tag ~reads ~writes Nop
+    | Log1 expr -> push_instr ~tag ~reads ~writes (Log1 (convert_expr expr))
+    | Assert (expr, log_e) ->
         let expr = convert_expr expr in
         let log_e = convert_expr log_e in
-        push_instr ~tag (Assert (expr, log_e))
-    | Seq (tag, stmts) -> (
+        push_instr ~tag ~reads ~writes (Assert (expr, log_e))
+    | Seq stmts -> (
         match stmts with
-        | [] -> push_instr ~tag Nop
+        | [] -> failwith "unreachable: flatten should remove this"
         | stmts -> List.map stmts ~f:convert_stmt |> List.last_exn)
-    | Par (tag, stmts) -> (
+    | Par stmts -> (
         match stmts with
-        | [] -> push_instr ~tag Nop
+        | [] -> failwith "unreachable: flatten should remove this"
         | stmts ->
             let split, starts, merge = push_branches ~tag stmts in
-            edit_instr ~tag split (Par starts);
-            edit_instr ~tag merge
+            edit_instr ~tag ~reads ~writes split (Par starts);
+            edit_instr ~tag ~reads:[] ~writes:[] merge
               (ParJoin (Inner.Par_join.create ~max_ct:(List.length stmts)));
             merge)
-    | SelectImm (tag, branches, else_) ->
+    | SelectImm (branches, else_) ->
         let guards, stmts = List.unzip branches in
         let split, starts, merge = push_branches ~tag (else_ :: stmts) in
         let guards = List.map guards ~f:convert_expr in
         let guards = List.zip_exn guards (List.tl_exn starts) in
-        edit_instr ~tag split (SelectImmElse (guards, List.hd_exn starts));
+        edit_instr ~tag ~reads ~writes split
+          (SelectImmElse (guards, List.hd_exn starts));
         merge
-    | Read (tag, chan, var) ->
+    | Read (chan, var) ->
         let chan_idx = get_chan chan in
-        push_instr ~tag (Read (convert_id var, chan_idx))
-    | Send (tag, chan, expr) ->
+        push_instr ~tag ~reads ~writes (Read (convert_id var, chan_idx))
+    | Send (chan, expr) ->
         let chan_idx = get_chan chan in
-        push_instr ~tag (Send (convert_expr expr, chan_idx))
-    | WhileLoop (tag, expr, stmt) ->
+        push_instr ~tag ~reads ~writes (Send (convert_expr expr, chan_idx))
+    | WhileLoop (expr, stmt) ->
         let split =
-          push_instr ~tag
+          push_instr ~tag ~reads ~writes
             (JumpIfFalse (convert_expr expr, Inner.Instr_idx.dummy_val))
         in
         convert' stmt;
-        let jmp = push_instr ~tag (Jump split) in
-        edit_instr ~tag split
+        let jmp = push_instr ~tag ~reads:[] ~writes:[] (Jump split) in
+        edit_instr ~tag ~reads ~writes split
           (JumpIfFalse (convert_expr expr, Inner.Instr_idx.next jmp));
         jmp
-    | DoWhile (tag, stmt, expr) ->
-        let top = push_instr ~tag Nop in
+    | DoWhile (stmt, expr) ->
+        let top = push_instr ~tag ~reads:[] ~writes:[] Nop in
         convert' stmt;
         let not_expr = Ir.Expr.Eq (expr, Const CInt.zero) in
-        push_instr ~tag (JumpIfFalse (convert_expr' not_expr, top))
-    | ReadMem (tag, mem, idx, dst) ->
+        push_instr ~tag ~reads ~writes
+          (JumpIfFalse (convert_expr' not_expr, top))
+    | ReadMem (mem, idx, dst) ->
         let mem_idx_reg, mem_id = get_mem mem in
-        push_instr ~tag
+        push_instr ~tag ~reads ~writes
           (ReadMem (convert_expr idx, convert_id dst, mem_idx_reg, mem_id))
-    | WriteMem (tag, mem, idx, value) ->
+    | WriteMem (mem, idx, value) ->
         let mem_idx_reg, mem_id = get_mem mem in
-        push_instr ~tag
+        push_instr ~tag ~reads ~writes
           (WriteMem (convert_expr idx, convert_expr value, mem_idx_reg, mem_id))
-    | Nondeterm_select (tag, branches) ->
+    | Nondeterm_select branches ->
         let branches =
           List.map branches ~f:(fun (probe, stmt) ->
               let probe =
@@ -552,19 +621,52 @@ let create_t ~seed (ir : Stmt.t) ~user_sendable_ports ~user_readable_ports =
               in
               (probe, stmt))
         in
-        push_select_probes ~tag branches
+        let split, starts, merge =
+          let split = push_instr ~tag ~reads ~writes Nop in
+          let starts, ends =
+            List.map branches ~f:(fun (probe, stmt) ->
+                let other_probes =
+                  List.map branches ~f:fst
+                  |> List.filter ~f:(fun o -> not (Inner.Probe.equal o probe))
+                in
+                let start =
+                  push_instr ~tag ~reads:[] ~writes:[]
+                    (SelectProbes_AssertStable (probe, other_probes))
+                in
+                convert' stmt;
+                let end_ =
+                  push_instr ~tag ~reads:[] ~writes:[]
+                    (Jump Inner.Instr_idx.dummy_val)
+                in
+                (start, end_))
+            |> List.unzip
+          in
+          let merge = push_instr ~tag ~reads:[] ~writes:[] Nop in
+          List.iter ends ~f:(fun end_ ->
+              edit_instr ~tag ~reads:[] ~writes:[] end_ (Jump merge));
+          (split, starts, merge)
+        in
+        let guards =
+          List.zip_exn branches starts
+          |> List.map ~f:(fun ((probe, _), start) -> (probe, start))
+        in
+        edit_instr ~tag ~reads ~writes split (SelectProbes guards);
+        merge
   in
 
   (* Build the main program. An initial jump is required. *)
   let () =
     let init_jump =
-      push_instr ~tag:Tag.dummy (Jump Inner.Instr_idx.dummy_val)
+      push_instr ~tag:Tag.dummy ~reads:[] ~writes:[]
+        (Jump Inner.Instr_idx.dummy_val)
     in
     let start = Assem_builder.next_idx ab in
-    edit_instr ~tag:Tag.dummy init_jump (Jump start)
+    edit_instr ~tag:Tag.dummy ~reads:[] ~writes:[] init_jump (Jump start)
   in
   let (_ : Inner.Instr_idx.t) = convert_stmt ir in
-  let (_ : Inner.Instr_idx.t) = push_instr ~tag:Tag.dummy End in
+  let (_ : Inner.Instr_idx.t) =
+    push_instr ~tag:Tag.dummy ~reads:[] ~writes:[] End
+  in
 
   (* set up user enqueuers *)
   let all_dequeuers, dequeuer_table =
@@ -576,9 +678,13 @@ let create_t ~seed (ir : Stmt.t) ~user_sendable_ports ~user_readable_ports =
              Var_id_pool.new_id var_id_pool (Read_deq_reg bitwidth)
            in
            let read_instr =
-             push_instr ~tag:Tag.dummy (Read (var_id, chan_idx))
+             push_instr ~tag:Tag.dummy ~reads:[] ~writes:[ var_id ]
+               (Read (var_id, chan_idx))
            in
-           let _ = push_instr ~tag:Tag.dummy (Read_dequeuer dequeuer_idx) in
+           let _ =
+             push_instr ~tag:Tag.dummy ~reads:[] ~writes:[]
+               (Read_dequeuer dequeuer_idx)
+           in
            let sexper = CInt.sexp_of_t in
            (* let dequeuer = Dequeuer_buff.create ~var_id chan_idx in *)
            ((chan, (read_instr, dequeuer_idx)), (chan, sexper, var_id, chan_idx)))
@@ -603,9 +709,13 @@ let create_t ~seed (ir : Stmt.t) ~user_sendable_ports ~user_readable_ports =
            in
            let send_expr = { Inner.Expr.ns = [| Var var_id; Return 0 |] } in
            let send_instr =
-             push_instr ~tag:Tag.dummy (Send (send_expr, chan_idx))
+             push_instr ~tag:Tag.dummy ~reads:[ var_id ] ~writes:[]
+               (Send (send_expr, chan_idx))
            in
-           let _ = push_instr ~tag:Tag.dummy (Send_enqueuer enqueuer_idx) in
+           let _ =
+             push_instr ~tag:Tag.dummy ~reads:[] ~writes:[]
+               (Send_enqueuer enqueuer_idx)
+           in
            (* let enqueuer = in *)
            ((chan, (send_instr, enqueuer_idx)), (chan, var_id, chan_idx)))
     |> List.unzip
@@ -619,12 +729,17 @@ let create_t ~seed (ir : Stmt.t) ~user_sendable_ports ~user_readable_ports =
 
   let assem = Assem_builder.assem_array ab in
   let assem, l = Array.unzip assem in
-  let tag_of_assem_idx = l in
+  let tag_of_assem_idx, assem_guard_read_ids, assem_guard_write_ids =
+    Array.to_list l |> List.unzip3
+  in
+  let tag_of_assem_idx = Array.of_list tag_of_assem_idx in
   let assem_guard_read_ids =
-    Array.map assem ~f:(fun n -> inner_n_get_read_ids n)
+    List.map assem_guard_read_ids ~f:(fun ids -> Inner.Var_id.Set.of_list ids)
+    |> Array.of_list
   in
   let assem_guard_write_ids =
-    Array.map assem ~f:(fun n -> inner_n_get_write_ids n)
+    List.map assem_guard_write_ids ~f:(fun ids -> Inner.Var_id.Set.of_list ids)
+    |> Array.of_list
   in
   let vars, var_table_info =
     let var_srcs =
@@ -694,7 +809,7 @@ let create ~seed stmt ~iports ~oports =
   let user_sendable_ports = Chan.Set.of_list iports in
   let user_readable_ports = Chan.Set.of_list oports in
   assert (Set.inter user_readable_ports user_sendable_ports |> Set.is_empty);
-  let stmt = flatten stmt in
+  let stmt = IStmt.of_stmt stmt |> flatten in
   (* print_s [%sexp (stmt: Stmt.t)]; *)
   let t = create_t ~seed stmt ~user_sendable_ports ~user_readable_ports in
   reset t;

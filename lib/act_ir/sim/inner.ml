@@ -156,7 +156,6 @@ module N = struct
     | ParJoin of Par_join.t
     | Jump of Instr_idx.t
     | JumpIfFalse of Expr.t * Instr_idx.t
-    | SelectImm of (Expr.t * Instr_idx.t) list
     | SelectImmElse of (Expr.t * Instr_idx.t) list * Instr_idx.t
     | Read of Var_id.t * Chan_id.t
     | Send of Expr.t * Chan_id.t
@@ -490,9 +489,6 @@ let step' t ~pc_idx ~logs =
       unguard pc;
       let expr = eval_bool expr in
       set_pc_and_guard ~pc_idx (if expr then pc + 1 else inst)
-  | SelectImm l ->
-      unguard pc;
-      step_select l ~else_:None ~pc ~pc_idx
   | SelectImmElse (l, else_) ->
       unguard pc;
       step_select l ~else_:(Some else_) ~pc ~pc_idx
