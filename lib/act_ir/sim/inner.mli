@@ -69,9 +69,8 @@ module N : sig
     | End
     | Nop
     | Assign of Var_id.t * Expr.t
-    | Log0 of string
-    | Log1 of Expr.t * (CInt.t -> string)
-    | Assert of Expr.t * Expr.t * (CInt.t -> string)
+    | Log1 of Expr.t
+    | Assert of Expr.t * Expr.t
     | Par of Instr_idx.t list
     | ParJoin of Par_join.t
     | Jump of Instr_idx.t
@@ -95,9 +94,6 @@ module N : sig
     | Send_enqueuer of Enqueuer_idx.t
     | Read_dequeuer of Dequeuer_idx.t
   [@@deriving sexp_of]
-
-  val get_read_ids : t -> Var_id.Set.t
-  val get_write_ids : t -> Var_id.Set.t
 end
 
 module E : sig
@@ -110,7 +106,7 @@ module E : sig
     | Select_no_guards_true of Instr_idx.t
     | Select_multiple_guards_true of Instr_idx.t * int list
     | Assigned_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * CInt.t
-    | Assert_failure of Instr_idx.t * string
+    | Assert_failure of Instr_idx.t * CInt.t
     | Simul_chan_readers of Instr_idx.t * Instr_idx.t
     | Simul_chan_senders of Instr_idx.t * Instr_idx.t
     | Select_multiple_true_probes of Instr_idx.t * (int * (Probe.t * int)) list
@@ -127,7 +123,7 @@ module E : sig
 end
 
 module Var_spec : sig
-  type t = { bitwidth : int; init : CInt.t option }
+  type t = { bitwidth : int }
 end
 
 module Chan_spec : sig
@@ -181,5 +177,5 @@ val set_dequeuer :
   push_pc:Instr_idx.t ->
   unit
 
-val wait : t -> max_steps:int -> unit -> E.t
+val wait : t -> max_steps:int -> unit -> (Instr_idx.t * CInt.t) Vec.t * E.t
 val reset : t -> unit

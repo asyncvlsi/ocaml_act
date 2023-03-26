@@ -60,3 +60,9 @@ val four : 'v t
 val five : 'v t
 val true_ : 'v t
 val false_ : 'v t
+
+(* utils *)
+val map_vars : 'v t -> f:('v -> 'u) -> 'u t
+val bind_vars : 'v t -> f:('v -> 'u t) -> 'u t
+val var_ids : 'v t -> 'v list
+val bitwidth : 'v t -> bits_of_var:('v -> int) -> int

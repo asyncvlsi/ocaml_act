@@ -1,57 +1,14 @@
 open! Core
 open Utils
+module Mid = Mid
 
 module With_origin = struct
   type 'a t = { value : 'a; origin : Code_pos.t } [@@deriving sexp_of, fields]
-
-  let map { value; origin } ~f = { value = f value; origin }
-end
-
-module Var_id_src = struct
-  type t =
-    | Var of Ir.Var.t
-    | Mem_idx_reg of int
-    | Read_deq_reg of int
-    | Send_enq_reg of int
-  [@@deriving sexp_of]
-
-  let bitwidth t =
-    match t with
-    | Var v -> v.bitwidth
-    | Mem_idx_reg bitwidth | Read_deq_reg bitwidth | Send_enq_reg bitwidth ->
-        bitwidth
-
-  let init_value t =
-    match t with
-    | Var v -> v.init
-    | Mem_idx_reg _ | Read_deq_reg _ | Send_enq_reg _ -> None
-end
-
-module Var_buff_info = struct
-  type t = { src : Var_id_src.t } [@@deriving sexp_of]
-end
-
-module Chan_buff_info = struct
-  type t = { src : (Ir.Chan.t[@sexp.opaque]) } [@@deriving sexp_of]
-end
-
-module Mem_buff_info = struct
-  type t = { src : (Ir.Mem.t[@sexp.opaque]) } [@@deriving sexp_of]
-end
-
-module Enqueuer_info = struct
-  type t = { chan : Inner.Chan_id.t } [@@deriving sexp_of]
-end
-
-module Dequeuer_info = struct
-  type t = { chan : Inner.Chan_id.t; sexper : CInt.t -> Sexp.t }
-  [@@deriving sexp_of]
 end
 
 module Queued_user_op = struct
   type t = {
-    queuer : [ `Send of Inner.Enqueuer_idx.t | `Read of Inner.Dequeuer_idx.t ];
-    chan_instr : Inner.Instr_idx.t;
+    queuer : [ `Send of Ir.Chan.t | `Read of Ir.Chan.t ];
     value : CInt.t;
     call_site : Code_pos.t;
   }
@@ -59,19 +16,17 @@ module Queued_user_op = struct
 end
 
 type t = {
-  i : Inner.t;
+  i : Mid.t;
   mutable is_done : bool;
   (* error message helpers *)
-  sexper_table : (CInt.t -> Sexp.t) array;
-  loc_of_assem_idx : Code_pos.t array;
-  var_table_info : Var_buff_info.t array;
-  chan_table_info : Chan_buff_info.t array;
-  mem_table_info : Mem_buff_info.t array;
-  enqueuer_table_info : Enqueuer_info.t array;
-  dequeuer_table_info : Dequeuer_info.t array;
+  info_of_tag :
+    (Code_pos.t * (CInt.t -> Sexp.t) * (CInt.t -> string)) Mid.Tag.Table.t;
+  var_of_mid : Ir.Var.t Mid.Var.Map.t;
+  chan_of_mid : Ir.Chan.t Mid.Chan.Map.t;
+  mem_of_mid : Ir.Mem.t Mid.Mem.Map.t;
   (* io helpers *)
-  all_enqueuers : (Inner.Instr_idx.t * Inner.Enqueuer_idx.t) Ir.Chan.Map.t;
-  all_dequeuers : (Inner.Instr_idx.t * Inner.Dequeuer_idx.t) Ir.Chan.Map.t;
+  iports : Mid.Chan.t Ir.Chan.Map.t;
+  oports : Mid.Chan.t Ir.Chan.Map.t;
   (* per-wait state *)
   queued_user_ops : Queued_user_op.t Queue.t;
 }
@@ -79,50 +34,48 @@ type t = {
 
 let resolve_step_err t e ~line_numbers ~to_send ~to_read =
   (* Now this is a map of form Enquere_idx.t -> CInt.t With_origin.t *)
-  let to_send = Map.data to_send |> Int.Map.of_alist_exn in
-  let to_read = Map.data to_read |> Int.Map.of_alist_exn in
-  let loc_of_instr var_id = t.loc_of_assem_idx.(var_id) in
+  let loc_of_tag tag =
+    Hashtbl.find_exn t.info_of_tag tag |> fun (loc, _, _) -> loc
+  in
+  let sexper_of_tag tag =
+    Hashtbl.find_exn t.info_of_tag tag |> fun (_, sexper, _) -> sexper
+  in
+  let msg_fn_of_tag tag =
+    Hashtbl.find_exn t.info_of_tag tag |> fun (_, _, msg_fn) -> msg_fn
+  in
   let str_l (cp : Code_pos.t) =
     if line_numbers then
       [%string "in %{cp.filename} on line %{cp.line_number#Int}"]
     else "<loc>"
   in
-  let str_i pc = loc_of_instr pc |> str_l in
+  let str_i tag = loc_of_tag tag |> str_l in
+  let do_sexp tag x = (sexper_of_tag tag) x in
   match e with
-  | Inner.E.Stuck -> Ok `Stuck
+  | Mid.E.Stuck -> Ok `Stuck
   | Time_out -> Error "Simulation timed out. Maybe increase max_steps?"
-  | User_read_did_not_complete (deq_idx, read_idx) ->
-      let chan_idx = t.dequeuer_table_info.(deq_idx).chan in
-      let chan_creation_pos =
-        t.chan_table_info.(chan_idx).src.creation_code_pos
-      in
-      let read = (Map.find_exn to_read deq_idx).(read_idx) in
+  | User_read_did_not_complete (chan, read_idx) ->
+      let chan = Map.find_exn t.chan_of_mid chan in
+      let chan_creation_pos = chan.creation_code_pos in
+      let read = (Map.find_exn to_read chan).(read_idx) in
       Error
         [%string
           "User read did not complete:  called %{str_l \
            read.With_origin.origin}, on chan created %{str_l \
            chan_creation_pos}."]
-  | User_send_did_not_complete (enq_idx, send_idx) ->
-      let chan_idx = t.enqueuer_table_info.(enq_idx).chan in
-      let chan_creation_pos =
-        t.chan_table_info.(chan_idx).src.creation_code_pos
-      in
-      let send = (Map.find_exn to_send enq_idx).(send_idx - 1) in
+  | User_send_did_not_complete (chan, send_idx) ->
+      let chan = Map.find_exn t.chan_of_mid chan in
+      let chan_creation_pos = chan.creation_code_pos in
+      let send = (Map.find_exn to_send chan).(send_idx - 1) in
       Error
         [%string
           "User send did not complete:  called %{str_l \
            send.With_origin.origin}, on chan created %{str_l \
            chan_creation_pos}."]
-  | Uninit_id (var_id, pc) ->
-      let var_code_pos =
-        match t.var_table_info.(var_id).src with
-        | Var var -> str_l var.creation_code_pos
-        | Mem_idx_reg _ | Read_deq_reg _ | Send_enq_reg _ ->
-            failwith "unreachable"
-      in
+  | Uninit_id (var, pc) ->
+      let var_decl = (Map.find_exn t.var_of_mid var).creation_code_pos in
       Error
         [%string
-          "Uninitialized variable: read %{str_i pc}, created %{var_code_pos}."]
+          "Uninitialized variable: read %{str_i pc}, created %{str_l var_decl}."]
   | Simul_chan_senders (fst_pc, snd_pc) ->
       Error
         [%string
@@ -133,37 +86,26 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
         [%string
           "Simultanious readers on channel: statement 1 %{str_i fst_pc}, \
            statement 2 %{str_i snd_pc}."]
-  | Assert_failure (pc, msg) ->
+  | Assert_failure (pc, cint) ->
+      let msg = (msg_fn_of_tag pc) cint in
       Error [%string "Assertion failed %{str_i pc}: %{msg}."]
-  | Simul_read_write_var (read_pc, write_pc, var_id) ->
-      let var =
-        match t.var_table_info.(var_id).src with
-        | Var var -> var
-        | Mem_idx_reg _ | Read_deq_reg _ | Send_enq_reg _ ->
-            failwith "should be unreachable"
-      in
-      let var_decl = var.creation_code_pos in
+  | Simul_read_write_var (read_pc, write_pc, var) ->
+      let var_decl = (Map.find_exn t.var_of_mid var).creation_code_pos in
       Error
         [%string
           "Simultanious read and write of variable: read %{str_i read_pc}, \
            write %{str_i write_pc}, create %{str_l var_decl}."]
-  | Simul_write_write_var (pc1, pc2, var_id) -> (
-      (* This could either be because an actual variable is written in two
-         locations, or could be the fake variable used by a memory to mark that
-         two accesses are happening at the same time *)
-      match t.var_table_info.(var_id).src with
-      | Var var ->
-          Error
-            [%string
-              "Simulatnious writes of variable: statement 1 %{str_i pc1}, \
-               statement 2 %{str_i pc2}, create %{str_l \
-               var.creation_code_pos}."]
-      | Mem_idx_reg _ ->
-          Error
-            [%string
-              "Simulatnious accesses of a memory/rom: statement 1 %{str_i \
-               pc1}, statement 2 %{str_i pc2}."]
-      | Read_deq_reg _ | Send_enq_reg _ -> failwith "unreachable")
+  | Simul_write_write_var (pc1, pc2, var) ->
+      let var_decl = (Map.find_exn t.var_of_mid var).creation_code_pos in
+      Error
+        [%string
+          "Simulatnious writes of variable: statement 1 %{str_i pc1}, \
+           statement 2 %{str_i pc2}, create %{str_l var_decl}."]
+  | Simul_mem_access (pc1, pc2, _mem_id) ->
+      Error
+        [%string
+          "Simulatnious accesses of a memory/rom: statement 1 %{str_i pc1}, \
+           statement 2 %{str_i pc2}."]
   | Select_no_guards_true pc ->
       Error [%string "Select statement has no true guards: %{str_i pc}."]
   | Select_multiple_guards_true (pc, branch_idxs) ->
@@ -172,40 +114,35 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
         [%string
           "Select statement has multiple true guards: %{str_i pc}, true branch \
            indices as %{branch_idxs}."]
-  | Read_dequeuer_wrong_value (deq_idx, actual, expected_idx) ->
-      let chan_idx = t.dequeuer_table_info.(deq_idx).chan in
-      let deq_sexper = t.dequeuer_table_info.(deq_idx).sexper in
-      let actual = deq_sexper actual in
-      let expected = (Map.find_exn to_read deq_idx).(expected_idx) in
-      let expected =
-        With_origin.map expected ~f:(fun expected -> deq_sexper expected)
-      in
-      let chan_decl = t.chan_table_info.(chan_idx).src.creation_code_pos in
+  | Read_dequeuer_wrong_value (chan, actual, expected_idx) ->
+      let chan = Map.find_exn t.chan_of_mid chan in
+      let expected = (Map.find_exn to_read chan).(expected_idx) in
+      let chan_decl = chan.creation_code_pos in
       Error
         [%string
-          "User read has wrong value: got %{actual#Sexp}, but expected \
-           %{expected.With_origin.value#Sexp} based on `send' function call \
+          "User read has wrong value: got %{actual#CInt}, but expected \
+           %{expected.With_origin.value#CInt} based on `send' function call \
            %{str_l expected.origin}, on chan created %{str_l chan_decl}."]
   | Mem_out_of_bounds (pc, idx, len) ->
       Error
         [%string
           "Mem access out of bounds: %{str_i pc}, idx is %{idx#CInt}, size of \
            mem is %{len#Int}."]
-  | Assigned_value_doesnt_fit_in_var (assign_instr, _, value) ->
-      let value = t.sexper_table.(assign_instr) value in
+  | Assigned_value_doesnt_fit_in_var (assign_tag, value) ->
+      let value = do_sexp assign_tag value in
       Error
         [%string
           "Assigned value doesnt fit in var: got %{value#Sexp} but variable \
-           has layout TODO at %{str_i assign_instr}."]
-  | Read_chan_value_doesnt_fit_in_var (read_instr, _, value) ->
-      let value = t.sexper_table.(read_instr) value in
+           has layout TODO at %{str_i assign_tag}."]
+  | Read_chan_value_doesnt_fit_in_var (read_instr, value) ->
+      let value = do_sexp read_instr value in
       (* let var_layout = Ir_dtype.layout var_dtype in *)
       Error
         [%string
           "Read value doesnt fit in var: got %{value#Sexp} but variable has \
            layout TODO at %{str_i read_instr}."]
-  | Read_mem_value_doesnt_fit_in_var (read_instr, _, value) ->
-      let value = t.sexper_table.(read_instr) value in
+  | Read_mem_value_doesnt_fit_in_var (read_instr, value) ->
+      let value = do_sexp read_instr value in
       (* let var_dtype = t.var_table_info.(dst_id).dtype in *)
       (* let var_layout = Ir_dtype.layout var_dtype in *)
       (* let value = *)
@@ -216,8 +153,8 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
         [%string
           "Read value doesnt fit in var: got %{value#Sexp} but variable has \
            layout TODO at %{str_i read_instr}."]
-  | Sent_value_doesnt_fit_in_chan (send_instr, _, value) ->
-      let value = t.sexper_table.(send_instr) value in
+  | Sent_value_doesnt_fit_in_chan (send_instr, value) ->
+      let value = do_sexp send_instr value in
       (* let chan = t.chan_table_info.(chan_idx).src in *)
       (* let chan_layout = Ir_dtype.layout chan.d.dtype in *)
       (* let value = *)
@@ -228,10 +165,10 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
         [%string
           "Sent value doesnt fit in chan: got %{value#Sexp} but channel has \
            layout TODO at %{str_i send_instr}."]
-  | Written_mem_value_doesnt_fit_in_cell (write_instr, _, value) ->
+  | Written_mem_value_doesnt_fit_in_cell (write_instr, value) ->
       (* let mem = t.mem_table_info.(mem_idx).src in *)
       (* let mem_cell_layout = Ir_dtype.layout mem.d.dtype in *)
-      let value = t.sexper_table.(write_instr) value in
+      let value = do_sexp write_instr value in
       (* let value = *)
       (* Ir_dtype.value_of_cint_exn mem.d.dtype value *)
       (* |> Ir_dtype.sexp_of_t_ mem.d.dtype *)
@@ -242,22 +179,22 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
            memory cell has layout TODO at %{str_i write_instr}."]
   | Unstable_probe (pc, probe) -> (
       match probe with
-      | Inner.Probe.Read_ready chan_idx ->
-          let chan_creation_pos =
-            t.chan_table_info.(chan_idx).src.creation_code_pos
+      | Mid.Probe.Read chan ->
+          let chan_decl =
+            (Map.find_exn t.chan_of_mid chan).creation_code_pos
           in
           Error
             [%string
               "Unstable waiting %{str_i pc} for send-ready for chan created \
-               %{str_l chan_creation_pos}."]
-      | Send_ready chan_idx ->
-          let chan_creation_pos =
-            t.chan_table_info.(chan_idx).src.creation_code_pos
+               %{str_l chan_decl}."]
+      | Send chan ->
+          let chan_decl =
+            (Map.find_exn t.chan_of_mid chan).creation_code_pos
           in
           Error
             [%string
               "Unstable waiting %{str_i pc} for send-ready for chan created \
-               %{str_l chan_creation_pos}"])
+               %{str_l chan_decl}"])
   | Select_multiple_true_probes (pc, true_probes) ->
       let branch_idxs = List.map true_probes ~f:fst in
       let branch_idxs = List.to_string ~f:Int.to_string branch_idxs in
@@ -270,52 +207,47 @@ let wait t ?(max_steps = 1000) ?(line_numbers = true) () =
   let queued_user_ops = Queue.to_list t.queued_user_ops in
   Queue.clear t.queued_user_ops;
   let to_send, to_read =
-    List.partition_map queued_user_ops
-      ~f:(fun { queuer; chan_instr; value; call_site } ->
+    List.partition_map queued_user_ops ~f:(fun { queuer; value; call_site } ->
         match queuer with
-        | `Send enqueuer -> First (chan_instr, (enqueuer, value, call_site))
-        | `Read dequeuer -> Second (chan_instr, (dequeuer, value, call_site)))
+        | `Send chan -> First (chan, (value, call_site))
+        | `Read chan -> Second (chan, (value, call_site)))
   in
   let to_send =
-    Int.Map.of_alist_multi to_send
+    Ir.Chan.Map.of_alist_multi to_send
     |> Map.map ~f:(fun l ->
-           let enqueuer_idx, _, _ = List.hd_exn l in
-           let values =
-             List.map l ~f:(fun (_, value, origin) ->
-                 { With_origin.value; origin })
-           in
-           let values = Array.of_list values in
-           (enqueuer_idx, values))
+           List.map l ~f:(fun (value, origin) -> { With_origin.value; origin })
+           |> Array.of_list)
   in
   let to_read =
-    Int.Map.of_alist_multi to_read
+    Ir.Chan.Map.of_alist_multi to_read
     |> Map.map ~f:(fun l ->
-           let dequeuer_idx, _, _ = List.hd_exn l in
-           let values =
-             List.map l ~f:(fun (_, value, origin) ->
-                 { With_origin.value; origin })
-           in
-           let values = Array.of_list values in
-           (dequeuer_idx, values))
+           List.map l ~f:(fun (value, origin) -> { With_origin.value; origin })
+           |> Array.of_list)
   in
   match t.is_done with
   | true -> Error (Error.of_string "Already done.")
   | false ->
       let status =
-        Map.iteri to_send
-          ~f:(fun ~key:send_instr ~data:(enqueuer_idx, to_send) ->
-            let to_send = Array.map to_send ~f:With_origin.value in
-            Inner.set_enqueuer t.i ~enqueuer_idx ~is_done:false ~idx:0 ~to_send
-              ~push_pc:(send_instr + 1));
-        Map.iteri to_read
-          ~f:(fun ~key:read_instr ~data:(dequeuer_idx, expected_reads) ->
-            let expected_reads =
-              Array.map expected_reads ~f:With_origin.value
-            in
-            Inner.set_dequeuer t.i ~dequeuer_idx ~idx:0 ~expected_reads
-              ~push_pc:read_instr);
-        Inner.wait t.i ~max_steps ()
-        |> resolve_step_err t ~line_numbers ~to_send ~to_read
+        let logs, step_err =
+          let to_send =
+            Map.to_alist to_send
+            |> List.map ~f:(fun (chan, to_send) ->
+                   ( Map.find_exn t.iports chan,
+                     Array.map to_send ~f:With_origin.value ))
+          in
+          let to_read =
+            Map.to_alist to_read
+            |> List.map ~f:(fun (chan, to_read) ->
+                   ( Map.find_exn t.oports chan,
+                     Array.map to_read ~f:With_origin.value ))
+          in
+          Mid.wait t.i ~max_steps ~to_send ~to_read
+        in
+        List.iter logs ~f:(fun (tag, log) ->
+            let _, _, msg_fn = Hashtbl.find_exn t.info_of_tag tag in
+            let msg = msg_fn log in 
+            printf "%s" msg);
+        resolve_step_err t ~line_numbers ~to_send ~to_read step_err
         |> Result.map_error ~f:Error.of_string
       in
       Result.iter_error status ~f:(fun _ -> t.is_done <- true);
@@ -324,418 +256,155 @@ let wait t ?(max_steps = 1000) ?(line_numbers = true) () =
 let wait' t ?max_steps () =
   print_s [%sexp (wait t ?max_steps () : unit Or_error.t)]
 
-module Assem_builder = struct
-  type t = {
-    assem : (Inner.N.t * (Code_pos.t * (CInt.t -> Sexp.t) option)) Vec.t;
-  }
+(* module Mem_id_pool = struct type t = { mutable next_id : int; id_of_mem :
+   Mid.Mem.t Ir.Mem.Table.t }
 
-  let create () =
-    {
-      assem =
-        Vec.create ~cap:10 ~default:(Inner.N.End, (Code_pos.dummy_loc, None));
-    }
+   let create () = { next_id = 0; id_of_mem = Ir.Mem.Table.create () }
 
-  let push t ?sexper loc (instr : Inner.N.t) =
-    Vec.push t.assem (instr, (loc, sexper));
-    Vec.length t.assem - 1
+   let new_id t = t.next_id <- t.next_id + 1; t.next_id - 1
 
-  let edit t ?sexper loc idx (instr : Inner.N.t) =
-    Vec.set t.assem idx (instr, (loc, sexper))
-
-  let next_idx t = Vec.length t.assem
-  let assem_array t = Vec.to_array t.assem
-end
-
-module Var_id_pool = struct
-  type t = {
-    mutable next_id : int;
-    id_of_var : Inner.Var_id.t Ir.Var.Table.t;
-    src_of_id : Var_id_src.t Inner.Var_id.Table.t;
-  }
-
-  let create () =
-    {
-      next_id = 0;
-      id_of_var = Ir.Var.Table.create ();
-      src_of_id = Inner.Var_id.Table.create ();
-    }
-
-  let new_id t src =
-    let id = t.next_id in
-    t.next_id <- t.next_id + 1;
-    Hashtbl.set t.src_of_id ~key:id ~data:src;
-    id
-
-  let to_assem_id t var =
-    Hashtbl.find_or_add t.id_of_var var ~default:(fun () ->
-        new_id t (Var_id_src.Var var))
-end
-
-module Chan_id_pool = struct
-  type t = {
-    mutable next_id : int;
-    id_of_chan : Inner.Chan_id.t Ir.Chan.Table.t;
-  }
-
-  let create () = { next_id = 0; id_of_chan = Ir.Chan.Table.create () }
-
-  let new_id t =
-    t.next_id <- t.next_id + 1;
-    t.next_id - 1
-
-  let get_id t chan =
-    Hashtbl.find_or_add t.id_of_chan chan ~default:(fun () -> new_id t)
-end
-
-module Mem_id_pool = struct
-  type t = {
-    mutable next_id : int;
-    id_of_mem : (Inner.Var_id.t * Inner.Mem_id.t) Ir.Mem.Table.t;
-  }
-
-  let create () = { next_id = 0; id_of_mem = Ir.Mem.Table.create () }
-
-  let new_id t =
-    t.next_id <- t.next_id + 1;
-    t.next_id - 1
-
-  let get_id t var_id_pool mem =
-    Hashtbl.find_or_add t.id_of_mem mem ~default:(fun () ->
-        let mem_idx = new_id t in
-        let helper_reg_var_idx =
-          Var_id_pool.new_id var_id_pool (Mem_idx_reg 1)
-        in
-        (helper_reg_var_idx, mem_idx))
-end
+   let get_id t var_id_pool mem = Hashtbl.find_or_add t.id_of_mem mem
+   ~default:(fun () -> let mem_idx = new_id t in let helper_reg_var_idx =
+   Var_id_pool.new_id var_id_pool (Mem_idx_reg 1) in (helper_reg_var_idx,
+   mem_idx)) end *)
 
 let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
-  let ab = Assem_builder.create () in
-  let push_instr loc ?sexper instr = Assem_builder.push ab loc ?sexper instr in
-  let edit_instr loc idx instr = Assem_builder.edit ab loc idx instr in
-
-  let var_id_pool = Var_id_pool.create () in
-  let convert_id id = Var_id_pool.to_assem_id var_id_pool id in
-  (* Turns an Ir_expr into a Inner.Expr. Inner.Expr is a flat array. This code
-     dedupicates repeated nodes. *)
-  let convert_expr' expr =
-    let ns = Vec.create ~cap:10 ~default:(Inner.Expr.N.Const CInt.zero) in
-    let ni_of_n = Inner.Expr.N.Table.create () in
-    let push n =
-      Hashtbl.find_or_add ni_of_n n ~default:(fun () ->
-          Vec.push ns n;
-          Vec.length ns - 1)
-    in
-    let push' n = ignore (push n : Inner.Expr.NI.t) in
-    let rec convert x =
-      match x with
-      | Ir.Expr.Var var_id -> push (Var (convert_id var_id))
-      | Const c -> push (Const c)
-      | Add (a, b) -> push (Add (convert a, convert b))
-      | Sub_no_wrap (a, b) ->
-          let a, b = (convert a, convert b) in
-          push (Sub_no_underflow (a, b))
-      | Sub_wrap (a, b, bits) ->
-          let a, b = (convert a, convert b) in
-          let p2bits = push (Const CInt.(left_shift one ~amt:(of_int bits))) in
-          let a = push (Clip (a, bits)) in
-          let a = push (BitOr (a, p2bits)) in
-          let b = push (Clip (b, bits)) in
-          let diff = push (Sub_no_underflow (a, b)) in
-          push (Clip (diff, bits))
-      | Mul (a, b) -> push (Mul (convert a, convert b))
-      | Div (a, b) -> push (Div (convert a, convert b))
-      | Mod (a, b) -> push (Mod (convert a, convert b))
-      | LShift (a, b) -> push (LShift (convert a, convert b))
-      | RShift (a, b) -> push (RShift (convert a, convert b))
-      | BitAnd (a, b) -> push (BitAnd (convert a, convert b))
-      | BitOr (a, b) -> push (BitOr (convert a, convert b))
-      | BitXor (a, b) -> push (BitXor (convert a, convert b))
-      | Eq (a, b) -> push (Eq (convert a, convert b))
-      | Ne (a, b) -> push (Ne (convert a, convert b))
-      | Lt (a, b) -> push (Lt (convert a, convert b))
-      | Le (a, b) -> push (Le (convert a, convert b))
-      | Gt (a, b) -> push (Gt (convert a, convert b))
-      | Ge (a, b) -> push (Ge (convert a, convert b))
-      | Clip (a, bits) -> push (Clip (convert a, bits))
-    in
-    let e = convert expr in
-    push' (Return e);
-    { Inner.Expr.ns = Vec.to_array ns }
+  let info_of_tag = Mid.Tag.Table.create () in
+  let new_tag ?(sexper = CInt.sexp_of_t) ?(msg_fn = CInt.to_string) loc =
+    let tag = Hashtbl.length info_of_tag in
+    Hashtbl.set info_of_tag ~key:tag ~data:(loc, sexper, msg_fn);
+    tag
   in
-  let convert_expr expr = convert_expr' expr in
 
-  let chan_id_pool = Chan_id_pool.create () in
-  let get_chan chan_id = Chan_id_pool.get_id chan_id_pool chan_id in
+  let mid_of_var = Ir.Var.Table.create () in
+  let of_v v =
+    Hashtbl.find_or_add mid_of_var v ~default:(fun () ->
+        let id = Hashtbl.length mid_of_var in
+        { Mid.Var.id; bitwidth = v.bitwidth })
+  in
 
-  let mem_id_pool = Mem_id_pool.create () in
-  let get_mem mem = Mem_id_pool.get_id mem_id_pool var_id_pool mem in
+  let mid_of_chan = Ir.Chan.Table.create () in
+  let of_c c =
+    Hashtbl.find_or_add mid_of_chan c ~default:(fun () ->
+        let id = Hashtbl.length mid_of_chan in
+        { Mid.Chan.id; bitwidth = c.bitwidth })
+  in
 
-  let rec convert_stmt stmt =
-    let convert' stmt = ignore (convert_stmt stmt : Inner.Instr_idx.t) in
-    let push_branches loc stmts =
-      let split = push_instr loc Nop in
-      let ends =
-        List.map stmts ~f:(fun stmt ->
-            convert' stmt;
-            push_instr loc (Jump Inner.Instr_idx.dummy_val))
-      in
-      let starts =
-        List.take (split :: ends) (List.length stmts)
-        |> List.map ~f:Inner.Instr_idx.next
-      in
-      let merge = push_instr loc Nop in
-      List.iter ends ~f:(fun end_ -> edit_instr loc end_ (Jump merge));
-      (split, starts, merge)
-    in
-    let push_select_probes loc branches =
-      let split, starts, merge =
-        let split = push_instr loc Nop in
-        let starts, ends =
-          List.map branches ~f:(fun (probe, stmt) ->
-              let other_probes =
-                List.map branches ~f:fst
-                |> List.filter ~f:(fun o -> not (Inner.Probe.equal o probe))
-              in
-              let start =
-                push_instr loc (SelectProbes_AssertStable (probe, other_probes))
-              in
-              convert' stmt;
-              let end_ = push_instr loc (Jump Inner.Instr_idx.dummy_val) in
-              (start, end_))
-          |> List.unzip
-        in
-        let merge = push_instr loc Nop in
-        List.iter ends ~f:(fun end_ -> edit_instr loc end_ (Jump merge));
-        (split, starts, merge)
-      in
-      let guards =
-        List.zip_exn branches starts
-        |> List.map ~f:(fun ((probe, _), start) -> (probe, start))
-      in
-      edit_instr loc split (SelectProbes guards);
-      merge
-    in
+  let mid_of_mem = Ir.Mem.Table.create () in
+  let of_mem mem =
+    Hashtbl.find_or_add mid_of_mem mem ~default:(fun () ->
+        let id = Hashtbl.length mid_of_mem in
+        { Mid.Mem.id; cell_bitwidth = mem.cell_bitwidth; init = mem.init })
+  in
+
+  let of_e e = Ir.Expr.map_vars e ~f:of_v in
+
+  let rec of_stmt stmt =
     match stmt with
     | Ir.Chp.Assign { m; var; expr } ->
-        push_instr ~sexper:m.var_sexper m.cp
-          (Assign (convert_id var, convert_expr expr))
-    | Nop m -> push_instr m.cp Nop
-    | Log1 { m; expr; f } -> push_instr m.cp (Log1 (convert_expr expr, f))
+        Mid.Stmt.Assign (new_tag ~sexper:m.var_sexper m.cp, of_v var, of_e expr)
+    | Nop m -> Nop (new_tag m.cp)
+    | Log1 { m; expr; f } -> Log1 (new_tag ~msg_fn:f m.cp, of_e expr)
     | Assert { m; expr; log_e; msg_fn } ->
-        let expr = convert_expr expr in
-        let log_e = convert_expr log_e in
-        push_instr m.cp (Assert (expr, log_e, msg_fn))
-    | Seq { m; ns = stmts } -> (
-        match stmts with
-        | [] -> push_instr m.cp Nop
-        | stmts -> List.map stmts ~f:convert_stmt |> List.last_exn)
-    | Par { m; ns = stmts } -> (
-        match stmts with
-        | [] -> push_instr m.cp Nop
-        | stmts ->
-            let split, starts, merge = push_branches m.cp stmts in
-            edit_instr m.cp split (Par starts);
-            edit_instr m.cp merge
-              (ParJoin (Inner.Par_join.create ~max_ct:(List.length stmts)));
-            merge)
-    | SelectImm { m; branches; else_ } -> (
-        match else_ with
-        | Some else_ ->
-            let guards, stmts = List.unzip branches in
-            let split, starts, merge = push_branches m.cp (else_ :: stmts) in
-            let guards = List.map guards ~f:convert_expr in
-            let guards = List.zip_exn guards (List.tl_exn starts) in
-            edit_instr m.cp split (SelectImmElse (guards, List.hd_exn starts));
-            merge
-        | None ->
-            let guards, stmts = List.unzip branches in
-            let split, starts, merge = push_branches m.cp stmts in
-            let guards = List.map guards ~f:convert_expr in
-            let guards = List.zip_exn guards starts in
-            edit_instr m.cp split (SelectImm guards);
-            merge)
-    | Read { m; chan; var } ->
-        let chan_idx = get_chan chan in
-        push_instr ~sexper:m.var_sexper m.cp (Read (convert_id var, chan_idx))
-    | Send { m; chan; expr } ->
-        let chan_idx = get_chan chan in
-        push_instr ~sexper:m.chan_sexper m.cp
-          (Send (convert_expr expr, chan_idx))
-    | WhileLoop { m; g = expr; n = seq } ->
-        let split =
-          push_instr m.cp
-            (JumpIfFalse (convert_expr expr, Inner.Instr_idx.dummy_val))
+        Assert (new_tag ~msg_fn m.cp, of_e expr, of_e log_e)
+    | Seq { m; ns = stmts } -> Seq (new_tag m.cp, List.map stmts ~f:of_stmt)
+    | Par { m; ns = stmts } -> Par (new_tag m.cp, List.map stmts ~f:of_stmt)
+    | SelectImm { m; branches; else_ } ->
+        let branches =
+          List.map branches ~f:(fun (g, stmt) -> (of_e g, of_stmt stmt))
         in
-        convert' seq;
-        let jmp = push_instr m.cp (Jump split) in
-        edit_instr m.cp split
-          (JumpIfFalse (convert_expr expr, Inner.Instr_idx.next jmp));
-        jmp
-    | DoWhile { m; n = seq; g = expr } ->
-        let top = push_instr m.cp Nop in
-        convert' seq;
-        let not_expr = Ir.Expr.Eq (expr, Const CInt.zero) in
-        push_instr m.cp (JumpIfFalse (convert_expr' not_expr, top))
+        let else_ =
+          match else_ with
+          | Some else_ -> of_stmt else_
+          | None ->
+              let err_msg = "Select branch has no true guards" in
+              let err_tag = new_tag ~msg_fn:(fun _ -> err_msg) m.cp in
+              let err =
+                Mid.Stmt.Assert
+                  (err_tag, of_e (Const CInt.zero), of_e (Const CInt.zero))
+              in
+              err
+        in
+        SelectImm (new_tag m.cp, branches, else_)
+    | Read { m; chan; var } ->
+        Read (new_tag ~sexper:m.var_sexper m.cp, of_c chan, of_v var)
+    | Send { m; chan; expr } ->
+        Send (new_tag ~sexper:m.chan_sexper m.cp, of_c chan, of_e expr)
+    | WhileLoop { m; g = expr; n = stmt } ->
+        WhileLoop (new_tag m.cp, of_e expr, of_stmt stmt)
+    | DoWhile { m; n = stmt; g = expr } ->
+        DoWhile (new_tag m.cp, of_stmt stmt, of_e expr)
     | ReadMem { m; mem; idx; var = dst } ->
-        let mem_idx_reg, mem_id = get_mem mem in
-        push_instr ~sexper:m.var_sexper m.cp
-          (ReadMem (convert_expr idx, convert_id dst, mem_idx_reg, mem_id))
+        ReadMem (new_tag m.cp, of_mem mem, of_e idx, of_v dst)
     | WriteMem { m; mem; idx; expr = value } ->
-        let mem_idx_reg, mem_id = get_mem mem in
-        push_instr ~sexper:m.cell_sexper m.cp
-          (WriteMem (convert_expr idx, convert_expr value, mem_idx_reg, mem_id))
+        WriteMem (new_tag m.cp, of_mem mem, of_e idx, of_e value)
     | Nondeterm_select { m; branches } ->
         let branches =
           List.map branches ~f:(fun (probe, stmt) ->
               let probe =
                 match probe with
-                | Read chan -> Inner.Probe.Read_ready (get_chan chan)
-                | Send chan -> Send_ready (get_chan chan)
+                | Read chan -> Mid.Probe.Read (of_c chan)
+                | Send chan -> Send (of_c chan)
               in
-              (probe, stmt))
+              (probe, of_stmt stmt))
         in
-        push_select_probes m.cp branches
+        Nondeterm_select (new_tag m.cp, branches)
   in
 
-  (* Build the main program. An initial jump is required. *)
-  let () =
-    let init_jump =
-      push_instr Code_pos.dummy_loc (Jump Inner.Instr_idx.dummy_val)
-    in
-    let start = Assem_builder.next_idx ab in
-    edit_instr Code_pos.dummy_loc init_jump (Jump start)
-  in
-  let (_ : Inner.Instr_idx.t) = convert_stmt ir in
-  let (_ : Inner.Instr_idx.t) = push_instr Code_pos.dummy_loc End in
+  let ir = of_stmt ir in
 
-  (* set up user enqueuers *)
-  let all_dequeuers, dequeuer_table =
-    Set.to_list user_readable_ports
-    |> List.mapi ~f:(fun dequeuer_idx chan ->
-           let chan_idx = Chan_id_pool.get_id chan_id_pool chan in
-           let bitwidth = chan.bitwidth in
-           let var_id =
-             Var_id_pool.new_id var_id_pool (Read_deq_reg bitwidth)
-           in
-           let read_instr =
-             push_instr Code_pos.dummy_loc (Read (var_id, chan_idx))
-           in
-           let _ = push_instr Code_pos.dummy_loc (Read_dequeuer dequeuer_idx) in
-           let sexper = CInt.sexp_of_t in
-           (* let dequeuer = Dequeuer_buff.create ~var_id chan_idx in *)
-           ((chan, (read_instr, dequeuer_idx)), (sexper, var_id, chan_idx)))
-    |> List.unzip
+  (* Now add on all the initializations *)
+  let inits =
+    Hashtbl.to_alist mid_of_var
+    |> Ir.Var.Map.of_alist_exn |> Map.to_alist
+    |> List.filter_map ~f:(fun (var, mid_var) ->
+           match var.init with
+           | Some init -> Some (mid_var, init)
+           | None -> None)
+    |> List.map ~f:(fun (mid_var, init) ->
+           Mid.Stmt.Assign
+             (new_tag Code_pos.dummy_loc, mid_var, of_e (Const init)))
   in
-  let all_dequeuers = Ir.Chan.Map.of_alist_exn all_dequeuers in
-  let dequeuers, dequeuer_table_info =
-    List.map dequeuer_table ~f:(fun (sexper, var_id, chan) ->
-        ({ Inner.Dequeuer_spec.var_id }, { Dequeuer_info.chan; sexper }))
-    |> Array.of_list |> Array.unzip
-  in
+  let ir = Mid.Stmt.Seq (new_tag Code_pos.dummy_loc, inits @ [ ir ]) in
 
-  (* set up user dequeuers *)
-  let all_enqueuers, enqueuer_table =
-    Set.to_list user_sendable_ports
-    |> List.mapi ~f:(fun enqueuer_idx chan ->
-           let chan_idx = Chan_id_pool.get_id chan_id_pool chan in
-           let bitwidth = chan.bitwidth in
-           let var_id =
-             Var_id_pool.new_id var_id_pool (Send_enq_reg bitwidth)
-           in
-           let send_expr = { Inner.Expr.ns = [| Var var_id; Return 0 |] } in
-           let send_instr =
-             push_instr Code_pos.dummy_loc (Send (send_expr, chan_idx))
-           in
-           let _ = push_instr Code_pos.dummy_loc (Send_enqueuer enqueuer_idx) in
-           (* let enqueuer = in *)
-           ((chan, (send_instr, enqueuer_idx)), (var_id, chan_idx)))
-    |> List.unzip
-  in
-  let all_enqueuers = Ir.Chan.Map.of_alist_exn all_enqueuers in
-  let enqueuers, enqueuer_table_info =
-    List.map enqueuer_table ~f:(fun (var_id, chan) ->
-        ({ Inner.Enqueuer_spec.var_id }, { Enqueuer_info.chan }))
-    |> Array.of_list |> Array.unzip
-  in
-
-  let assem = Assem_builder.assem_array ab in
-  let assem, l = Array.unzip assem in
-  let loc_of_assem_idx, sexper_of_assem_idx = Array.unzip l in
-  let assem_guard_read_ids =
-    Array.map assem ~f:(fun n -> Inner.N.get_read_ids n)
-  in
-  let assem_guard_write_ids =
-    Array.map assem ~f:(fun n -> Inner.N.get_write_ids n)
-  in
-  let vars, var_table_info =
-    let var_srcs =
-      Hashtbl.to_alist var_id_pool.src_of_id
-      |> List.sort ~compare:(fun (id1, _) (id2, _) -> Int.compare id1 id2)
-    in
-    List.iteri var_srcs ~f:(fun i (id, _) -> assert (Int.equal i id));
-    List.map var_srcs ~f:(fun (_, src) ->
-        let bitwidth = Var_id_src.bitwidth src in
-        let init = Var_id_src.init_value src in
-        let spec = { Inner.Var_spec.bitwidth; init } in
-        let info = { Var_buff_info.src } in
-        (spec, info))
-    |> Array.of_list |> Array.unzip
-  in
-
-  let chans, chan_table_info =
-    let tbl =
-      Hashtbl.to_alist chan_id_pool.id_of_chan
-      |> List.map ~f:(fun (chan, chan_id) -> (chan_id, chan))
-      |> List.sort ~compare:(fun (id0, _) (id1, _) -> Int.compare id0 id1)
-    in
-    List.iteri tbl ~f:(fun i (chan_id, _) -> assert (Int.equal i chan_id));
-    List.map tbl ~f:(fun (_, chan) ->
-        let bitwidth = chan.bitwidth in
-        let spec = { Inner.Chan_spec.bitwidth } in
-        let info = { Chan_buff_info.src = chan } in
-        (spec, info))
-    |> Array.of_list |> Array.unzip
-  in
-  let mems, mem_table_info =
-    let tbl =
-      Hashtbl.to_alist mem_id_pool.id_of_mem
-      |> List.map ~f:(fun (mem, (idx_reg, mem_id)) -> (mem_id, (idx_reg, mem)))
-      |> List.sort ~compare:(fun (id0, _) (id1, _) -> Int.compare id0 id1)
-    in
-    List.iteri tbl ~f:(fun i (mem_id, _) -> assert (Int.equal i mem_id));
-    List.map tbl ~f:(fun (_, (idx_helper_reg, mem)) ->
-        let init = mem.init in
-        let cell_bitwidth = mem.cell_bitwidth in
-        let spec = { Inner.Mem_spec.cell_bitwidth; idx_helper_reg; init } in
-        let info = { Mem_buff_info.src = mem } in
-        (spec, info))
-    |> Array.of_list |> Array.unzip
-  in
+  let iports = Map.of_key_set user_sendable_ports ~f:of_c in
+  let oports = Map.of_key_set user_readable_ports ~f:of_c in
   let i =
-    Inner.create ~assem ~assem_guard_read_ids ~assem_guard_write_ids ~vars
-      ~chans ~enqueuers ~dequeuers ~mems ~seed
+    Mid.create ir ~seed ~iports:(Map.data iports) ~oports:(Map.data oports)
   in
-  let sexper_table =
-    Array.map sexper_of_assem_idx
-      ~f:(Option.value ~default:(fun _ -> Option.sexp_of_t Int.sexp_of_t None))
+
+  let var_of_mid =
+    Hashtbl.to_alist mid_of_var
+    |> List.map ~f:(fun (var, mid) -> (mid, var))
+    |> Mid.Var.Map.of_alist_exn
   in
+
+  let chan_of_mid =
+    Hashtbl.to_alist mid_of_chan
+    |> List.map ~f:(fun (chan, mid) -> (mid, chan))
+    |> Mid.Chan.Map.of_alist_exn
+  in
+
+  let mem_of_mid =
+    Hashtbl.to_alist mid_of_mem
+    |> List.map ~f:(fun (mem, mid) -> (mid, mem))
+    |> Mid.Mem.Map.of_alist_exn
+  in
+
   {
     i;
     is_done = false;
-    loc_of_assem_idx;
-    sexper_table;
-    var_table_info;
-    chan_table_info;
-    enqueuer_table_info;
-    dequeuer_table_info;
-    mem_table_info;
-    all_enqueuers;
-    all_dequeuers;
+    info_of_tag;
+    var_of_mid;
+    chan_of_mid;
+    mem_of_mid;
+    iports;
+    oports;
     queued_user_ops = Queue.create ();
   }
 
 let reset t =
-  Inner.reset t.i;
+  Mid.reset t.i;
   t.is_done <- false;
   Queue.clear t.queued_user_ops
 
@@ -756,12 +425,12 @@ let simulate ?(seed = 0) (process : Ir.Process.t) =
   reset t;
   t
 
-let queue_user_io_op t call_site chan value chan_instr queuer =
+let queue_user_io_op t call_site chan value queuer =
   let ivalue = value in
   let chan_bitwidth = chan.Ir.Chan.bitwidth in
   if chan_bitwidth >= CInt.bitwidth ivalue then
     Queue.enqueue t.queued_user_ops
-      { Queued_user_op.queuer; chan_instr; value = ivalue; call_site }
+      { Queued_user_op.queuer; value = ivalue; call_site }
   else
     let value = CInt.sexp_of_t value in
     failwith
@@ -771,20 +440,18 @@ let queue_user_io_op t call_site chan value chan_instr queuer =
 
 let send t chan value =
   let call_site = Code_pos.psite () in
-  match Map.find t.all_enqueuers chan with
+  match Map.find t.iports chan with
   | None ->
       failwith
         "the provided chan_id was not regestered as a user-sendable chan in \
          Sim.create"
-  | Some (send_instr, enqueuer) ->
-      queue_user_io_op t call_site chan value send_instr (`Send enqueuer)
+  | Some _ -> queue_user_io_op t call_site chan value (`Send chan)
 
 let read t chan value =
   let call_site = Code_pos.psite () in
-  match Map.find t.all_dequeuers chan with
+  match Map.find t.oports chan with
   | None ->
       failwith
         "the provided chan_id was not regestered as a user-readable chan in \
          Sim.create"
-  | Some (read_instr, dequeuer) ->
-      queue_user_io_op t call_site chan value read_instr (`Read dequeuer)
+  | Some _ -> queue_user_io_op t call_site chan value (`Read chan)

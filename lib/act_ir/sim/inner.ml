@@ -147,9 +147,8 @@ module N = struct
     | End
     | Nop
     | Assign of Var_id.t * Expr.t
-    | Log0 of string
-    | Log1 of Expr.t * (CInt.t -> string)
-    | Assert of Expr.t * Expr.t * (CInt.t -> string)
+    | Log1 of Expr.t
+    | Assert of Expr.t * Expr.t
     | Par of Instr_idx.t list
     | ParJoin of Par_join.t
     | Jump of Instr_idx.t
@@ -173,41 +172,6 @@ module N = struct
     | Send_enqueuer of Enqueuer_idx.t
     | Read_dequeuer of Dequeuer_idx.t
   [@@deriving sexp_of]
-
-  let get_read_ids t =
-    (match t with
-    | End | Nop | Par _ | ParJoin _ -> []
-    | Log0 _ | Read (_, _) | Jump _ -> []
-    | Log1 (expr, _) -> Expr.var_ids expr
-    | Assign (_, expr) -> Expr.var_ids expr
-    | Assert (expr, log_e, _) -> Expr.var_ids expr @ Expr.var_ids log_e
-    | JumpIfFalse (expr, _) -> Expr.var_ids expr
-    | SelectImm l | SelectImmElse (l, _) ->
-        List.concat_map l ~f:(fun (expr, _) -> Expr.var_ids expr)
-    | Send (expr, _) -> Expr.var_ids expr
-    | Send_enqueuer _ -> []
-    | Read_dequeuer _ ->
-        (* intentionally none, since this shouldnt be threaded *) []
-    | ReadMem (idx_expr, _, _, _) -> Expr.var_ids idx_expr
-    | WriteMem (idx_expr, src_expr, _, _) ->
-        Expr.var_ids idx_expr @ Expr.var_ids src_expr
-    | SelectProbes _ | SelectProbes_AssertStable _ -> [])
-    |> Var_id.Set.of_list
-
-  let get_write_ids t =
-    (match t with
-    | End | Nop | Par _ | ParJoin _ -> []
-    | Log0 _ | Log1 _ | Assert _ | JumpIfFalse (_, _) | Jump _ -> []
-    | SelectImm _ | SelectImmElse _ | Send (_, _) -> []
-    | Assign (id, _) -> [ id ]
-    | Read (var_id, _) -> [ var_id ]
-    | Send_enqueuer _ ->
-        (* intentionally none, since this shouldnt be threaded *) []
-    | Read_dequeuer _ -> []
-    | ReadMem (_, dst, mem_idx_reg, _) -> [ dst; mem_idx_reg ]
-    | WriteMem (_, _, mem_idx_reg, _) -> [ mem_idx_reg ]
-    | SelectProbes _ | SelectProbes_AssertStable _ -> [])
-    |> Var_id.Set.of_list
 end
 
 (* This module doesnt know about dtypes. Everything is just a CInt. This should
@@ -222,7 +186,7 @@ module E = struct
     | Select_no_guards_true of Instr_idx.t
     | Select_multiple_guards_true of Instr_idx.t * int list
     | Assigned_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * CInt.t
-    | Assert_failure of Instr_idx.t * string
+    | Assert_failure of Instr_idx.t * CInt.t
     | Simul_chan_readers of Instr_idx.t * Instr_idx.t
     | Simul_chan_senders of Instr_idx.t * Instr_idx.t
     | Select_multiple_true_probes of Instr_idx.t * (int * (Probe.t * int)) list
@@ -239,7 +203,7 @@ module E = struct
 end
 
 module Var_spec = struct
-  type t = { bitwidth : int; init : CInt.t option } [@@deriving sexp_of]
+  type t = { bitwidth : int } [@@deriving sexp_of]
 end
 
 module Chan_spec = struct
@@ -309,7 +273,7 @@ let set_dequeuer t ~dequeuer_idx ~idx ~expected_reads ~push_pc =
 let check_value_fits_width width ~value ~error =
   if width >= CInt.bitwidth value then Ok () else Error error
 
-let step' t ~pc_idx =
+let step' t ~pc_idx ~logs =
   let bool_of_cint i =
     match CInt.to_int_exn i with
     | 0 -> false
@@ -493,23 +457,19 @@ let step' t ~pc_idx =
       in
       let () = set_var_table ~var_id ~value in
       set_pc_and_guard ~pc_idx (pc + 1)
-  | Assert (expr, log_e, msg_fn) -> (
+  | Assert (expr, log_e) -> (
       unguard pc;
       let expr = eval_bool expr in
       match expr with
       | true -> set_pc_and_guard ~pc_idx (pc + 1)
       | false ->
           let log_e = eval_var_table log_e in
-          let msg = msg_fn log_e in
-          Error (E.Assert_failure (pc, msg)))
-  | Log0 str ->
-      (* unguard pc; *)
-      printf "%s" str;
-      set_pc_and_guard ~pc_idx (pc + 1)
-  | Log1 (expr, f) ->
+          Error (E.Assert_failure (pc, log_e)))
+  | Log1 expr ->
       unguard pc;
       let expr = eval_var_table expr in
-      printf "%s" (f expr);
+      Vec.push logs (pc, expr);
+      (* printf "TODO: %s" [%string "%{expr#CInt}"]; *)
       set_pc_and_guard ~pc_idx (pc + 1)
   | Par instrs ->
       (* unguard pc; *)
@@ -704,6 +664,7 @@ let step' t ~pc_idx =
         set_pc_and_guard ~pc_idx (pc + 1)
 
 let wait t ~max_steps () =
+  let logs = Vec.create ~cap:10 ~default:(0, CInt.zero) in
   let step _ =
     if Vec.is_empty t.s.pcs then
       (* check whether we need error because the queuers are unfinished *)
@@ -726,22 +687,25 @@ let wait t ~max_steps () =
       let status =
         step' t
           ~pc_idx:(Random.State.int_incl t.s.rng 0 (Vec.length t.s.pcs - 1))
+          ~logs
       in
       match status with Ok () -> `Continue | Error e -> `Return e
   in
 
-  for_loop_else max_steps ~f:step ~else_:E.Time_out
+  let status = for_loop_else max_steps ~f:step ~else_:E.Time_out in
+  (logs, status)
 
 let create_state (setup : Setup.t) =
   let var_table =
     Array.map setup.var_specs ~f:(fun spec ->
         let bitwidth = spec.bitwidth in
-        let value, is_inited =
-          match spec.init with
-          | Some init -> (init, true)
-          | None -> (CInt.zero, false)
-        in
-        { Var_buff.bitwidth; value; is_inited; read_ct = 0; write_ct = 0 })
+        {
+          Var_buff.bitwidth;
+          value = CInt.zero;
+          is_inited = false;
+          read_ct = 0;
+          write_ct = 0;
+        })
   in
   let chan_table =
     Array.map setup.chan_specs ~f:(fun spec ->

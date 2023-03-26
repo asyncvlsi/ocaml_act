@@ -31,6 +31,9 @@ let library_filenames =
       "lib/act/var.ml";
       "lib/act/chp.ml";
       "lib/act_ir/sim/sim.ml";
+      "lib/act_ir/sim/simm.ml";
+      "lib/act_ir/sim/midd.ml";
+      "lib/act_ir/sim/innner.ml";
       "lib/act/sim.ml";
       "list.ml";
       "src/list0.ml";
