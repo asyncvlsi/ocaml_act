@@ -36,7 +36,7 @@ module Mem = struct
     type t = {
       id : int;
       cell_bitwidth : int;
-      init : (CInt.t array[@hash.ignore]);
+      init : (CInt.t array[@hash.ignore] [@sexp.opaque]);
     }
     [@@deriving sexp, hash, compare, equal]
   end
@@ -68,6 +68,43 @@ module Stmt = struct
     | Nondeterm_select of Tag.t * (Probe.t * t) list
   [@@deriving sexp_of]
 end
+
+(* a few simle optimizations on the Stmt datatype to generate better byte code *)
+let rec flatten stmt =
+  let flatten_brs branches =
+    List.map branches ~f:(fun (g, stmt) -> (g, flatten stmt))
+  in
+  match stmt with
+  | Stmt.Nop tag -> Stmt.Nop tag
+  | Assign (tag, var, expr) -> Assign (tag, var, expr)
+  | Log1 (tag, expr) -> Log1 (tag, expr)
+  | Assert (tag, e1, e2) -> Assert (tag, e1, e2)
+  | Seq (tag, ns) -> (
+      let ns =
+        List.map ns ~f:flatten
+        |> List.filter ~f:(fun n -> match n with Nop _ -> false | _ -> true)
+        |> List.concat_map ~f:(fun n ->
+               match n with Seq (_, ns) -> ns | _ -> [ n ])
+      in
+      match ns with [] -> Nop tag | [ n ] -> n | ls -> Seq (tag, ls))
+  | Par (tag, ns) -> (
+      let ns =
+        List.map ns ~f:flatten
+        |> List.filter ~f:(fun n -> match n with Nop _ -> false | _ -> true)
+        |> List.concat_map ~f:(fun n ->
+               match n with Par (_, ns) -> ns | _ -> [ n ])
+      in
+      match ns with [] -> Nop tag | [ n ] -> n | ls -> Par (tag, ls))
+  | Read (tag, chan, var) -> Read (tag, chan, var)
+  | Send (tag, chan, var) -> Send (tag, chan, var)
+  | ReadMem (tag, mem, expr, dst) -> ReadMem (tag, mem, expr, dst)
+  | WriteMem (tag, mem, expr, value) -> WriteMem (tag, mem, expr, value)
+  | SelectImm (tag, branches, else_) ->
+      SelectImm (tag, flatten_brs branches, flatten else_)
+  | WhileLoop (tag, g, stmt) -> WhileLoop (tag, g, flatten stmt)
+  | DoWhile (tag, stmt, g) -> DoWhile (tag, flatten stmt, g)
+  | Nondeterm_select (tag, branches) ->
+      Nondeterm_select (tag, flatten_brs branches)
 
 module Var_id_src = struct
   type t =
@@ -651,12 +688,8 @@ let create ~seed stmt ~iports ~oports =
   let user_sendable_ports = Chan.Set.of_list iports in
   let user_readable_ports = Chan.Set.of_list oports in
   assert (Set.inter user_readable_ports user_sendable_ports |> Set.is_empty);
+  let stmt = flatten stmt in
+  (* print_s [%sexp (stmt: Stmt.t)]; *)
   let t = create_t ~seed stmt ~user_sendable_ports ~user_readable_ports in
   reset t;
   t
-
-let create : seed:int -> Stmt.t -> iports:Chan.t list -> oports:Chan.t list -> t
-    =
-  create
-
-let reset : t -> unit = reset
