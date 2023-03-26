@@ -41,7 +41,7 @@ let assign var_id expr =
     var_dtype;
   let var_id = Var.Internal.unwrap var_id in
   let asserts, expr = Expr.Internal.unwrap expr in
-  let m = Act_ir.Ir.Chp.M.create ~var_sexper:var_dtype.sexp_of_cint loc in
+  let m = Act_ir.Ir.Chp.M.create loc in
   let assign = Act_ir.Ir.Chp.assign ~m var_id expr in
   Act_ir.Ir.Chp.seq (unpack_expr_asserts loc asserts @ [ assign ])
 
@@ -57,7 +57,7 @@ let read chan_id var_id =
      larger layout."
     (Ir_dtype.layout chan_dtype)
     var_dtype;
-  let m = Act_ir.Ir.Chp.M.create ~var_sexper:var_dtype.sexp_of_cint loc in
+  let m = Act_ir.Ir.Chp.M.create loc in
   Act_ir.Ir.Chp.read ~m chan_id var_id
 
 let send chan_id expr =
@@ -71,7 +71,7 @@ let send chan_id expr =
     chan_dtype;
   let asserts, expr = Expr.Internal.unwrap expr in
   let chan_id = Chan.Internal.unwrap_w chan_id in
-  let m = Act_ir.Ir.Chp.M.create ~chan_sexper:chan_dtype.sexp_of_cint loc in
+  let m = Act_ir.Ir.Chp.M.create loc in
   let send = Act_ir.Ir.Chp.send ~m chan_id expr in
   Act_ir.Ir.Chp.seq (unpack_expr_asserts loc asserts @ [ send ])
 
@@ -128,7 +128,7 @@ let read_ug_mem (mem : 'a Mem.ug_mem) ~idx ~(dst : 'a Var.t) =
     (Ir_dtype.layout mem_dtype)
     dst_dtype;
   let loc = Act_ir.Utils.Code_pos.psite () in
-  let m = Act_ir.Ir.Chp.M.create loc ~var_sexper:dst_dtype.sexp_of_cint in
+  let m = Act_ir.Ir.Chp.M.create loc in
   let asserts, idx = Expr.Internal.unwrap idx in
   let read_mem = Act_ir.Ir.Chp.read_mem ~m mem ~idx ~dst in
   Act_ir.Ir.Chp.seq (unpack_expr_asserts loc asserts @ [ read_mem ])
@@ -145,7 +145,7 @@ let write_ug_mem (mem : 'a Mem.ug_mem) ~idx ~(value : 'a Expr.t) =
     mem_dtype;
   let value_asserts, value = Expr.Internal.unwrap value in
   let loc = Act_ir.Utils.Code_pos.psite () in
-  let m = Act_ir.Ir.Chp.M.create loc ~cell_sexper:mem_dtype.sexp_of_cint in
+  let m = Act_ir.Ir.Chp.M.create loc in
   let idx_asserts, idx = Expr.Internal.unwrap idx in
   let write_mem = Act_ir.Ir.Chp.write_mem ~m mem ~idx ~value in
   Act_ir.Ir.Chp.seq
@@ -168,7 +168,7 @@ let read_ug_rom (rom : 'a Mem.ug_rom) ~idx ~(dst : 'a Var.t) =
     (Ir_dtype.layout rom_dtype)
     dst_dtype;
   let loc = Act_ir.Utils.Code_pos.psite () in
-  let m = Act_ir.Ir.Chp.M.create loc ~var_sexper:dst_dtype.sexp_of_cint in
+  let m = Act_ir.Ir.Chp.M.create loc in
   let asserts, idx = Expr.Internal.unwrap idx in
   let read_rom = Act_ir.Ir.Chp.read_mem ~m rom ~idx ~dst in
   Act_ir.Ir.Chp.seq (unpack_expr_asserts loc asserts @ [ read_rom ])

@@ -101,11 +101,8 @@ module E : sig
     | Uninit_id of Var_id.t * Instr_idx.t
     | Simul_read_write_var of Instr_idx.t * Instr_idx.t * Var_id.t
     | Simul_write_write_var of Instr_idx.t * Instr_idx.t * Var_id.t
-    | Sent_value_doesnt_fit_in_chan of Instr_idx.t * Chan_id.t * CInt.t
-    | Read_chan_value_doesnt_fit_in_var of Instr_idx.t * Chan_id.t * CInt.t
     | Select_no_guards_true of Instr_idx.t
     | Select_multiple_guards_true of Instr_idx.t * int list
-    | Assigned_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * CInt.t
     | Assert_failure of Instr_idx.t * CInt.t
     | Simul_chan_readers of Instr_idx.t * Instr_idx.t
     | Simul_chan_senders of Instr_idx.t * Instr_idx.t
@@ -113,8 +110,6 @@ module E : sig
     | Unstable_probe of Instr_idx.t * Probe.t
     | Read_dequeuer_wrong_value of Dequeuer_idx.t * CInt.t * int
     | Mem_out_of_bounds of Instr_idx.t * CInt.t * int
-    | Read_mem_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * CInt.t
-    | Written_mem_value_doesnt_fit_in_cell of Instr_idx.t * Mem_id.t * CInt.t
     | User_read_did_not_complete of Dequeuer_idx.t * int
     | User_send_did_not_complete of Enqueuer_idx.t * int
     | Stuck

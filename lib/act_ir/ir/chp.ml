@@ -2,18 +2,9 @@ open! Core
 open Utils
 
 module M = struct
-  type t = {
-    cp : Utils.Code_pos.t;
-    var_sexper : CInt.t -> Sexp.t;
-    chan_sexper : CInt.t -> Sexp.t;
-    cell_sexper : CInt.t -> Sexp.t;
-  }
-  [@@deriving sexp_of]
+  type t = { cp : Utils.Code_pos.t } [@@deriving sexp_of]
 
-  let create ?(var_sexper = CInt.sexp_of_t) ?(chan_sexper = CInt.sexp_of_t)
-      ?(cell_sexper = CInt.sexp_of_t) cp =
-    { cp; var_sexper; chan_sexper; cell_sexper }
-
+  let create cp = { cp }
   let none = create Utils.Code_pos.dummy_loc
 end
 

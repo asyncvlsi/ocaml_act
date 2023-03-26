@@ -19,8 +19,7 @@ type t = {
   i : Mid.t;
   mutable is_done : bool;
   (* error message helpers *)
-  info_of_tag :
-    (Code_pos.t * (CInt.t -> Sexp.t) * (CInt.t -> string)) Mid.Tag.Table.t;
+  info_of_tag : (Code_pos.t * (CInt.t -> string)) Mid.Tag.Table.t;
   var_of_mid : Ir.Var.t Mid.Var.Map.t;
   chan_of_mid : Ir.Chan.t Mid.Chan.Map.t;
   mem_of_mid : Ir.Mem.t Mid.Mem.Map.t;
@@ -35,13 +34,10 @@ type t = {
 let resolve_step_err t e ~line_numbers ~to_send ~to_read =
   (* Now this is a map of form Enquere_idx.t -> CInt.t With_origin.t *)
   let loc_of_tag tag =
-    Hashtbl.find_exn t.info_of_tag tag |> fun (loc, _, _) -> loc
-  in
-  let sexper_of_tag tag =
-    Hashtbl.find_exn t.info_of_tag tag |> fun (_, sexper, _) -> sexper
+    Hashtbl.find_exn t.info_of_tag tag |> fun (loc, _) -> loc
   in
   let msg_fn_of_tag tag =
-    Hashtbl.find_exn t.info_of_tag tag |> fun (_, _, msg_fn) -> msg_fn
+    Hashtbl.find_exn t.info_of_tag tag |> fun (_, msg_fn) -> msg_fn
   in
   let str_l (cp : Code_pos.t) =
     if line_numbers then
@@ -49,7 +45,6 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
     else "<loc>"
   in
   let str_i tag = loc_of_tag tag |> str_l in
-  let do_sexp tag x = (sexper_of_tag tag) x in
   match e with
   | Mid.E.Stuck -> Ok `Stuck
   | Time_out -> Error "Simulation timed out. Maybe increase max_steps?"
@@ -128,69 +123,16 @@ let resolve_step_err t e ~line_numbers ~to_send ~to_read =
         [%string
           "Mem access out of bounds: %{str_i pc}, idx is %{idx#CInt}, size of \
            mem is %{len#Int}."]
-  | Assigned_value_doesnt_fit_in_var (assign_tag, value) ->
-      let value = do_sexp assign_tag value in
-      Error
-        [%string
-          "Assigned value doesnt fit in var: got %{value#Sexp} but variable \
-           has layout TODO at %{str_i assign_tag}."]
-  | Read_chan_value_doesnt_fit_in_var (read_instr, value) ->
-      let value = do_sexp read_instr value in
-      (* let var_layout = Ir_dtype.layout var_dtype in *)
-      Error
-        [%string
-          "Read value doesnt fit in var: got %{value#Sexp} but variable has \
-           layout TODO at %{str_i read_instr}."]
-  | Read_mem_value_doesnt_fit_in_var (read_instr, value) ->
-      let value = do_sexp read_instr value in
-      (* let var_dtype = t.var_table_info.(dst_id).dtype in *)
-      (* let var_layout = Ir_dtype.layout var_dtype in *)
-      (* let value = *)
-      (* Ir_dtype.value_of_cint_exn var_dtype value *)
-      (* |> Ir_dtype.sexp_of_t_ var_dtype *)
-      (* in *)
-      Error
-        [%string
-          "Read value doesnt fit in var: got %{value#Sexp} but variable has \
-           layout TODO at %{str_i read_instr}."]
-  | Sent_value_doesnt_fit_in_chan (send_instr, value) ->
-      let value = do_sexp send_instr value in
-      (* let chan = t.chan_table_info.(chan_idx).src in *)
-      (* let chan_layout = Ir_dtype.layout chan.d.dtype in *)
-      (* let value = *)
-      (* Ir_dtype.value_of_cint_exn chan.d.dtype value *)
-      (* |> Ir_dtype.sexp_of_t_ chan.d.dtype *)
-      (* in *)
-      Error
-        [%string
-          "Sent value doesnt fit in chan: got %{value#Sexp} but channel has \
-           layout TODO at %{str_i send_instr}."]
-  | Written_mem_value_doesnt_fit_in_cell (write_instr, value) ->
-      (* let mem = t.mem_table_info.(mem_idx).src in *)
-      (* let mem_cell_layout = Ir_dtype.layout mem.d.dtype in *)
-      let value = do_sexp write_instr value in
-      (* let value = *)
-      (* Ir_dtype.value_of_cint_exn mem.d.dtype value *)
-      (* |> Ir_dtype.sexp_of_t_ mem.d.dtype *)
-      (* in *)
-      Error
-        [%string
-          "Written value doesnt fit in memory cell: got %{value#Sexp} but \
-           memory cell has layout TODO at %{str_i write_instr}."]
   | Unstable_probe (pc, probe) -> (
       match probe with
       | Mid.Probe.Read chan ->
-          let chan_decl =
-            (Map.find_exn t.chan_of_mid chan).creation_code_pos
-          in
+          let chan_decl = (Map.find_exn t.chan_of_mid chan).creation_code_pos in
           Error
             [%string
               "Unstable waiting %{str_i pc} for send-ready for chan created \
                %{str_l chan_decl}."]
       | Send chan ->
-          let chan_decl =
-            (Map.find_exn t.chan_of_mid chan).creation_code_pos
-          in
+          let chan_decl = (Map.find_exn t.chan_of_mid chan).creation_code_pos in
           Error
             [%string
               "Unstable waiting %{str_i pc} for send-ready for chan created \
@@ -244,8 +186,8 @@ let wait t ?(max_steps = 1000) ?(line_numbers = true) () =
           Mid.wait t.i ~max_steps ~to_send ~to_read
         in
         List.iter logs ~f:(fun (tag, log) ->
-            let _, _, msg_fn = Hashtbl.find_exn t.info_of_tag tag in
-            let msg = msg_fn log in 
+            let _, msg_fn = Hashtbl.find_exn t.info_of_tag tag in
+            let msg = msg_fn log in
             printf "%s" msg);
         resolve_step_err t ~line_numbers ~to_send ~to_read step_err
         |> Result.map_error ~f:Error.of_string
@@ -270,9 +212,9 @@ let wait' t ?max_steps () =
 
 let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
   let info_of_tag = Mid.Tag.Table.create () in
-  let new_tag ?(sexper = CInt.sexp_of_t) ?(msg_fn = CInt.to_string) loc =
+  let new_tag ?(msg_fn = CInt.to_string) loc =
     let tag = Hashtbl.length info_of_tag in
-    Hashtbl.set info_of_tag ~key:tag ~data:(loc, sexper, msg_fn);
+    Hashtbl.set info_of_tag ~key:tag ~data:(loc, msg_fn);
     tag
   in
 
@@ -302,7 +244,7 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
   let rec of_stmt stmt =
     match stmt with
     | Ir.Chp.Assign { m; var; expr } ->
-        Mid.Stmt.Assign (new_tag ~sexper:m.var_sexper m.cp, of_v var, of_e expr)
+        Mid.Stmt.Assign (new_tag m.cp, of_v var, of_e expr)
     | Nop m -> Nop (new_tag m.cp)
     | Log1 { m; expr; f } -> Log1 (new_tag ~msg_fn:f m.cp, of_e expr)
     | Assert { m; expr; log_e; msg_fn } ->
@@ -326,10 +268,8 @@ let create_t ~seed ir ~user_sendable_ports ~user_readable_ports =
               err
         in
         SelectImm (new_tag m.cp, branches, else_)
-    | Read { m; chan; var } ->
-        Read (new_tag ~sexper:m.var_sexper m.cp, of_c chan, of_v var)
-    | Send { m; chan; expr } ->
-        Send (new_tag ~sexper:m.chan_sexper m.cp, of_c chan, of_e expr)
+    | Read { m; chan; var } -> Read (new_tag m.cp, of_c chan, of_v var)
+    | Send { m; chan; expr } -> Send (new_tag m.cp, of_c chan, of_e expr)
     | WhileLoop { m; g = expr; n = stmt } ->
         WhileLoop (new_tag m.cp, of_e expr, of_stmt stmt)
     | DoWhile { m; n = stmt; g = expr } ->

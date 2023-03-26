@@ -3,22 +3,10 @@ open Utils
 
 module M : sig
   (* By "default" these should be Utils.Code_pos.dummy_pos and Cint.sexp_of_t *)
-  type t = {
-    cp : Utils.Code_pos.t;
-    var_sexper : CInt.t -> Sexp.t;
-    chan_sexper : CInt.t -> Sexp.t;
-    cell_sexper : CInt.t -> Sexp.t;
-  }
-  [@@deriving sexp_of]
+  type t = { cp : Utils.Code_pos.t } [@@deriving sexp_of]
 
   val none : t
-
-  val create :
-    ?var_sexper:(CInt.t -> Sexp.t) ->
-    ?chan_sexper:(CInt.t -> Sexp.t) ->
-    ?cell_sexper:(CInt.t -> Sexp.t) ->
-    Utils.Code_pos.t ->
-    t
+  val create : Utils.Code_pos.t -> t
 end
 
 module Log1 : sig

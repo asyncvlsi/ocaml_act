@@ -42,11 +42,8 @@ module E : sig
     | Simul_read_write_var of Tag.t * Tag.t * Var.t
     | Simul_write_write_var of Tag.t * Tag.t * Var.t
     | Simul_mem_access of Tag.t * Tag.t * Mem.t
-    | Sent_value_doesnt_fit_in_chan of Tag.t * CInt.t
-    | Read_chan_value_doesnt_fit_in_var of Tag.t * CInt.t
     | Select_no_guards_true of Tag.t
     | Select_multiple_guards_true of Tag.t * int list
-    | Assigned_value_doesnt_fit_in_var of Tag.t * CInt.t
     | Assert_failure of Tag.t * CInt.t
     | Simul_chan_readers of Tag.t * Tag.t
     | Simul_chan_senders of Tag.t * Tag.t
@@ -54,8 +51,6 @@ module E : sig
     | Unstable_probe of Tag.t * Probe.t
     | Read_dequeuer_wrong_value of Chan.t * CInt.t * int
     | Mem_out_of_bounds of Tag.t * CInt.t * int
-    | Read_mem_value_doesnt_fit_in_var of Tag.t * CInt.t
-    | Written_mem_value_doesnt_fit_in_cell of Tag.t * CInt.t
     | User_read_did_not_complete of Chan.t * int
     | User_send_did_not_complete of Chan.t * int
     | Stuck

@@ -112,8 +112,7 @@ end
 
 module Queued_user_op = struct
   type t = {
-    queuer :
-      [ `Send of Inner.Enqueuer_idx.t | `Read of Inner.Dequeuer_idx.t ];
+    queuer : [ `Send of Inner.Enqueuer_idx.t | `Read of Inner.Dequeuer_idx.t ];
     chan_instr : Inner.Instr_idx.t;
     value : CInt.t;
     call_site : Code_pos.t;
@@ -143,11 +142,8 @@ module E = struct
     | Simul_read_write_var of Tag.t * Tag.t * Var.t
     | Simul_write_write_var of Tag.t * Tag.t * Var.t
     | Simul_mem_access of Tag.t * Tag.t * Mem.t
-    | Sent_value_doesnt_fit_in_chan of Tag.t * CInt.t
-    | Read_chan_value_doesnt_fit_in_var of Tag.t * CInt.t
     | Select_no_guards_true of Tag.t
     | Select_multiple_guards_true of Tag.t * int list
-    | Assigned_value_doesnt_fit_in_var of Tag.t * CInt.t
     | Assert_failure of Tag.t * CInt.t
     | Simul_chan_readers of Tag.t * Tag.t
     | Simul_chan_senders of Tag.t * Tag.t
@@ -155,8 +151,6 @@ module E = struct
     | Unstable_probe of Tag.t * Probe.t
     | Read_dequeuer_wrong_value of Chan.t * CInt.t * int
     | Mem_out_of_bounds of Tag.t * CInt.t * int
-    | Read_mem_value_doesnt_fit_in_var of Tag.t * CInt.t
-    | Written_mem_value_doesnt_fit_in_cell of Tag.t * CInt.t
     | User_read_did_not_complete of Chan.t * int
     | User_send_did_not_complete of Chan.t * int
     | Stuck
@@ -206,16 +200,6 @@ let map_step_err t e =
       let chan = t.dequeuer_table_info.(deq_idx).chan in
       Read_dequeuer_wrong_value (chan, actual, expected_idx)
   | Mem_out_of_bounds (pc, idx, len) -> Mem_out_of_bounds (of_pc pc, idx, len)
-  | Assigned_value_doesnt_fit_in_var (assign_pc, _, value) ->
-      Assigned_value_doesnt_fit_in_var (of_pc assign_pc, value)
-  | Read_chan_value_doesnt_fit_in_var (read_pc, _, value) ->
-      Read_chan_value_doesnt_fit_in_var (of_pc read_pc, value)
-  | Read_mem_value_doesnt_fit_in_var (read_pc, _, value) ->
-      Read_mem_value_doesnt_fit_in_var (of_pc read_pc, value)
-  | Sent_value_doesnt_fit_in_chan (send_pc, _, value) ->
-      Sent_value_doesnt_fit_in_chan (of_pc send_pc, value)
-  | Written_mem_value_doesnt_fit_in_cell (write_pc, _, value) ->
-      Written_mem_value_doesnt_fit_in_cell (of_pc write_pc, value)
   | Unstable_probe (pc, probe) -> Unstable_probe (of_pc pc, of_probe probe)
   | Select_multiple_true_probes (pc, true_probes) ->
       Select_multiple_true_probes

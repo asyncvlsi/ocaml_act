@@ -181,11 +181,8 @@ module E = struct
     | Uninit_id of Var_id.t * Instr_idx.t
     | Simul_read_write_var of Instr_idx.t * Instr_idx.t * Var_id.t
     | Simul_write_write_var of Instr_idx.t * Instr_idx.t * Var_id.t
-    | Sent_value_doesnt_fit_in_chan of Instr_idx.t * Chan_id.t * CInt.t
-    | Read_chan_value_doesnt_fit_in_var of Instr_idx.t * Chan_id.t * CInt.t
     | Select_no_guards_true of Instr_idx.t
     | Select_multiple_guards_true of Instr_idx.t * int list
-    | Assigned_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * CInt.t
     | Assert_failure of Instr_idx.t * CInt.t
     | Simul_chan_readers of Instr_idx.t * Instr_idx.t
     | Simul_chan_senders of Instr_idx.t * Instr_idx.t
@@ -193,8 +190,6 @@ module E = struct
     | Unstable_probe of Instr_idx.t * Probe.t
     | Read_dequeuer_wrong_value of Dequeuer_idx.t * CInt.t * int
     | Mem_out_of_bounds of Instr_idx.t * CInt.t * int
-    | Read_mem_value_doesnt_fit_in_var of Instr_idx.t * Var_id.t * CInt.t
-    | Written_mem_value_doesnt_fit_in_cell of Instr_idx.t * Mem_id.t * CInt.t
     | User_read_did_not_complete of Dequeuer_idx.t * int
     | User_send_did_not_complete of Enqueuer_idx.t * int
     | Stuck
@@ -269,9 +264,6 @@ let set_dequeuer t ~dequeuer_idx ~idx ~expected_reads ~push_pc =
   dequeuer.idx <- idx;
   dequeuer.expected_reads <- expected_reads;
   Vec.push t.s.pcs push_pc
-
-let check_value_fits_width width ~value ~error =
-  if width >= CInt.bitwidth value then Ok () else Error error
 
 let step' t ~pc_idx ~logs =
   let bool_of_cint i =
@@ -393,25 +385,16 @@ let step' t ~pc_idx ~logs =
           t.s.var_table.(write_id).write_ct - 1)
   in
 
-  let step_chan (chan : Chan_buff.t) chan_idx =
+  let step_chan (chan : Chan_buff.t) =
     if chan.read_ready && chan.send_ready then (
       chan.read_ready <- false;
       chan.send_ready <- false;
       unguard chan.read_instr;
       unguard chan.send_instr;
       let value = eval_var_table chan.send_expr in
-      let%bind.Result () =
-        check_value_fits_width chan.bitwidth ~value
-          ~error:
-            (E.Sent_value_doesnt_fit_in_chan (chan.send_instr, chan_idx, value))
-      in
-      let%bind.Result () =
-        let var_width = t.s.var_table.(chan.read_dst_var_id).bitwidth in
-        check_value_fits_width var_width ~value
-          ~error:
-            (E.Read_chan_value_doesnt_fit_in_var
-               (chan.read_instr, chan.read_dst_var_id, value))
-      in
+      (* check_value_fits_width chan.bitwidth ~value *)
+      (* let var_width = t.s.var_table.(chan.read_dst_var_id).bitwidth in *)
+      (* check_value_fits_width var_width ~value *)
       let () = set_var_table ~var_id:chan.read_dst_var_id ~value in
       let () =
         Vec.extend t.s.pcs [ chan.read_instr + 1; chan.send_instr + 1 ]
@@ -450,11 +433,9 @@ let step' t ~pc_idx ~logs =
   | Assign (var_id, expr) ->
       unguard pc;
       let value = eval_var_table expr in
-      let%bind.Result () =
-        let var_width = t.s.var_table.(var_id).bitwidth in
-        check_value_fits_width var_width ~value
-          ~error:(E.Assigned_value_doesnt_fit_in_var (pc, var_id, value))
-      in
+
+      (* let var_width = t.s.var_table.(var_id).bitwidth in *)
+      (* check_value_fits_width var_width ~value *)
       let () = set_var_table ~var_id ~value in
       set_pc_and_guard ~pc_idx (pc + 1)
   | Assert (expr, log_e) -> (
@@ -526,7 +507,7 @@ let step' t ~pc_idx ~logs =
                WaitUntilReadable or WaitUntilSendable node, which has no
                read/written variables *)
             Vec.push t.s.pcs waiting_pc);
-        step_chan chan chan_idx)
+        step_chan chan)
   | Send (expr, chan_idx) ->
       (* unguard pc; *)
       let chan = t.s.chan_table.(chan_idx) in
@@ -555,7 +536,7 @@ let step' t ~pc_idx ~logs =
                WaitUntilReadable or WaitUntilSendable node, which has no
                read/written variables *)
             Vec.push t.s.pcs waiting_pc);
-        step_chan chan chan_idx)
+        step_chan chan)
   | SelectProbes probe_select -> (
       (* TODO *)
       (* unguard pc; *)
@@ -639,14 +620,9 @@ let step' t ~pc_idx ~logs =
       then Error (E.Mem_out_of_bounds (pc, idx, Array.length mem.arr))
       else
         let value = mem.arr.(CInt.to_int_exn idx) in
-        let%bind.Result () =
-          let var_width = t.s.var_table.(dst_id).bitwidth in
-          check_value_fits_width var_width ~value
-            ~error:(E.Read_mem_value_doesnt_fit_in_var (pc, dst_id, value))
-        in
-        let () =
-          set_var_table ~var_id:dst_id ~value:mem.arr.(CInt.to_int_exn idx)
-        in
+        (* let var_width = t.s.var_table.(dst_id).bitwidth in *)
+        (* check_value_fits_width var_width ~value *)
+        let () = set_var_table ~var_id:dst_id ~value in
         set_pc_and_guard ~pc_idx (pc + 1)
   | WriteMem (idx_expr, src_expr, _, mem_idx) ->
       unguard pc;
@@ -656,10 +632,7 @@ let step' t ~pc_idx ~logs =
       then Error (E.Mem_out_of_bounds (pc, idx, Array.length mem.arr))
       else
         let value = eval_var_table src_expr in
-        let%bind.Result () =
-          check_value_fits_width mem.cell_bitwidth ~value
-            ~error:(E.Written_mem_value_doesnt_fit_in_cell (pc, mem_idx, value))
-        in
+        (* check_value_fits_width mem.cell_bitwidth ~value *)
         let () = mem.arr.(CInt.to_int_exn idx) <- value in
         set_pc_and_guard ~pc_idx (pc + 1)
 

@@ -98,7 +98,7 @@ module Chp = struct
     let asserts, expr =
       apply_overflow var_dtype expr ~overflow |> Expr.Internal.unwrap
     in
-    let m = Act_ir.Ir.Chp.M.create loc ~var_sexper:var_dtype.sexp_of_cint in
+    let m = Act_ir.Ir.Chp.M.create loc in
     let assign = Act_ir.Ir.Chp.assign ~m var expr in
     Act_ir.Ir.Chp.seq (Chp.Internal.unpack_expr_asserts loc asserts @ [ assign ])
     |> Chp.Internal.wrap
@@ -118,7 +118,7 @@ module Chp = struct
     let asserts, expr =
       apply_overflow chan_dtype expr ~overflow |> Expr.Internal.unwrap
     in
-    let m = Act_ir.Ir.Chp.M.create loc ~chan_sexper:chan_dtype.sexp_of_cint in
+    let m = Act_ir.Ir.Chp.M.create loc in
     let send = Act_ir.Ir.Chp.send ~m chan_id expr in
     Act_ir.Ir.Chp.seq (Chp.Internal.unpack_expr_asserts loc asserts @ [ send ])
     |> Chp.Internal.wrap
