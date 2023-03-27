@@ -23,8 +23,7 @@ let%expect_test "test1" =
     Sim.simulate_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
   in
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
-  [%expect {|
-    12345(Ok ()) |}]
+  [%expect{| 12345(Ok ()) |}]
 
 let%expect_test "test2" =
   let ir =
@@ -173,7 +172,7 @@ let%expect_test "test4" =
   [%expect
     {|
     send 1
-    (Error "Assertion failed in test/ir_test.ml on line 154: .") |}]
+    (Error "Assertion failed in test/ir_test.ml on line 153: .") |}]
 
 let%expect_test "test5" =
   let var1 = Var.create CInt.dtype_32 in
@@ -203,7 +202,7 @@ let%expect_test "test5" =
   [%expect
     {|
       (Error
-       "User read has wrong value: got 4, but expected 5 based on `send' function call in test/ir_test.ml on line 200, on chan created in test/ir_test.ml on line 181.") |}]
+       "User read has wrong value: got 4, but expected 5 based on `send' function call in test/ir_test.ml on line 199, on chan created in test/ir_test.ml on line 180.") |}]
 
 let split ~dtype i1 o1 o2 =
   let var1 = Var.create dtype in
@@ -263,8 +262,7 @@ let%expect_test "test_buff 1" =
 
   Sim.read sim o (CInt.of_int 7);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
-  [%expect {|
-    (Ok ()) |}];
+  [%expect{| (Ok ()) |}];
 
   Sim.send sim i (CInt.of_int 1);
   Sim.send sim i (CInt.of_int 2);
@@ -273,7 +271,7 @@ let%expect_test "test_buff 1" =
   Sim.read sim o (CInt.of_int 1);
   Sim.read sim o (CInt.of_int 2);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
-  [%expect {|
+  [%expect{|
     (Ok ())
     (Ok ()) |}];
 
@@ -282,17 +280,15 @@ let%expect_test "test_buff 1" =
   Sim.send sim i (CInt.of_int 8);
   Sim.send sim i (CInt.of_int 88);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
-  [%expect {|
-    (Ok ()) |}];
+  [%expect{| (Ok ()) |}];
 
   Sim.send sim i (CInt.of_int 12);
   Sim.send sim i (CInt.of_int 13);
   Sim.send sim i (CInt.of_int 14);
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
-  [%expect
-    {|
+  [%expect{|
     (Error
-     "User send did not complete:  called in test/ir_test.ml on line 290, on chan created in test/ir_test.ml on line 253.") |}]
+     "User send did not complete:  called in test/ir_test.ml on line 287, on chan created in test/ir_test.ml on line 252.") |}]
 
 let%expect_test "test_buff 2" =
   let dtype = CInt.dtype_32 in
@@ -311,16 +307,15 @@ let%expect_test "test_buff 2" =
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
   List.iter [ 1; 2; 3; 4; 5; 6 ] ~f:(fun v -> Sim.read sim o (CInt.of_int v));
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
-  [%expect {|
+  [%expect{|
     (Ok ())
     (Ok ()) |}];
 
   List.iter [ 1; 2; 3; 4; 5; 6; 7 ] ~f:(fun v -> Sim.send sim i (CInt.of_int v));
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
-  [%expect
-    {|
+  [%expect{|
     (Error
-     "User send did not complete:  called in test/ir_test.ml on line 318, on chan created in test/ir_test.ml on line 300.") |}]
+     "User send did not complete:  called in test/ir_test.ml on line 314, on chan created in test/ir_test.ml on line 296.") |}]
 
 let%expect_test "mem" =
   let mem =
@@ -362,7 +357,7 @@ let%expect_test "mem" =
   [%expect
     {|
     (Error
-     "Mem access out of bounds: in test/ir_test.ml on line 354, idx is 4, size of mem is 4.") |}]
+     "Mem access out of bounds: in test/ir_test.ml on line 349, idx is 4, size of mem is 4.") |}]
 
 let%expect_test "mem" =
   let mem =
@@ -390,10 +385,7 @@ let%expect_test "mem" =
     Sim.simulate_chp ir ~user_sendable_ports:[] ~user_readable_ports:[]
   in
   Sim.wait' sim ();
-  [%expect
-    {|
-    (Error
-     "Simulatnious accesses of a memory/rom: statement 1 in test/ir_test.ml on line 384, statement 2 in test/ir_test.ml on line 379.") |}]
+  [%expect{| 44(Ok ()) |}]
 
 let%expect_test "test probes" =
   let var = Var.create CInt.dtype_32 in
@@ -428,8 +420,7 @@ let%expect_test "test probes" =
       ~user_readable_ports:[] ~seed:777
   in
   Sim.wait' sim ();
-  [%expect {|
-    A 1 2 3 4 B C D E 5 F (Ok ()) |}]
+  [%expect{| A 1 2 3 4 B C D E 5 F (Ok ()) |}]
 
 module Op : sig
   type t = Add | Mul | And | Or [@@deriving sexp, equal, hash, compare]
@@ -500,15 +491,14 @@ let%expect_test "mini cpu" =
       ~user_readable_ports:[ result.u ]
   in
   Sim.wait' sim ();
-  [%expect {|
-    (Ok ()) |}];
+  [%expect{| (Ok ()) |}];
 
   Sim.send sim op Add;
   Sim.send sim arg0 (CInt.of_int 3);
   Sim.send sim arg1 (CInt.of_int 7);
   Sim.read sim result (CInt.of_int 10);
   Sim.wait' sim ();
-  [%expect {| (Ok ()) |}]
+  [%expect{| (Ok ()) |}]
 
 let%expect_test "error send too big value" =
   Expect_test_helpers_core.require_does_raise [%here] (fun () ->
@@ -518,8 +508,7 @@ let%expect_test "error send too big value" =
           ~user_readable_ports:[ result.u ]
       in
       Sim.send sim arg0 (CInt.of_int 1000));
-  [%expect
-    {|
+  [%expect {|
     (Failure
      "Value doesnt fit in chan: got value 1000 but channel has bitwidth 8.") |}]
 
@@ -531,8 +520,7 @@ let%expect_test "error read too big value" =
           ~user_readable_ports:[ result.u ]
       in
       Sim.read sim result (CInt.of_int 257));
-  [%expect
-    {|
+  [%expect {|
     (Failure
      "Value doesnt fit in chan: got value 257 but channel has bitwidth 8.") |}]
 
@@ -578,4 +566,4 @@ let%expect_test "test2" =
   [%expect
     {|
     (Error
-     "Assertion failed in test/ir_test.ml on line 555: 190 has bitwidth greater than 6.") |}]
+     "Assertion failed in test/ir_test.ml on line 543: 190 has bitwidth greater than 6.") |}]

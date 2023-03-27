@@ -64,7 +64,7 @@ let%expect_test "test" =
   Sim.wait' sim ();
   List.iter l ~f:(fun v -> Sim.read sim o v);
   Sim.wait' sim ();
-  [%expect {|
+  [%expect{|
     (Ok ())
     (Ok ()) |}]
 (* $MDX part-end *)

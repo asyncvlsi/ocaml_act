@@ -69,6 +69,17 @@ module Stmt = struct
   [@@deriving sexp_of]
 end
 
+module RW = struct
+  module T = struct
+    type t = Var of Var.t | Mem of Mem.t
+    [@@deriving sexp, hash, compare, equal]
+  end
+
+  include T
+  include Comparable.Make (T)
+  include Hashable.Make (T)
+end
+
 module IStmt = struct
   type n =
     | Nop
@@ -86,12 +97,7 @@ module IStmt = struct
     | WriteMem of Mem.t * Var.t Expr.t * Var.t Expr.t
     | Nondeterm_select of (Probe.t * t) list
 
-  and t = {
-    n : n;
-    tag : Tag.t;
-    writes : [ `Var of Var.t | `Mem of Mem.t ] list;
-    reads : Var.t list;
-  }
+  and t = { n : n; tag : Tag.t; writes : RW.t list; reads : Var.t list }
   [@@deriving sexp_of]
 
   let rec of_stmt stmt =
@@ -101,7 +107,7 @@ module IStmt = struct
         {
           n = Assign (var, expr);
           tag;
-          writes = [ `Var var ];
+          writes = [ Var var ];
           reads = Expr.var_ids expr;
         }
     | Log1 (tag, expr) ->
@@ -118,21 +124,21 @@ module IStmt = struct
     | Par (tag, ns) ->
         { n = Par (List.map ~f:of_stmt ns); tag; writes = []; reads = [] }
     | Read (tag, chan, var) ->
-        { n = Read (chan, var); tag; writes = [ `Var var ]; reads = [] }
+        { n = Read (chan, var); tag; writes = [ Var var ]; reads = [] }
     | Send (tag, chan, expr) ->
         { n = Send (chan, expr); tag; writes = []; reads = Expr.var_ids expr }
     | ReadMem (tag, mem, expr, dst) ->
         {
           n = ReadMem (mem, expr, dst);
           tag;
-          writes = [ `Var dst; `Mem mem ];
+          writes = [ Var dst; Mem mem ];
           reads = Expr.var_ids expr;
         }
     | WriteMem (tag, mem, expr, value) ->
         {
           n = WriteMem (mem, expr, value);
           tag;
-          writes = [ `Mem mem ];
+          writes = [ Mem mem ];
           reads = Expr.var_ids expr @ Expr.var_ids value;
         }
     | SelectImm (tag, branches, else_) ->
@@ -178,9 +184,9 @@ let rec flatten stmt =
   in
   let n =
     match stmt.IStmt.n with
-    | Nop | Assign _ | Log1 _ | Assert _ | Read _ | Send _ | ReadMem _
-    | WriteMem _ ->
-        `Stmt stmt
+    | Nop | Assign _ | Log1 _ | Read _ | Send _ -> `Stmt stmt
+    | ReadMem _ | WriteMem _ -> `Stmt stmt
+    | Assert _ -> `Stmt stmt
     | Seq ns -> (
         let ns =
           List.map ns ~f:flatten
@@ -215,6 +221,90 @@ let rec flatten stmt =
   | `Stmt stmt -> stmt
   | `N n ->
       { IStmt.n; tag = stmt.tag; reads = stmt.reads; writes = stmt.writes }
+
+let prune_guards stmt =
+  let rec h stmt =
+    let stmt_reads = List.map stmt.IStmt.reads ~f:(fun v -> RW.Var v) in
+    match stmt.n with
+    | Nop | Assign _ | Log1 _ | Read _ | Send _ | ReadMem _ | WriteMem _
+    | Assert _ ->
+        (stmt_reads, stmt.writes, [])
+    | Seq ns ->
+        let reads, writes, needs_guard = List.map ns ~f:h |> List.unzip3 in
+        (List.concat reads, List.concat writes, List.concat needs_guard)
+    | SelectImm (branches, else_) ->
+        let reads, writes, needs_guard =
+          List.map branches ~f:(fun (_, n) -> h n) |> List.unzip3
+        in
+        let else_reads, else_writes, else_needs_guard = h else_ in
+        let reads = List.concat ([ stmt_reads; else_reads ] @ reads) in
+        let writes = List.concat ([ stmt.writes; else_writes ] @ writes) in
+        let needs_guard = List.concat (else_needs_guard :: needs_guard) in
+        (reads, writes, needs_guard)
+    | WhileLoop (_, stmt) | DoWhile (stmt, _) ->
+        let reads, writes, needs_guard = h stmt in
+        (reads @ stmt_reads, writes @ stmt.writes, needs_guard)
+    | Nondeterm_select branches ->
+        let reads, writes, needs_guard =
+          List.map branches ~f:(fun (_, n) -> h n) |> List.unzip3
+        in
+        (List.concat reads, List.concat writes, List.concat needs_guard)
+    | Par ns ->
+        let nns = List.map ns ~f:h in
+        let ns = List.to_array nns in
+        let inter =
+          List.init (Array.length ns) ~f:Fn.id
+          |> List.concat_map ~f:(fun i ->
+                 if i <= 0 then []
+                 else
+                   List.init (i - 1) ~f:Fn.id
+                   |> List.concat_map ~f:(fun j ->
+                          let i_reads, i_writes, _ = ns.(i) in
+                          let j_reads, j_writes, _ = ns.(j) in
+                          let i_reads = RW.Set.of_list i_reads in
+                          let i_writes = RW.Set.of_list i_writes in
+                          let j_reads = RW.Set.of_list j_reads in
+                          let j_writes = RW.Set.of_list j_writes in
+                          let inter =
+                            Set.union
+                              (Set.inter i_reads j_writes)
+                              (Set.inter j_reads i_writes)
+                            |> Set.union (Set.inter i_writes j_writes)
+                          in
+                          Set.to_list inter))
+        in
+        let reads, writes, needs_guard = List.unzip3 nns in
+        (List.concat reads, List.concat writes, inter @ List.concat needs_guard)
+  in
+  let _, _, needs_guard = h stmt in
+  let needs_guard = RW.Set.of_list needs_guard in
+
+  let rec h stmt =
+    let h_brs branches = List.map branches ~f:(fun (g, stmt) -> (g, h stmt)) in
+    let n =
+      match stmt.IStmt.n with
+      | Nop -> IStmt.Nop
+      | Assign (var, expr) -> Assign (var, expr)
+      | Log1 expr -> Log1 expr
+      | Read (chan, var) -> Read (chan, var)
+      | Send (chan, expr) -> Send (chan, expr)
+      | ReadMem (mem, idx, dst) -> ReadMem (mem, idx, dst)
+      | WriteMem (mem, idx, value) -> WriteMem (mem, idx, value)
+      | Assert (e1, e2) -> Assert (e1, e2)
+      | Seq ns -> Seq (List.map ns ~f:h)
+      | Par ns -> Par (List.map ns ~f:h)
+      | SelectImm (branches, else_) -> SelectImm (h_brs branches, h else_)
+      | WhileLoop (g, stmt) -> WhileLoop (g, h stmt)
+      | DoWhile (stmt, g) -> DoWhile (h stmt, g)
+      | Nondeterm_select branches -> Nondeterm_select (h_brs branches)
+    in
+    let reads =
+      List.filter stmt.reads ~f:(fun v -> Set.mem needs_guard (Var v))
+    in
+    let writes = List.filter stmt.writes ~f:(Set.mem needs_guard) in
+    { IStmt.n; tag = stmt.tag; reads; writes }
+  in
+  h stmt
 
 module Var_id_src = struct
   type t =
@@ -374,18 +464,18 @@ let wait t ~max_steps ~to_send ~to_read =
 module Assem_builder = struct
   type t = {
     assem :
-      (Inner.N.t * (Tag.t * Inner.Var_id.t list * Inner.Var_id.t list)) Vec.t;
+      (Inner.N.t * (Tag.t * (Inner.Var_id.t list * Inner.Var_id.t list))) Vec.t;
   }
 
   let create () =
-    { assem = Vec.create ~cap:10 ~default:(Inner.N.End, (Tag.dummy, [], [])) }
+    { assem = Vec.create ~cap:10 ~default:(Inner.N.End, (Tag.dummy, ([], []))) }
 
   let push t ~tag ~reads ~writes (instr : Inner.N.t) =
-    Vec.push t.assem (instr, (tag, reads, writes));
+    Vec.push t.assem (instr, (tag, (reads, writes)));
     Vec.length t.assem - 1
 
   let edit t ~tag ~reads ~writes idx (instr : Inner.N.t) =
-    Vec.set t.assem idx (instr, (tag, reads, writes))
+    Vec.set t.assem idx (instr, (tag, (reads, writes)))
 
   let next_idx t = Vec.length t.assem
   let assem_array t = Vec.to_array t.assem
@@ -545,8 +635,8 @@ let create_t ~seed (ir : IStmt.t) ~user_sendable_ports ~user_readable_ports =
     let writes =
       List.map writes ~f:(fun id ->
           match id with
-          | `Var var -> convert_id var
-          | `Mem mem ->
+          | Var var -> convert_id var
+          | Mem mem ->
               let mem_idx_reg, _mem_id = get_mem mem in
               mem_idx_reg)
     in
@@ -729,18 +819,16 @@ let create_t ~seed (ir : IStmt.t) ~user_sendable_ports ~user_readable_ports =
 
   let assem = Assem_builder.assem_array ab in
   let assem, l = Array.unzip assem in
-  let tag_of_assem_idx, assem_guard_read_ids, assem_guard_write_ids =
-    Array.to_list l |> List.unzip3
+  let tag_of_assem_idx, read_writes = Array.unzip l in
+  let assem_guard_read_ids, assem_guard_write_ids =
+    Array.map read_writes ~f:(fun (reads, writes) ->
+        let reads = Inner.Var_id.Set.of_list reads in
+        let writes = Inner.Var_id.Set.of_list writes in
+        let reads = Set.diff reads writes in
+        (reads, writes))
+    |> Array.unzip
   in
-  let tag_of_assem_idx = Array.of_list tag_of_assem_idx in
-  let assem_guard_read_ids =
-    List.map assem_guard_read_ids ~f:(fun ids -> Inner.Var_id.Set.of_list ids)
-    |> Array.of_list
-  in
-  let assem_guard_write_ids =
-    List.map assem_guard_write_ids ~f:(fun ids -> Inner.Var_id.Set.of_list ids)
-    |> Array.of_list
-  in
+
   let vars, var_table_info =
     let var_srcs =
       Hashtbl.to_alist var_id_pool.src_of_id
@@ -809,8 +897,8 @@ let create ~seed stmt ~iports ~oports =
   let user_sendable_ports = Chan.Set.of_list iports in
   let user_readable_ports = Chan.Set.of_list oports in
   assert (Set.inter user_readable_ports user_sendable_ports |> Set.is_empty);
-  let stmt = IStmt.of_stmt stmt |> flatten in
-  (* print_s [%sexp (stmt: Stmt.t)]; *)
+  let stmt = IStmt.of_stmt stmt |> flatten |> prune_guards in
+  (* print_s [%sexp (stmt: IStmt.t)]; *)
   let t = create_t ~seed stmt ~user_sendable_ports ~user_readable_ports in
   reset t;
   t

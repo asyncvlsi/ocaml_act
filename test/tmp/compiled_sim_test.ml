@@ -25,8 +25,7 @@ let%expect_test "test1" =
     |> Compiler.sim
   in
   print_s [%sexp (Sim.wait sim () : unit Or_error.t)];
-  [%expect {|
-    (Ok ()) |}]
+  [%expect{| (Ok ()) |}]
 
 let i = Chan.create CInt.dtype_32
 let o = Chan.create CInt.dtype_32
@@ -81,7 +80,7 @@ let%expect_test "simple_buffer__dataflow" =
   Sim.read sim o.r (CInt.of_int 13579753);
   Sim.wait' sim ();
 
-  [%expect {|
+  [%expect{|
     (Ok ())
     (Ok ())
     (Ok ())
@@ -156,7 +155,7 @@ let%expect_test "colatz - dataflow" =
   Sim.read sim o.r (CInt.of_int 166);
   Sim.wait' ~max_steps:1000000 sim ();
 
-  [%expect {|
+  [%expect{|
     (Ok ())
     (Ok ())
     (Ok ()) |}]
@@ -188,8 +187,7 @@ let%expect_test "simple mem read" =
   Sim.send sim i.w (CInt.of_int 1);
   Sim.read sim o.r (CInt.of_int 2);
   Sim.wait' sim ();
-  [%expect {|
-    (Ok ()) |}]
+  [%expect{| (Ok ()) |}]
 
 let i = Chan.create CInt.dtype_32
 let o = Chan.create CInt.dtype_32
@@ -230,8 +228,7 @@ let%expect_test "simple mem read write" =
   (* Sim.send sim i.w (CInt.of_int 3); *)
   (* Sim.read sim o.r (CInt.of_int 12); *)
   (* Sim.wait' sim (); *)
-  [%expect {|
-    (Ok ()) |}]
+  [%expect{| (Ok ()) |}]
 
 (* let%expect_test "test3" = let var1 = Var.create CInt.dtype_32 in let chan1 =
    Chan.create CInt.dtype_32 in let chan2 = Chan.create CInt.dtype_32 in let ir
