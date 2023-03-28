@@ -143,6 +143,13 @@ module MM = struct
     if CInt.le al.max CInt.zero then one
     else if CInt.gt al.min CInt.zero then zero
     else create_bitwidth 1
+
+  let sub_wrap al bl ~bits =
+    let p2bits = create_const CInt.(left_shift one ~amt:(of_int bits)) in
+    let al = clip al ~bits |> add p2bits in
+    let bl = clip bl ~bits in
+    let diff = sub_no_wrap al bl in
+    clip diff ~bits
 end
 
 module Bit = struct
@@ -395,6 +402,13 @@ module BB = struct
   let gt _ _ = create_bitwidth 1
   let ge _ _ = create_bitwidth 1
   let eq0 _ = create_bitwidth 1
+
+  let sub_wrap al bl ~bits =
+    let p2bits = create_const CInt.(left_shift one ~amt:(of_int bits)) in
+    let al = clip al ~bits |> add p2bits in
+    let bl = clip bl ~bits in
+    let diff = sub_no_wrap al bl in
+    clip diff ~bits
 end
 
 type t = { m : MM.t; b : BB.t } [@@deriving sexp, equal]
@@ -416,6 +430,9 @@ let add c1 c2 = create (MM.add c1.m c2.m) (BB.add c1.b c2.b)
 
 let sub_no_wrap c1 c2 =
   create (MM.sub_no_wrap c1.m c2.m) (BB.sub_no_wrap c1.b c2.b)
+
+let sub_wrap c1 c2 ~bits =
+  create (MM.sub_wrap c1.m c2.m ~bits) (BB.sub_wrap c1.b c2.b ~bits)
 
 let mul c1 c2 = create (MM.mul c1.m c2.m) (BB.mul c1.b c2.b)
 let div c1 c2 = create (MM.div c1.m c2.m) (BB.div c1.b c2.b)
@@ -453,7 +470,7 @@ let eval_rewrite_expr e ~of_var =
   let rec f e =
     let lat, e =
       match e with
-      | F_expr.Var v -> (of_var v, F_expr.Var v)
+      | Ir.Expr.Var v -> (of_var v, Ir.Expr.Var v)
       | Const c -> (create_const c, Const c)
       | Add (a, b) ->
           let (al, a), (bl, b) = (f a, f b) in
@@ -461,6 +478,9 @@ let eval_rewrite_expr e ~of_var =
       | Sub_no_wrap (a, b) ->
           let (al, a), (bl, b) = (f a, f b) in
           (sub_no_wrap al bl, Sub_no_wrap (a, b))
+      | Sub_wrap (a, b, bits) ->
+          let (al, a), (bl, b) = (f a, f b) in
+          (sub_wrap al bl ~bits, Sub_wrap (a, b, bits))
       | Mul (a, b) ->
           let (al, a), (bl, b) = (f a, f b) in
           (mul al bl, Mul (a, b))

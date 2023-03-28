@@ -27,17 +27,17 @@ end
 module Stmt : sig
   type t =
     | Nop
-    | Assert of Var.t F_expr.t
-    | Assign of Var.t * Var.t F_expr.t
+    | Assert of Var.t Ir.Expr.t
+    | Assign of Var.t * Var.t Ir.Expr.t
     | Seq of t list
     | Par of t list
     (* assert happens immediatly after read before any other code runs *)
-    | ReadThenAssert of Chan.t * Var.t * Var.t F_expr.t
-    | Send of Chan.t * Var.t F_expr.t
-    | DoWhile of t * Var.t F_expr.t
+    | ReadThenAssert of Chan.t * Var.t * Var.t Ir.Expr.t
+    | Send of Chan.t * Var.t Ir.Expr.t
+    | DoWhile of t * Var.t Ir.Expr.t
       (* This expr is a one-hot vector with List.length branches bits indexing
          into the list of branches *)
-    | SelectImm of Var.t F_expr.t list * t list
+    | SelectImm of Var.t Ir.Expr.t list * t list
     | Nondeterm_select of (Probe.t * t) list
   [@@deriving sexp_of]
 

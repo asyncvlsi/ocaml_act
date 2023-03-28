@@ -9,8 +9,8 @@ module type S = sig
   type comparator_witness
   type t = (var, comparator_witness) outer [@@deriving sexp_of]
 
-  val create1 : var -> var F_expr.t -> t
-  val expr_list : t -> (var * var F_expr.t) list
+  val create1 : var -> var Ir.Expr.t -> t
+  val expr_list : t -> (var * var Ir.Expr.t) list
   val ins : t -> var list
   val outs : t -> var list
   val deps_of_outs : t -> (var * var list) list

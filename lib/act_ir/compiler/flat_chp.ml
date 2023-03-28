@@ -36,17 +36,17 @@ end
 module Stmt = struct
   type t =
     | Nop
-    | Assert of Var.t F_expr.t
-    | Assign of Var.t * Var.t F_expr.t
+    | Assert of Var.t Ir.Expr.t
+    | Assign of Var.t * Var.t Ir.Expr.t
     | Seq of t list
     | Par of t list
     (* assert happens immediatly after read before any other code runs *)
-    | ReadThenAssert of Chan.t * Var.t * Var.t F_expr.t
-    | Send of Chan.t * Var.t F_expr.t
-    | DoWhile of t * Var.t F_expr.t
+    | ReadThenAssert of Chan.t * Var.t * Var.t Ir.Expr.t
+    | Send of Chan.t * Var.t Ir.Expr.t
+    | DoWhile of t * Var.t Ir.Expr.t
       (* This expr is a one-hot vector with List.length branches bits indexing
          into the list of branches *)
-    | SelectImm of Var.t F_expr.t list * t list
+    | SelectImm of Var.t Ir.Expr.t list * t list
     | Nondeterm_select of (Probe.t * t) list
   [@@deriving sexp_of]
 
@@ -123,18 +123,18 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
   let of_e0 e ~of_assert ~of_var =
     let rec f e =
       match e with
-      | Ir.Expr.Add (a, b) -> F_expr.Add (f a, f b)
+      | Ir.Expr.Add (a, b) -> Ir.Expr.Add (f a, f b)
       | Sub_no_wrap (a, b) ->
           let a, b = (f a, f b) in
-          of_assert (F_expr.Ge (a, b));
+          of_assert (Ir.Expr.Ge (a, b));
           Sub_no_wrap (a, b)
       | Sub_wrap (a, b, bits) ->
           let p2bits =
-            F_expr.Const (CInt.left_shift CInt.one ~amt:(CInt.of_int bits))
+            Ir.Expr.Const (CInt.left_shift CInt.one ~amt:(CInt.of_int bits))
           in
-          let a = F_expr.BitOr (Clip (f a, bits), p2bits) in
-          let b = F_expr.Clip (f b, bits) in
-          F_expr.Clip (Sub_no_wrap (a, b), bits)
+          let a = Ir.Expr.BitOr (Clip (f a, bits), p2bits) in
+          let b = Ir.Expr.Clip (f b, bits) in
+          Ir.Expr.Clip (Sub_no_wrap (a, b), bits)
       | Mul (a, b) -> Mul (f a, f b)
       | Div (a, b) -> Div (f a, f b)
       | Mod (a, b) -> Mod (f a, f b)
@@ -204,7 +204,7 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
       | Assert { m = _; expr; log_e = _; msg_fn = _ } ->
           let expr, asserts = of_e expr in
           Seq [ Seq asserts; Assert expr ]
-      (* | Loop (_, n) -> DoWhile (of_n n, F_expr.Const CInt.one) *)
+      (* | Loop (_, n) -> DoWhile (of_n n, Ir.Expr.Const CInt.one) *)
       | DoWhile { m = _; n; g } ->
           let g, asserts = of_e g in
           DoWhile (Seq [ of_n n; Seq asserts ], g)
@@ -228,7 +228,7 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
           ReadThenAssert
             ( of_c chan,
               of_v var,
-              F_expr.Const CInt.one
+              Ir.Expr.Const CInt.one
               (* assert_fits_cond var.d.dtype (Var (of_v var)) *) )
       | SelectImm { m = _; branches; else_ } ->
           let guards = List.map branches ~f:(fun (guard, _) -> of_e guard) in
@@ -237,10 +237,10 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
             | Some _ ->
                 let any_guard_true =
                   List.map guards ~f:fst
-                  |> List.reduce ~f:(fun a b -> F_expr.BitOr (a, b))
-                  |> Option.value ~default:(F_expr.Const CInt.zero)
+                  |> List.reduce ~f:(fun a b -> Ir.Expr.BitOr (a, b))
+                  |> Option.value ~default:(Ir.Expr.Const CInt.zero)
                 in
-                [ (F_expr.Eq0 any_guard_true, []) ]
+                [ (Ir.Expr.Eq0 any_guard_true, []) ]
             | None -> []
           in
           let guards, guard_asserts = guards @ else_guard |> List.unzip in
@@ -271,7 +271,7 @@ let of_chp (proc : Ir.Chp.t) ~new_interproc_chan ~interproc_chan_of_ir_chan
                   ReadThenAssert
                     ( read_chan,
                       of_v dst,
-                      F_expr.Const CInt.one
+                      Ir.Expr.Const CInt.one
                       (* assert_fits_cond dst.d.dtype (Var (of_v dst)) *) );
                 ];
             ]

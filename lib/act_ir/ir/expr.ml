@@ -25,7 +25,7 @@ type 'v t =
   | Clip of 'v t * int
   | Concat of ('v t * int) list
   | Log2OneHot of 'v t
-[@@deriving sexp_of]
+[@@deriving sexp_of, compare, equal, hash]
 
 let of_int i = Const (CInt.of_int i)
 let of_cint i = Const i

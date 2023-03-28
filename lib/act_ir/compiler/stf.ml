@@ -24,11 +24,11 @@ module Chan = struct
 end
 
 module Par_split = struct
-  type t = { in_v : Var.t; out_vs : Var.t option list } [@@deriving sexp]
+  type t = { in_v : Var.t; out_vs : Var.t option list } [@@deriving sexp_of]
 end
 
 module Par_merge = struct
-  type t = { in_vs : Var.t option list; out_v : Var.t } [@@deriving sexp]
+  type t = { in_vs : Var.t option list; out_v : Var.t } [@@deriving sexp_of]
 end
 
 module DoWhile_phi = struct
@@ -38,29 +38,32 @@ module DoWhile_phi = struct
     body_out_v : Var.t option;
     out_v : Var.t option;
   }
-  [@@deriving sexp]
+  [@@deriving sexp_of]
 end
 
 module Select_split = struct
-  type t = { in_v : Var.t; out_vs : Var.t option list } [@@deriving sexp]
+  type t = { in_v : Var.t; out_vs : Var.t option list } [@@deriving sexp_of]
 end
 
 module Select_merge = struct
-  type t = { in_vs : Var.t list; out_v : Var.t } [@@deriving sexp]
+  type t = { in_vs : Var.t list; out_v : Var.t } [@@deriving sexp_of]
 end
 
 module Stmt = struct
   type t =
     | Nop
-    | Assign of Var.t * Var.t F_expr.t
+    | Assign of Var.t * Var.t Ir.Expr.t
     | Read of Chan.t * Var.t
-    | Send of Chan.t * Var.t F_expr.t
+    | Send of Chan.t * Var.t Ir.Expr.t
     | Seq of t list
     | Par of Par_split.t list * t list * Par_merge.t list
     | SelectImm of
-        Var.t F_expr.t list * Select_split.t list * t list * Select_merge.t list
-    | DoWhile of DoWhile_phi.t list * t * Var.t F_expr.t
-  [@@deriving sexp]
+        Var.t Ir.Expr.t list
+        * Select_split.t list
+        * t list
+        * Select_merge.t list
+    | DoWhile of DoWhile_phi.t list * t * Var.t Ir.Expr.t
+  [@@deriving sexp_of]
 end
 
 module Proc = struct
@@ -102,7 +105,7 @@ let stf_of_dflowable_chp_proc proc =
     let write_v v = write_v' v ~stf_id_of_id in
 
     let of_e' e ~stf_id_of_id ~stf_id_of_raw_read_id =
-      F_expr.map_vars e ~f:(fun v ->
+      Ir.Expr.map_vars e ~f:(fun v ->
           of_v' v ~stf_id_of_id ~stf_id_of_raw_read_id)
     in
     let of_e e = of_e' e ~stf_id_of_id ~stf_id_of_raw_read_id in
@@ -382,7 +385,7 @@ let eliminate_dead_variables n =
     else false
   in
   let set_e_alive e ~vl =
-    F_expr.var_ids e |> iter_any ~f:(fun id -> set_alive id ~vl)
+    Ir.Expr.var_ids e |> iter_any ~f:(fun id -> set_alive id ~vl)
   in
 
   let is_alive_o v = map_or_false v ~f:is_alive in
@@ -534,8 +537,8 @@ let eliminate_doubled_vars n =
         | Var v ->
             Hashtbl.set renames ~key:dst ~data:(of_v v);
             Nop
-        | _ -> Assign (dst, F_expr.map_vars e ~f:of_v))
-    | Send (chan, e) -> Send (chan, F_expr.map_vars e ~f:of_v)
+        | _ -> Assign (dst, Ir.Expr.map_vars e ~f:of_v))
+    | Send (chan, e) -> Send (chan, Ir.Expr.map_vars e ~f:of_v)
     | Read (chan, v) -> Read (chan, v)
     | Seq ns -> Seq (List.map ns ~f:of_n)
     | Par (splits, ns, merges) ->
@@ -564,7 +567,7 @@ let eliminate_doubled_vars n =
         Par (splits, ns, merges)
     | SelectImm (guards, splits, ns, merges) ->
         (* TODO handle repeated splits/merges for same varaible *)
-        let guards = List.map guards ~f:(F_expr.map_vars ~f:of_v) in
+        let guards = List.map guards ~f:(Ir.Expr.map_vars ~f:of_v) in
         let splits =
           List.map splits ~f:(fun split ->
               let in_v = of_v split.in_v in
@@ -588,7 +591,7 @@ let eliminate_doubled_vars n =
               })
         in
         let ns = of_n ns in
-        let guard = F_expr.map_vars guard ~f:of_v in
+        let guard = Ir.Expr.map_vars guard ~f:of_v in
         DoWhile (phis, ns, guard)
   in
   of_n n

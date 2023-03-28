@@ -15,11 +15,11 @@ module Chan : sig
 end
 
 module Par_split : sig
-  type t = { in_v : Var.t; out_vs : Var.t option list } [@@deriving sexp]
+  type t = { in_v : Var.t; out_vs : Var.t option list } [@@deriving sexp_of]
 end
 
 module Par_merge : sig
-  type t = { in_vs : Var.t option list; out_v : Var.t } [@@deriving sexp]
+  type t = { in_vs : Var.t option list; out_v : Var.t } [@@deriving sexp_of]
 end
 
 module DoWhile_phi : sig
@@ -29,29 +29,32 @@ module DoWhile_phi : sig
     body_out_v : Var.t option;
     out_v : Var.t option;
   }
-  [@@deriving sexp]
+  [@@deriving sexp_of]
 end
 
 module Select_split : sig
-  type t = { in_v : Var.t; out_vs : Var.t option list } [@@deriving sexp]
+  type t = { in_v : Var.t; out_vs : Var.t option list } [@@deriving sexp_of]
 end
 
 module Select_merge : sig
-  type t = { in_vs : Var.t list; out_v : Var.t } [@@deriving sexp]
+  type t = { in_vs : Var.t list; out_v : Var.t } [@@deriving sexp_of]
 end
 
 module Stmt : sig
   type t =
     | Nop
-    | Assign of Var.t * Var.t F_expr.t
+    | Assign of Var.t * Var.t Ir.Expr.t
     | Read of Chan.t * Var.t
-    | Send of Chan.t * Var.t F_expr.t
+    | Send of Chan.t * Var.t Ir.Expr.t
     | Seq of t list
     | Par of Par_split.t list * t list * Par_merge.t list
     | SelectImm of
-        Var.t F_expr.t list * Select_split.t list * t list * Select_merge.t list
-    | DoWhile of DoWhile_phi.t list * t * Var.t F_expr.t
-  [@@deriving sexp]
+        Var.t Ir.Expr.t list
+        * Select_split.t list
+        * t list
+        * Select_merge.t list
+    | DoWhile of DoWhile_phi.t list * t * Var.t Ir.Expr.t
+  [@@deriving sexp_of]
 end
 
 module Proc : sig

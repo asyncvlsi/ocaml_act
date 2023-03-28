@@ -3,13 +3,13 @@ open Utils
 module Ins_idx = Int
 
 module U = struct
-  type 'v t = { ins : 'v list; es : (* dst *) ('v * Ins_idx.t F_expr.t) list }
+  type 'v t = { ins : 'v list; es : (* dst *) ('v * Ins_idx.t Ir.Expr.t) list }
   [@@deriving sexp_of]
 end
 
 type ('v, 'vc) t = {
   ins : 'v list;
-  es : (* dst *) ('v * Ins_idx.t F_expr.t) list;
+  es : (* dst *) ('v * Ins_idx.t Ir.Expr.t) list;
 }
 
 type ('v, 'vc) outer = ('v, 'vc) t
@@ -19,8 +19,8 @@ module type S = sig
   type comparator_witness
   type t = (var, comparator_witness) outer [@@deriving sexp_of]
 
-  val create1 : var -> var F_expr.t -> t
-  val expr_list : t -> (var * var F_expr.t) list
+  val create1 : var -> var Ir.Expr.t -> t
+  val expr_list : t -> (var * var Ir.Expr.t) list
   val ins : t -> var list
   val outs : t -> var list
   val deps_of_outs : t -> (var * var list) list
@@ -38,10 +38,11 @@ end
 let eval_const_expr e =
   let rec f e =
     match e with
-    | F_expr.Var _ -> failwith "Expr is not const"
+    | Ir.Expr.Var _ -> failwith "Expr is not const"
     | Const c -> c
     | Add (a, b) -> CInt.add (f a) (f b)
     | Sub_no_wrap (a, b) -> CInt.sub (f a) (f b)
+    | Sub_wrap (a, b, bits) -> CInt.sub_wrap (f a) (f b) ~bits
     | Mul (a, b) -> CInt.mul (f a) (f b)
     | Div (a, b) -> CInt.div (f a) (f b)
     | Mod (a, b) -> CInt.mod_ (f a) (f b)
@@ -98,19 +99,19 @@ struct
     in
     let es =
       List.map es ~f:(fun (dst, e) ->
-          (dst, F_expr.map_vars e ~f:(Map.find_exn idx_of_in)))
+          (dst, Ir.Expr.map_vars e ~f:(Map.find_exn idx_of_in)))
     in
     { ins; es }
 
   let of_assigns l =
     let ins =
-      List.concat_map l ~f:(fun (_, e) -> F_expr.var_ids e) |> Var.Set.of_list
+      List.concat_map l ~f:(fun (_, e) -> Ir.Expr.var_ids e) |> Var.Set.of_list
     in
     of_ins_and_es ~ins l
 
   let expr_list fblock =
     List.map fblock.es ~f:(fun (dst, e) ->
-        let e = F_expr.map_vars e ~f:(fun i -> List.nth_exn fblock.ins i) in
+        let e = Ir.Expr.map_vars e ~f:(fun i -> List.nth_exn fblock.ins i) in
         (dst, e))
 
   let create1 dst e = of_assigns [ (dst, e) ]
@@ -120,7 +121,7 @@ struct
   let deps_of_outs fblock =
     List.map fblock.es ~f:(fun (dst, e) ->
         ( dst,
-          F_expr.var_ids e |> Int.Set.of_list
+          Ir.Expr.var_ids e |> Int.Set.of_list
           |> Var.Set.map ~f:(fun i -> List.nth_exn fblock.ins i)
           |> Set.to_list ))
 
@@ -142,16 +143,17 @@ struct
     in
     let es =
       List.map fblock.es ~f:(fun (dst, e) ->
-          (dst, F_expr.map_vars e ~f:(Map.find_exn new_id_of_old_id)))
+          (dst, Ir.Expr.map_vars e ~f:(Map.find_exn new_id_of_old_id)))
     in
     { ins; es }
 
   let dup_ids fblock =
-    let module F_expr_map = Map.Make (struct
-      type t = Int.t F_expr.t [@@deriving sexp, compare, equal, hash]
+    let module Ir_expr_map = Map.Make (struct
+      type t = (Int.t Ir.Expr.t[@sexp.opaque])
+      [@@deriving sexp, compare, equal, hash]
     end) in
     List.map fblock.es ~f:(fun (dst, e) -> (e, dst))
-    |> F_expr_map.of_alist_multi |> Map.data
+    |> Ir_expr_map.of_alist_multi |> Map.data
     |> List.filter ~f:(fun l -> List.length l >= 2)
 
   let merge_same_reads fblock1 fblock2 =
@@ -174,7 +176,7 @@ struct
     let e_of_in2 = Var.Map.of_alist_exn e_of_in2 in
     let es2 =
       List.map es2 ~f:(fun (dst, e) ->
-          (dst, F_expr.bind_vars e ~f:(Map.find_exn e_of_in2)))
+          (dst, Ir.Expr.bind_vars e ~f:(Map.find_exn e_of_in2)))
     in
     let ins = fblock1.ins @ ins2 |> Var.Set.of_list in
     let es = es1 @ es2 in

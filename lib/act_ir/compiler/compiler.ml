@@ -31,10 +31,11 @@ let sim ?seed (t : Compiled_program.t) =
   let expr_k_of_expr e ~of_v =
     let rec f e =
       match e with
-      | F_expr.Var v -> Ir.Expr.Var (of_v v)
+      | Ir.Expr.Var v -> Ir.Expr.Var (of_v v)
       | Const c -> Const c
       | Add (a, b) -> Add (f a, f b)
       | Sub_no_wrap (a, b) -> Sub_no_wrap (f a, f b)
+      | Sub_wrap (a, b, bits) -> Sub_wrap (f a, f b, bits)
       | Mul (a, b) -> Mul (f a, f b)
       | Div (a, b) -> Div (f a, f b)
       | Mod (a, b) -> Mod (f a, f b)

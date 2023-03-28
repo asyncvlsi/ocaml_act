@@ -26,7 +26,7 @@ type 'v t =
   | Clip of 'v t * int
   | Concat of ('v t * int) list
   | Log2OneHot of 'v t
-[@@deriving sexp_of]
+[@@deriving sexp_of, compare, equal, hash]
 
 (* ops *)
 val var : 'v -> 'v t

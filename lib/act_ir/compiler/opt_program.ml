@@ -75,7 +75,7 @@ module Chp_exporter = struct
 
   let export_proc n ~iports ~oports ~name =
     let all_vars =
-      let extract_expr (e : Var.t F_expr.t) = F_expr.var_ids e in
+      let extract_expr (e : Var.t Ir.Expr.t) = Ir.Expr.var_ids e in
       let rec extract_n n =
         match n with
         | Flat_chp.Stmt.Par ns | Seq ns -> List.concat_map ns ~f:extract_n
@@ -161,10 +161,12 @@ module Chp_exporter = struct
     let chp_code =
       let extract_var var = Map.find_exn all_vars var in
       let extract_chan chan = Map.find_exn all_chans chan in
-      let rec ee (e : Var.t F_expr.t) =
+      let rec ee (e : Var.t Ir.Expr.t) =
         match e with
-        | F_expr.Add (a, b) -> [%string "(%{ee a} + %{ee b})"]
+        | Ir.Expr.Add (a, b) -> [%string "(%{ee a} + %{ee b})"]
         | Sub_no_wrap (a, b) -> [%string "(%{ee a} - %{ee b})"]
+        | Sub_wrap (a, b, bits) ->
+            [%string "int(%{ee a} - %{ee b}, %{bits#Int})"]
         | Mul (a, b) -> [%string "(%{ee a} * %{ee b})"]
         | Div (a, b) -> [%string "(%{ee a} / %{ee b})"]
         | Mod (a, b) -> [%string "(%{ee a} % %{ee b})"]
@@ -261,10 +263,12 @@ module Dflow_exporter = struct
       |> String.concat ~sep:"\n"
     in
     let stmts =
-      let rec ee (e : Flat_dflow.Var.t F_expr.t) =
+      let rec ee (e : Flat_dflow.Var.t Ir.Expr.t) =
         match e with
-        | F_expr.Add (a, b) -> [%string "(%{ee a} + %{ee b})"]
+        | Ir.Expr.Add (a, b) -> [%string "(%{ee a} + %{ee b})"]
         | Sub_no_wrap (a, b) -> [%string "(%{ee a} - %{ee b})"]
+        | Sub_wrap (a, b, bits) ->
+            [%string "int(%{ee a} - %{ee b}, %{bits#Int})"]
         | Mul (a, b) -> [%string "(%{ee a} * %{ee b})"]
         | Div (a, b) -> [%string "(%{ee a} / %{ee b})"]
         | Mod (a, b) -> [%string "(%{ee a} % %{ee b})"]
@@ -303,7 +307,7 @@ module Dflow_exporter = struct
               assert (not (List.is_empty es));
               let ins_set = FBlock.ins fblock |> Var.Set.of_list in
               let e_ins_set =
-                List.concat_map es ~f:(fun (_, e) -> F_expr.var_ids e)
+                List.concat_map es ~f:(fun (_, e) -> Ir.Expr.var_ids e)
                 |> Var.Set.of_list
               in
               assert (Set.diff e_ins_set ins_set |> Set.is_empty);
@@ -320,12 +324,12 @@ module Dflow_exporter = struct
                       let extra_e =
                         Set.to_list extra_ins
                         |> List.map ~f:(fun v ->
-                               F_expr.(BitAnd (Const CInt.zero, Var v)))
-                        |> List.reduce ~f:(fun a b -> F_expr.BitAnd (a, b))
+                               Ir.Expr.(BitAnd (Const CInt.zero, Var v)))
+                        |> List.reduce ~f:(fun a b -> Ir.Expr.BitAnd (a, b))
                       in
                       let e =
                         match extra_e with
-                        | Some extra_e -> F_expr.BitOr (e, extra_e)
+                        | Some extra_e -> Ir.Expr.BitOr (e, extra_e)
                         | None -> e
                       in
                       (dst, e) :: es
