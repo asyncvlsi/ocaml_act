@@ -1,3 +1,9 @@
+## Introduction
+
+The OCaml `Act` library has three main goals. First, it makes it easier to write programs in the `Act` language. Second, it greatly simplifies the compiler, making it easier to change the act langauge, and especially to add optimization directives. Third, it makes it easier to write tools that operate on the act language by providing a simple intermediate representation.
+
+In addition, it aims to provide better error messages and testing for free using the OCaml ecosystem.
+
 ## Motivation
 The way a compiler generally works is that it takes a text file, and then does a bunch of computation to turn the text into an [abstract syntax tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree). This tree represents the structure of the langauge in the file. For example, the following c code 
 ```
@@ -65,7 +71,7 @@ $ opam install bignum core dune expect_test_helpers_core mdx merlin ocamlformat 
 3. Clone this repository (e.g. if you have ssh keys installed, `$ git clone git@git.yale.edu:avlsi/ocaml_act.git`)
 4. Run `opam install .` from the root directory of this project.
 6. Then create a new dune project (see https://dune.readthedocs.io/en/stable/quick-start.html) and add `act` to the list of library dependencies in the dune folder.
-7. Read the tutorials/examples in the `examples` directory. Start with `examples/README.md`.
+7. Read the tutorials/examples in the `examples` directory. See [examples/README.md](examples/README.md).
 
 ## Building documentation
 Run the command `dune build @doc` to generate the documentation for the act library. You can view the documentation by opening the file `_build/default/_doc/_html/index.html`.

@@ -160,25 +160,32 @@ let kmac_cjp ~bw ~kernel ~a ~leftinput ~command ~rightout ~out =
          functions. *)
       Chp.select_imm
         [
-          ( Expr.(eq (var c) zero),
-            CInt.Chp.assign ~overflow:Mask outputx
-              Expr.(add (mul (var inputx) (var kernelV)) (var outputx)) );
-          ( Expr.(eq (var c) one),
-            Chp.seq
-              [
-                Chp.assign toutinputx CInt.E.(var tininputx);
-                Chp.par
-                  [
-                    Chp.send_var rightout toutinputx;
-                    Chp.read leftinput tininputx;
-                  ];
-              ] );
-          ( Expr.(eq (var c) (of_int 5)),
-            Chp.assign tininputx CInt.E.(var inputx) );
-          (Expr.(eq (var c) (of_int 6)), Chp.send_var out outputx);
-          (Expr.(eq (var c) (of_int 7)), Chp.read kernel kernelV);
-          (Expr.(eq (var c) (of_int 8)), Chp.read a inputx);
-          (Expr.(eq (var c) (of_int 9)), Chp.assign outputx Expr.zero);
+          branch
+            ~guard:Expr.(eq (var c) zero)
+            [
+              CInt.Chp.assign ~overflow:Mask outputx
+                Expr.((var inputx) |> mul (var kernelV) |> add (var outputx));
+            ];
+          branch
+            ~guard:Expr.(eq (var c) one)
+            [
+              Chp.assign toutinputx Expr.(var tininputx);
+              Chp.par
+                [
+                  Chp.send_var rightout toutinputx; Chp.read leftinput tininputx;
+                ];
+            ];
+          branch
+            ~guard:Expr.(eq (var c) (of_int 5))
+            [ Chp.assign tininputx Expr.(var inputx) ];
+          branch
+            ~guard:Expr.(eq (var c) (of_int 6))
+            [ Chp.send_var out outputx ];
+          branch ~guard:Expr.(eq (var c) (of_int 7)) [ Chp.read kernel kernelV ];
+          branch ~guard:Expr.(eq (var c) (of_int 8)) [ Chp.read a inputx ];
+          branch
+            ~guard:Expr.(eq (var c) (of_int 9))
+            [ Chp.assign outputx Expr.zero ];
         ]
         ~else_:None;
     ]
