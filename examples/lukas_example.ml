@@ -70,7 +70,7 @@ let kmac_cjp ~bw ~kernel ~a ~leftinput ~command ~rightout ~out =
             ~guard:Expr.(eq (var c) zero)
             [
               CInt.Chp.assign ~overflow:Mask outputx
-                Expr.((var inputx) |> mul (var kernelV) |> add (var outputx));
+                Expr.(var inputx |> mul (var kernelV) |> add (var outputx));
             ];
           branch
             ~guard:Expr.(eq (var c) one)

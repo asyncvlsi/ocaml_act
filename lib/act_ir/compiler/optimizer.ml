@@ -1,31 +1,16 @@
 open! Core
 open Utils
 
-module Process = struct
-  type t =
-    | Chp of Flat_chp.Proc.t
-    | Dflow of Flat_dflow.Proc.t
-    | Mem of Flat_mem.Proc.t
-  [@@deriving sexp_of]
-end
-
-type t = {
-  processes : Process.t list;
-  top_iports : (Interproc_chan.t * Ir.Chan.t) list;
-  top_oports : (Interproc_chan.t * Ir.Chan.t) list;
-}
-[@@deriving sexp_of]
-
-let of_prog (prog : Program.t) =
-  (* First export each process *)
+let optimize (prog : Program.t) =
   {
-    processes =
+    Program.processes =
       List.map prog.processes ~f:(fun proc ->
-          match proc.k with
+          match proc with
           | Chp chp_proc -> (
               match chp_proc.dflowable with
-              | false -> Process.Chp chp_proc
+              | false -> Program.Process.Chp chp_proc
               | true -> Dflow (Flat_dflow.of_chp chp_proc))
+          | Dflow dflow -> Dflow dflow
           | Mem mem_proc -> Mem mem_proc);
     top_iports = prog.top_iports;
     top_oports = prog.top_oports;
@@ -449,7 +434,7 @@ module Mem_exporter = struct
     (s, (name, io_ports))
 end
 
-let export (prog : t) =
+let export (prog : Program.t) =
   (* First export each process *)
   let procs_decls, procs =
     List.mapi prog.processes ~f:(fun i proc ->

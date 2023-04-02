@@ -1,12 +1,11 @@
 open! Core
 
 module Process : sig
-  module K : sig
-    type t = Chp of Flat_chp.Proc.t | Mem of Flat_mem.Proc.t
-    [@@deriving sexp_of]
-  end
-
-  type t = { k : K.t }
+  type t =
+    | Chp of Flat_chp.Proc.t
+    | Dflow of Flat_dflow.Proc.t
+    | Mem of Flat_mem.Proc.t
+  [@@deriving sexp_of]
 end
 
 type t = {

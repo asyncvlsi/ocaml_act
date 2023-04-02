@@ -11,7 +11,8 @@ module Overflow_behavior = Overflow_behavior
 module Process = Process
 module Var = Var
 
-let branch ~(guard : CBool.t Expr.t) (stmts : Chp.t list) = (guard, Chp.seq stmts)
+let branch ~(guard : CBool.t Expr.t) (stmts : Chp.t list) =
+  (guard, Chp.seq stmts)
 
 (** libraries for processing Act source code *)
 

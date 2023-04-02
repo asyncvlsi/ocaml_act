@@ -2,17 +2,17 @@ open! Core
 open Utils
 
 module Compiled_program = struct
-  type t = Opt_program.t [@@deriving sexp_of]
+  type t = Program.t [@@deriving sexp_of]
 
   let of_process (process : Ir.Process.t) ~to_ =
     let program = process |> Program.of_process in
     match to_ with
-    | `Chp_and_dataflow -> Opt_program.of_prog program
+    | `Chp_and_dataflow -> Optimizer.optimize program
     | `Prod_rules -> failwith "TODO"
 end
 
 let compile process ~to_ = Compiled_program.of_process process ~to_
-let export t = Opt_program.export t
+let export t = Optimizer.export t
 
 let export_print t =
   let s = export t in

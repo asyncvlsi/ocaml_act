@@ -1,12 +1,11 @@
 open! Core
 
 module Process = struct
-  module K = struct
-    type t = Chp of Flat_chp.Proc.t | Mem of Flat_mem.Proc.t
-    [@@deriving sexp_of]
-  end
-
-  type t = { k : K.t } [@@deriving sexp_of]
+  type t =
+    | Chp of Flat_chp.Proc.t
+    | Dflow of Flat_dflow.Proc.t
+    | Mem of Flat_mem.Proc.t
+  [@@deriving sexp_of]
 end
 
 type t = {
@@ -51,9 +50,7 @@ let of_process (process : Ir.Process.t) =
 
     helper process |> List.unzip
   in
-  let chp_procs =
-    List.map chp_procs ~f:(fun proc -> { Process.k = Chp proc })
-  in
+  let chp_procs = List.map chp_procs ~f:(fun proc -> Process.Chp proc) in
 
   let mem_procs =
     List.concat_map mem_maps ~f:Map.to_alist
@@ -95,8 +92,7 @@ let of_process (process : Ir.Process.t) =
                read_chan = Option.value_exn read_chan;
              }
            in
-           let mem_proc = { Process.k = Mem mem_proc } in
-           mem_proc :: ctrl_procs)
+           Process.Mem mem_proc :: ctrl_procs)
   in
 
   let top_iports =
