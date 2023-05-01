@@ -53,7 +53,7 @@ let buff ~depth ~dtype =
   let top_process = buff ~depth ~dtype i.r o.w in
   (top_process, i.w, o.r)
 
-let%expect_test "test" =
+let%expect_test "test depth 3" =
   let process, i, o = buff ~depth:3 ~dtype:(CInt.dtype ~bits:9) in
   let sim = Sim.simulate process in
 
@@ -66,5 +66,18 @@ let%expect_test "test" =
   Sim.wait' sim ();
   [%expect {|
     (Ok ())
+    (Ok ()) |}]
+
+let%expect_test "test depth 5" =
+  let process, i, o = buff ~depth:5 ~dtype:(CInt.dtype ~bits:1) in
+  let sim = Sim.simulate process in
+
+  let l =
+    [ 1; 0; 0; 0; 0; 1; 1; 0; 1; 1; 1; 0; 1; 1; 0 ] |> List.map ~f:CInt.of_int
+  in
+  List.iter l ~f:(fun v -> Sim.send sim i v);
+  List.iter l ~f:(fun v -> Sim.read sim o v);
+  Sim.wait' ~max_steps:100000000 sim ();
+  [%expect {|
     (Ok ()) |}]
 (* $MDX part-end *)
