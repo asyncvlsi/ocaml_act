@@ -4,14 +4,16 @@ The OCaml `Act` library has three main goals. First, it makes it easier to write
 
 In addition, it aims to provide better error messages and testing for free using the OCaml ecosystem.
 
+This library was written by Henry Heffan as his senior project.
+
 ## Motivation
 The way a compiler generally works is that it takes a text file, and then does a bunch of computation to turn the text into an [abstract syntax tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree). This tree represents the structure of the langauge in the file. For example, the following c code 
-```
+```c
 int c = 0;
 c = c * 2;
 ```
 might be turned into the following abstract syntax tree
-```
+```ocaml
 Seq [
   DeclVar (id = 0; name = "c", type = Int, initialization = Some 0);
   Assign (id = 0; expr = Mult (Var (0), Const (2)))
@@ -22,7 +24,7 @@ Along the way, the compiler checks that the text file contains a valid program. 
 This, unsurprisingly, means that writing a good compiler front-end is complex. Currently, the Act library has more than 50,000 lines of queit complex code in its front-end! Moreover, the Act langauge still is missing a number of features that we might want. It has some compile time code generation, but it is not as powerful as I would like. Testing is difficult, and their is not great auto-formating or syntax-highlighting support. Moreover, writing a compiler in c is difficult. Compilers involve a lot of short-lived recursive data structures. This means that a olangauge which provides strong type guarentees (like OCaml) and a garbarage-collector (like OCaml) is well suited for this task.
 
 This library takes a different appraoch for writing a front-end for a domain specific langauge. It chooses to embed the language inside an existing langauge. In particular, the user will build an object representing the abstract syntax tree directly at runtime, and then hand that object off to a library function which compilers it down to chp. For example, a simple buffer (with a test included!) would be written as
-```
+```ocaml
 (* This function generated the IR for a simple buffer. It then returns the IR, along
    with the "write end" of the input channel and the "read end" of the output channel. *)
 let simple_buffer () =
@@ -62,7 +64,7 @@ So, now that you are excited to try out this library :), the first thing you nee
 
 1. Install opam
 2. Run 
-```
+```sh
 $ opam switch create 4.14.0
 $ eval $(opam env)
 $ opam install bignum core dune expect_test_helpers_core mdx merlin ocamlformat odoc
